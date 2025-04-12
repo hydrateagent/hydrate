@@ -7,7 +7,12 @@ import {
 	Plugin,
 	PluginSettingTab,
 	Setting,
+	WorkspaceLeaf,
+	ItemView,
+	ViewCreator,
 } from "obsidian";
+
+import { ProVibeView, PROVIBE_VIEW_TYPE } from "./proVibeView";
 
 // Remember to rename these classes and interfaces!
 
@@ -23,25 +28,55 @@ const DEFAULT_SETTINGS: ProVibePluginSettings = {
 
 export default class ProVibePlugin extends Plugin {
 	settings: ProVibePluginSettings;
+	private view: ProVibeView | null = null;
 
 	async onload() {
 		await this.loadSettings();
 
-		// This creates an icon in the left ribbon.
+		// Custom styles will be loaded automatically from styles.css
+
+		// Register the custom view
+		this.registerView(PROVIBE_VIEW_TYPE, (leaf: WorkspaceLeaf) => {
+			this.view = new ProVibeView(leaf);
+			return this.view;
+		});
+
+		// This creates an icon in the left ribbon to toggle the ProVibe pane
 		const ribbonIconEl = this.addRibbonIcon(
-			"dice",
-			"ProVibe Plugin",
-			(evt: MouseEvent) => {
-				// Called when the user clicks the icon.
-				new Notice("This is a notice!");
+			"text-cursor-input",
+			"Toggle ProVibe Pane",
+			async (evt: MouseEvent) => {
+				// Toggle the pane when the icon is clicked
+				const leaves =
+					this.app.workspace.getLeavesOfType(PROVIBE_VIEW_TYPE);
+				if (leaves.length > 0) {
+					await this.deactivateView();
+				} else {
+					await this.activateView();
+				}
 			},
 		);
 		// Perform additional things with the ribbon
-		ribbonIconEl.addClass("my-plugin-ribbon-class");
+		ribbonIconEl.addClass("provibe-ribbon-class");
 
 		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
 		const statusBarItemEl = this.addStatusBarItem();
 		statusBarItemEl.setText("Status Bar Text");
+
+		// This adds a command to toggle the ProVibe pane
+		this.addCommand({
+			id: "toggle-provibe-pane",
+			name: "Toggle ProVibe pane",
+			callback: async () => {
+				const leaves =
+					this.app.workspace.getLeavesOfType(PROVIBE_VIEW_TYPE);
+				if (leaves.length > 0) {
+					await this.deactivateView();
+				} else {
+					await this.activateView();
+				}
+			},
+		});
 
 		// This adds a simple command that can be triggered anywhere
 		this.addCommand({
@@ -96,7 +131,38 @@ export default class ProVibePlugin extends Plugin {
 		);
 	}
 
-	onunload() {}
+	async activateView() {
+		const { workspace } = this.app;
+
+		// If view is already open in a leaf, reveal that leaf
+		const existingLeaf = workspace.getLeavesOfType(PROVIBE_VIEW_TYPE)[0];
+		if (existingLeaf) {
+			workspace.revealLeaf(existingLeaf);
+			return;
+		}
+
+		// Open the view in a new leaf at the bottom
+		const leaf = workspace.getLeaf("split", "horizontal");
+		await leaf.setViewState({
+			type: PROVIBE_VIEW_TYPE,
+			active: true,
+		});
+
+		this.view = leaf.view as ProVibeView;
+		workspace.revealLeaf(leaf);
+	}
+
+	async deactivateView() {
+		const { workspace } = this.app;
+		const leaves = workspace.getLeavesOfType(PROVIBE_VIEW_TYPE);
+		leaves.forEach((leaf) => leaf.detach());
+		this.view = null;
+	}
+
+	onunload() {
+		// Clean up when the plugin is disabled
+		this.deactivateView();
+	}
 
 	async loadSettings() {
 		this.settings = Object.assign(
