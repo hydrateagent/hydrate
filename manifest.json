@@ -1,11 +1,11 @@
 {
-	"id": "sample-plugin",
-	"name": "Sample Plugin",
-	"version": "1.0.0",
+	"id": "provibe",
+	"name": "Provibe",
+	"version": "0.1.0",
 	"minAppVersion": "0.15.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
+	"description": "AI powered software project documentation and team management plugin.",
+	"author": "jvsteiner",
+	"authorUrl": "https://github.com/jvsteiner",
+	"fundingUrl": "https://github.com/jvsteiner",
 	"isDesktopOnly": false
 }
