@@ -6,6 +6,7 @@ import {
 	TFile,
 	Editor,
 	parseYaml,
+	MarkdownRenderer,
 } from "obsidian";
 import ProVibePlugin from "./main"; // Import the plugin class to access settings
 
@@ -63,10 +64,6 @@ export class ProVibeView extends ItemView {
 		container.addClass("provibe-view-container");
 
 		// Create a description for the pane
-		container.createEl("p", {
-			text: "Enter your prompt below. Agent responses and tool interactions will appear here.",
-			cls: "provibe-description",
-		});
 
 		// Chat history container
 		this.chatContainer = container.createEl("div", {
@@ -114,12 +111,6 @@ export class ProVibeView extends ItemView {
 				this.handleSend();
 			}
 		});
-
-		// --- Add this for initial load/debug ---
-		this.addMessageToChat(
-			"system",
-			"ProVibe Agent view opened. Type your prompt."
-		);
 	}
 
 	// --- UI Update Methods ---
@@ -135,8 +126,26 @@ export class ProVibeView extends ItemView {
 		if (isError) {
 			messageEl.addClass("provibe-error-message");
 		}
-		// Basic text rendering for now, could use Markdown rendering later
-		messageEl.setText(content);
+
+		if (role === "agent" && content) {
+			// Use MarkdownRenderer for agent messages
+			try {
+				MarkdownRenderer.render(
+					this.plugin.app, // Pass the App instance
+					content,
+					messageEl,
+					"", // sourcePath can be empty or a relevant file path
+					this.plugin // Component context for cleanup
+				);
+			} catch (renderError) {
+				console.error("Markdown rendering error:", renderError);
+				messageEl.setText(`(Error rendering message) ${content}`); // Fallback to text
+			}
+		} else {
+			// Use basic text for user and system messages
+			messageEl.setText(content);
+		}
+
 		// Scroll to the bottom
 		this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
 	}

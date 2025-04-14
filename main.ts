@@ -20,12 +20,14 @@ interface ProVibePluginSettings {
 	mySetting: string;
 	developmentPath: string;
 	backendUrl: string;
+	paneOrientation: "Bottom" | "Right";
 }
 
 const DEFAULT_SETTINGS: ProVibePluginSettings = {
 	mySetting: "default",
 	developmentPath: ".obsidian/plugins/provibe",
 	backendUrl: "http://localhost:8000",
+	paneOrientation: "Bottom",
 };
 
 export default class ProVibePlugin extends Plugin {
@@ -143,8 +145,14 @@ export default class ProVibePlugin extends Plugin {
 			return;
 		}
 
-		// Open the view in a new leaf at the bottom
-		const leaf = workspace.getLeaf("split", "horizontal");
+		// Determine split direction based on setting
+		const direction =
+			this.settings.paneOrientation === "Right"
+				? "vertical"
+				: "horizontal";
+
+		// Open the view in a new leaf
+		const leaf = workspace.getLeaf("split", direction);
 		await leaf.setViewState({
 			type: PROVIBE_VIEW_TYPE,
 			active: true,
@@ -209,6 +217,20 @@ class SampleSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		containerEl.createEl("h2", { text: "ProVibe Settings" });
+
+		new Setting(containerEl)
+			.setName("Default Pane Orientation")
+			.setDesc("Choose where the ProVibe pane opens by default.")
+			.addDropdown((dropdown) => {
+				dropdown
+					.addOption("Bottom", "Bottom")
+					.addOption("Right", "Right")
+					.setValue(this.plugin.settings.paneOrientation)
+					.onChange(async (value: "Bottom" | "Right") => {
+						this.plugin.settings.paneOrientation = value;
+						await this.plugin.saveSettings();
+					});
+			});
 
 		new Setting(containerEl)
 			.setName("Backend URL")
