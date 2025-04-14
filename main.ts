@@ -19,11 +19,13 @@ import { ProVibeView, PROVIBE_VIEW_TYPE } from "./proVibeView";
 interface ProVibePluginSettings {
 	mySetting: string;
 	developmentPath: string;
+	backendUrl: string;
 }
 
 const DEFAULT_SETTINGS: ProVibePluginSettings = {
 	mySetting: "default",
 	developmentPath: ".obsidian/plugins/provibe",
+	backendUrl: "http://localhost:8000",
 };
 
 export default class ProVibePlugin extends Plugin {
@@ -37,7 +39,7 @@ export default class ProVibePlugin extends Plugin {
 
 		// Register the custom view
 		this.registerView(PROVIBE_VIEW_TYPE, (leaf: WorkspaceLeaf) => {
-			this.view = new ProVibeView(leaf);
+			this.view = new ProVibeView(leaf, this);
 			return this.view;
 		});
 
@@ -54,7 +56,7 @@ export default class ProVibePlugin extends Plugin {
 				} else {
 					await this.activateView();
 				}
-			},
+			}
 		);
 		// Perform additional things with the ribbon
 		ribbonIconEl.addClass("provibe-ribbon-class");
@@ -127,7 +129,7 @@ export default class ProVibePlugin extends Plugin {
 
 		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
 		this.registerInterval(
-			window.setInterval(() => console.log("setInterval"), 5 * 60 * 1000),
+			window.setInterval(() => console.log("setInterval"), 5 * 60 * 1000)
 		);
 	}
 
@@ -168,7 +170,7 @@ export default class ProVibePlugin extends Plugin {
 		this.settings = Object.assign(
 			{},
 			DEFAULT_SETTINGS,
-			await this.loadData(),
+			await this.loadData()
 		);
 	}
 
@@ -206,6 +208,34 @@ class SampleSettingTab extends PluginSettingTab {
 
 		containerEl.empty();
 
+		containerEl.createEl("h2", { text: "ProVibe Settings" });
+
+		new Setting(containerEl)
+			.setName("Backend URL")
+			.setDesc("The URL of the ProVibe agent backend server.")
+			.addText((text) =>
+				text
+					.setPlaceholder("http://localhost:8000")
+					.setValue(this.plugin.settings.backendUrl)
+					.onChange(async (value) => {
+						// Basic validation: ensure it starts with http
+						if (
+							value.startsWith("http://") ||
+							value.startsWith("https://")
+						) {
+							this.plugin.settings.backendUrl = value.replace(
+								/\/$/,
+								""
+							); // Remove trailing slash
+							await this.plugin.saveSettings();
+						} else {
+							new Notice(
+								"Backend URL must start with http:// or https://"
+							);
+						}
+					})
+			);
+
 		new Setting(containerEl)
 			.setName("Setting #1")
 			.setDesc("It's a secret")
@@ -216,7 +246,7 @@ class SampleSettingTab extends PluginSettingTab {
 					.onChange(async (value) => {
 						this.plugin.settings.mySetting = value;
 						await this.plugin.saveSettings();
-					}),
+					})
 			);
 
 		new Setting(containerEl)
@@ -229,7 +259,7 @@ class SampleSettingTab extends PluginSettingTab {
 					.onChange(async (value) => {
 						this.plugin.settings.developmentPath = value;
 						await this.plugin.saveSettings();
-					}),
+					})
 			);
 	}
 }
