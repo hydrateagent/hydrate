@@ -78,3 +78,57 @@
 	user-select: text !important; /* Force text selection */
 	-webkit-user-select: text !important; /* For Safari/WebKit */
 }
+
+/* --- Styles for File Pills --- */
+
+.provibe-input-area-container {
+	display: flex;
+	flex-direction: column;
+}
+
+.provibe-file-pills-container {
+	display: flex; /* Initially hidden by renderFilePills if empty */
+	flex-wrap: wrap;
+	gap: 5px;
+	padding: 5px 0; /* Add some padding if pills are present */
+	margin-bottom: 5px;
+}
+
+.provibe-file-pill {
+	display: inline-flex; /* Use inline-flex for alignment */
+	align-items: center;
+	background-color: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 12px; /* Rounded pill shape */
+	padding: 3px 8px;
+	font-size: 0.85em;
+	cursor: default; /* Indicate it's not clickable text */
+}
+
+.provibe-pill-text {
+	margin-right: 5px;
+	/* Optional: prevent text selection within the pill text itself if desired */
+	/* user-select: none; */
+}
+
+.provibe-pill-remove {
+	background: none;
+	border: none;
+	color: var(--text-muted);
+	cursor: pointer;
+	font-size: 1.1em; /* Make the X slightly larger */
+	padding: 0 2px;
+	line-height: 1; /* Adjust line height for better alignment */
+	margin-left: auto; /* Push to the right if needed */
+}
+
+.provibe-pill-remove:hover {
+	color: var(--text-error);
+}
+
+/* Style for drag-over state */
+.provibe-input-area-container.provibe-drag-over {
+	background-color: rgba(var(--interactive-accent-rgb), 0.1);
+	border: 2px dashed var(--interactive-accent);
+	border-radius: 5px;
+}

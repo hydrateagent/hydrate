@@ -42,7 +42,9 @@ export class ProVibeView extends ItemView {
 	private plugin: ProVibePlugin; // Store reference to the plugin
 	private textInput: HTMLTextAreaElement;
 	private chatContainer: HTMLDivElement; // Container for chat messages
+	private filePillsContainer: HTMLDivElement; // Container for file pills
 	private history: HistoryMessage[] = []; // Store richer history
+	private attachedFiles: string[] = []; // Store paths of attached files
 	private isLoading: boolean = false; // Flag to prevent multiple submissions
 
 	constructor(leaf: WorkspaceLeaf, plugin: ProVibePlugin) {
@@ -63,29 +65,37 @@ export class ProVibeView extends ItemView {
 		container.empty();
 		container.addClass("provibe-view-container");
 
-		// Create a description for the pane
-
 		// Chat history container
 		this.chatContainer = container.createEl("div", {
 			cls: "provibe-chat-container",
 		});
 
-		// Input area container
-		const inputArea = container.createEl("div", {
-			cls: "provibe-input-area",
+		// Input area container (will hold pills and textarea+buttons)
+		const inputAreaContainer = container.createEl("div", {
+			cls: "provibe-input-area-container",
+		});
+
+		// File pills container (above the text area)
+		this.filePillsContainer = inputAreaContainer.createEl("div", {
+			cls: "provibe-file-pills-container",
+		});
+
+		// Text input and buttons area
+		const inputControlsArea = inputAreaContainer.createEl("div", {
+			cls: "provibe-input-controls-area",
 		});
 
 		// Create textarea for text input
-		this.textInput = inputArea.createEl("textarea", {
+		this.textInput = inputControlsArea.createEl("textarea", {
 			cls: "provibe-textarea",
 			attr: {
-				placeholder: "Enter your prompt here...",
-				rows: "4", // Adjust size as needed
+				placeholder: "Enter your prompt or drop files here...",
+				rows: "4",
 			},
 		});
 
 		// Add buttons below the text input
-		const buttonContainer = inputArea.createEl("div", {
+		const buttonContainer = inputControlsArea.createEl("div", {
 			cls: "provibe-button-container",
 		});
 
@@ -111,6 +121,41 @@ export class ProVibeView extends ItemView {
 				this.handleSend();
 			}
 		});
+
+		// --- Add Drag and Drop Listeners to the *input area container* ---
+		this.registerDomEvent(
+			inputAreaContainer,
+			"dragover",
+			(event: DragEvent) => {
+				// Log the dataTransfer object and types during dragover
+				console.log(
+					"ProVibe: dragover - dataTransfer:",
+					event.dataTransfer
+				);
+				console.log(
+					"ProVibe: dragover - types:",
+					event.dataTransfer?.types
+				);
+
+				// Allow drop if any dataTransfer is happening
+				// The drop handler will verify if files are actually present.
+				if (event.dataTransfer) {
+					event.preventDefault();
+					inputAreaContainer.addClass("provibe-drag-over");
+				}
+			}
+		);
+
+		this.registerDomEvent(inputAreaContainer, "dragleave", () => {
+			inputAreaContainer.removeClass("provibe-drag-over");
+		});
+
+		this.registerDomEvent(inputAreaContainer, "drop", this.handleDrop);
+
+		this.addMessageToChat(
+			"system",
+			"ProVibe Agent view opened. Type your prompt or drop files."
+		);
 	}
 
 	// --- UI Update Methods ---
@@ -168,32 +213,317 @@ export class ProVibeView extends ItemView {
 		this.textInput.value = "";
 		this.chatContainer.empty(); // Clear chat display
 		this.history = []; // Clear internal history
-		this.addMessageToChat("system", "Chat cleared."); // Add system message
+		this.attachedFiles = []; // Clear attached files state
+		this.renderFilePills(); // Update UI
+		this.addMessageToChat("system", "Chat cleared.");
 		this.textInput.focus();
 	};
+
+	private handleDrop = (event: DragEvent) => {
+		console.log("ProVibe: Drop event triggered");
+		console.log("ProVibe: drop - dataTransfer:", event.dataTransfer);
+		console.log("ProVibe: drop - types:", event.dataTransfer?.types);
+
+		event.preventDefault();
+		const inputAreaContainer = this.containerEl.querySelector(
+			".provibe-input-area-container"
+		);
+		if (!inputAreaContainer) return;
+		inputAreaContainer.classList.remove("provibe-drag-over");
+
+		// --- Attempt to get path from dataTransfer data ---
+		let pathData = "";
+		if (event.dataTransfer?.types.includes("text/uri-list")) {
+			pathData = event.dataTransfer.getData("text/uri-list");
+			console.log(
+				"ProVibe: drop - got data from text/uri-list:",
+				pathData
+			);
+		} else if (event.dataTransfer?.types.includes("text/plain")) {
+			pathData = event.dataTransfer.getData("text/plain");
+			console.log("ProVibe: drop - got data from text/plain:", pathData);
+		}
+
+		if (!pathData) {
+			console.warn(
+				"ProVibe: drop - Could not extract path data from dataTransfer."
+			);
+			new Notice("Could not determine dropped file path.");
+			return;
+		}
+
+		// --- Process the extracted path data ---
+		// Assuming pathData might contain one or more paths/URIs, potentially newline-separated
+		const potentialPaths = pathData
+			.split(/\r?\n/)
+			.map((p) => p.trim())
+			.filter((p) => p);
+		const allVaultFiles = this.app.vault.getFiles();
+		let filesAdded = 0;
+
+		console.log("ProVibe: Processing potential paths:", potentialPaths);
+
+		potentialPaths.forEach((potentialPath) => {
+			let vaultPath: string | null = null;
+			let foundVaultFile: TFile | null = null;
+			let normalizedPathForComparison: string | null = null;
+
+			// --- Resolve potentialPath to a normalized path for comparison ---
+			if (
+				potentialPath.startsWith("obsidian://open?vault=") ||
+				potentialPath.startsWith("obsidian://vault/")
+			) {
+				// Very basic URI parsing - needs improvement for robustness
+				try {
+					const url = new URL(potentialPath);
+					const filePathParam = url.searchParams.get("file");
+					if (filePathParam) {
+						vaultPath = filePathParam;
+						console.log(
+							`ProVibe: Extracted path from Obsidian URI: ${vaultPath}`
+						);
+					} else {
+						// Handle vault path URI style if needed (more complex)
+						console.warn(
+							`ProVibe: Could not extract 'file' param from Obsidian URI: ${potentialPath}`
+						);
+					}
+				} catch (e) {
+					console.error(
+						`ProVibe: Error parsing Obsidian URI: ${potentialPath}`,
+						e
+					);
+				}
+				if (vaultPath) {
+					normalizedPathForComparison = vaultPath;
+					vaultPath = null; // Reset vaultPath, we need to verify it exists
+				}
+			} else if (potentialPath.startsWith("file://")) {
+				// Handle file URI - convert to OS path and then try to map to vault
+				try {
+					let osPath = decodeURIComponent(potentialPath.substring(7)); // Remove 'file://' and decode
+					// Remove leading slash on Windows if present (e.g., /C:/Users...)
+					if (/^\/[a-zA-Z]:/.test(osPath)) {
+						osPath = osPath.substring(1);
+					}
+					const normalizedOsPath = osPath.replace(/\\\\/g, "/");
+					console.log(
+						`ProVibe: Decoded file URI to OS path: ${normalizedOsPath}`
+					);
+
+					// Find corresponding vault file (using existing logic)
+					let foundVaultFile: TFile | null = null;
+					const directMatch =
+						this.app.vault.getAbstractFileByPath(normalizedOsPath);
+					// Add instanceof check here too
+					if (directMatch instanceof TFile) {
+						foundVaultFile = directMatch;
+					}
+					if (!foundVaultFile)
+						foundVaultFile =
+							allVaultFiles.find((vf) =>
+								normalizedOsPath.endsWith("/" + vf.path)
+							) || null;
+					if (!foundVaultFile)
+						foundVaultFile =
+							allVaultFiles.find((vf) =>
+								normalizedOsPath.endsWith(vf.path)
+							) || null;
+
+					if (foundVaultFile) {
+						vaultPath = foundVaultFile.path;
+					}
+				} catch (e) {
+					console.error(
+						`ProVibe: Error processing file URI: ${potentialPath}`,
+						e
+					);
+				}
+			} else {
+				// Assume direct path (vault or OS)
+				normalizedPathForComparison = potentialPath.replace(
+					/\\\\/g,
+					"/"
+				);
+				console.log(
+					`ProVibe: Treating potential path as direct/OS path: ${normalizedPathForComparison}`
+				);
+			}
+
+			// --- Find the TFile using the normalized path ---
+			if (normalizedPathForComparison) {
+				// Strategy 1: Exact match using getAbstractFileByPath
+				const directMatch = this.app.vault.getAbstractFileByPath(
+					normalizedPathForComparison
+				);
+				// Check if it's specifically a TFile
+				if (directMatch instanceof TFile) {
+					foundVaultFile = directMatch;
+					console.log(
+						`ProVibe: Found vault file by exact path: ${foundVaultFile.path}`
+					);
+				}
+
+				// Strategy 2: Check if OS path ends with a vault file path (heuristic)
+				if (!foundVaultFile) {
+					foundVaultFile =
+						allVaultFiles.find((vf) =>
+							normalizedPathForComparison?.endsWith("/" + vf.path)
+						) || null;
+					if (!foundVaultFile) {
+						foundVaultFile =
+							allVaultFiles.find((vf) =>
+								normalizedPathForComparison?.endsWith(vf.path)
+							) || null;
+					}
+					if (foundVaultFile) {
+						console.log(
+							`ProVibe: Found vault file by OS path endsWith: ${foundVaultFile.path}`
+						);
+					}
+				}
+
+				// Strategy 3: Check if vault path starts with normalized path + dot (missing extension heuristic)
+				if (!foundVaultFile) {
+					const possibleMatches = allVaultFiles.filter((vf) =>
+						vf.path.startsWith(normalizedPathForComparison + ".")
+					);
+					if (possibleMatches.length === 1) {
+						// Only use if unambiguous
+						foundVaultFile = possibleMatches[0];
+						console.log(
+							`ProVibe: Found vault file by missing extension heuristic: ${foundVaultFile.path}`
+						);
+					} else if (possibleMatches.length > 1) {
+						console.warn(
+							`ProVibe: Ambiguous match for ${normalizedPathForComparison} (missing extension?): Found ${possibleMatches
+								.map((f) => f.path)
+								.join(", ")}`
+						);
+					}
+				}
+			}
+
+			// If we found a vault file, use its path
+			if (foundVaultFile) {
+				vaultPath = foundVaultFile.path;
+			}
+
+			// If we resolved a vault path, add it
+			if (vaultPath) {
+				if (!this.attachedFiles.includes(vaultPath)) {
+					console.log(
+						`ProVibe: Adding ${vaultPath} to attachedFiles.`
+					);
+					this.attachedFiles.push(vaultPath);
+					filesAdded++;
+				} else {
+					console.log(`ProVibe: File ${vaultPath} already attached.`);
+				}
+			} else {
+				console.warn(
+					`ProVibe: Could not resolve path/URI ${potentialPath} (normalized: ${normalizedPathForComparison}) to a vault file.`
+				);
+				new Notice(`Could not add: ${potentialPath}`);
+			}
+		});
+
+		// Update UI if files were added
+		if (filesAdded > 0) {
+			console.log(
+				"ProVibe: Files added, calling renderFilePills. Current attached files:",
+				this.attachedFiles
+			);
+			this.renderFilePills();
+		} else {
+			console.log("ProVibe: No new files added from drop.");
+		}
+	};
+
+	private renderFilePills() {
+		console.log(
+			"ProVibe: renderFilePills called. Attached files:",
+			this.attachedFiles
+		);
+		this.filePillsContainer.empty();
+		if (this.attachedFiles.length === 0) {
+			console.log("ProVibe: No attached files, hiding pills container.");
+			this.filePillsContainer.style.display = "none";
+			return;
+		}
+
+		console.log("ProVibe: Rendering pills, showing container.");
+		this.filePillsContainer.style.display = "flex";
+
+		this.attachedFiles.forEach((filePath) => {
+			console.log(`ProVibe: Creating pill for ${filePath}`);
+			const pill = this.filePillsContainer.createDiv({
+				cls: "provibe-file-pill",
+			});
+			const fileName = filePath.split("/").pop() || filePath;
+			pill.createSpan({ text: fileName, cls: "provibe-pill-text" });
+
+			const removeBtn = pill.createEl("button", {
+				text: "✕",
+				cls: "provibe-pill-remove",
+			});
+			removeBtn.addEventListener("click", () =>
+				this.removeFilePill(filePath)
+			);
+		});
+	}
+
+	private removeFilePill(filePath: string) {
+		this.attachedFiles = this.attachedFiles.filter(
+			(path) => path !== filePath
+		);
+		this.renderFilePills(); // Re-render after removal
+	}
 
 	private handleSend = async () => {
 		if (this.isLoading) return;
 
 		const messageContent = this.getTextContent().trim();
-		if (!messageContent) return;
+		const attachedFilesContent = this.attachedFiles
+			.map((path) => `[File: ${path}]`)
+			.join("\n");
 
-		// Add user message to UI and history
-		this.addMessageToChat("user", messageContent);
+		// Combine attached files and message content
+		let combinedContent = messageContent;
+		if (attachedFilesContent) {
+			combinedContent =
+				attachedFilesContent +
+				(messageContent ? "\n\n" + messageContent : "");
+		}
+
+		if (!combinedContent) return; // Don't send if nothing is attached and message is empty
+
+		// Add user message to UI (only the typed part)
+		// Decide if we should show the [File: ...] part in the user message bubble or just the typed text.
+		// Let's show just the typed text for now.
+		this.addMessageToChat(
+			"user",
+			messageContent || "(Sent with attached files)"
+		);
+
+		// Add combined content to history as the actual message sent
 		const userMessage: HistoryMessage = {
 			type: "human",
-			content: messageContent,
+			content: combinedContent,
 		};
 		this.history.push(userMessage);
 
+		// Clear input and pills AFTER preparing the message
 		this.setTextContent("");
+		this.attachedFiles = [];
+		this.renderFilePills();
+
 		this.setLoadingState(true);
 
 		try {
-			// Pass the full history
 			await this.callBackend("/chat", {
-				message: messageContent,
-				history: this.history.slice(0, -1), // History *before* this user message
+				message: combinedContent, // Send combined content
+				history: this.history.slice(0, -1),
 			});
 		} catch (error: any) {
 			console.error("Error sending message:", error);
@@ -202,15 +532,15 @@ export class ProVibeView extends ItemView {
 				`Error: ${error.message || "Failed to connect to backend"}`,
 				true
 			);
-			// Remove user message from history if send failed
+			// Remove the combined message from history
 			const lastMsgIndex = this.history.findIndex(
 				(msg) => msg === userMessage
-			); // Find specific obj ref
+			);
 			if (lastMsgIndex > -1) {
 				this.history.splice(lastMsgIndex, 1);
 			}
 		} finally {
-			this.setLoadingState(false);
+			// setLoadingState(false) is handled by callBackend
 			this.textInput.focus();
 		}
 	};
