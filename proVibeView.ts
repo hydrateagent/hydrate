@@ -35,7 +35,9 @@ interface BackendToolCall {
 
 interface BackendResponse {
 	agent_message?: HistoryMessage; // Now receives the full agent message
-	tool_call?: BackendToolCall; // Explicit tool call structure
+	// Can now receive multiple tool calls
+	tool_calls?: BackendToolCall[];
+	conversation_id: string; // ID is always returned
 }
 
 export class ProVibeView extends ItemView {
@@ -43,9 +45,9 @@ export class ProVibeView extends ItemView {
 	private textInput: HTMLTextAreaElement;
 	private chatContainer: HTMLDivElement; // Container for chat messages
 	private filePillsContainer: HTMLDivElement; // Container for file pills
-	private history: HistoryMessage[] = []; // Store richer history
 	private attachedFiles: string[] = []; // Store paths of attached files
 	private isLoading: boolean = false; // Flag to prevent multiple submissions
+	private conversationId: string | null = null; // Add state for conversation ID
 
 	constructor(leaf: WorkspaceLeaf, plugin: ProVibePlugin) {
 		super(leaf);
@@ -154,7 +156,7 @@ export class ProVibeView extends ItemView {
 
 		this.addMessageToChat(
 			"system",
-			"ProVibe Agent view opened. Type your prompt or drop files."
+			"ProVibe Agent ready. Type your prompt or drop files."
 		);
 	}
 
@@ -212,10 +214,13 @@ export class ProVibeView extends ItemView {
 	private handleClear = () => {
 		this.textInput.value = "";
 		this.chatContainer.empty(); // Clear chat display
-		this.history = []; // Clear internal history
-		this.attachedFiles = []; // Clear attached files state
-		this.renderFilePills(); // Update UI
-		this.addMessageToChat("system", "Chat cleared.");
+		this.attachedFiles = [];
+		this.renderFilePills();
+		this.conversationId = null; // Reset conversation ID on clear
+		this.addMessageToChat(
+			"system",
+			"Chat cleared. New conversation started."
+		);
 		this.textInput.focus();
 	};
 
@@ -506,25 +511,22 @@ export class ProVibeView extends ItemView {
 			messageContent || "(Sent with attached files)"
 		);
 
-		// Add combined content to history as the actual message sent
-		const userMessage: HistoryMessage = {
-			type: "human",
-			content: combinedContent,
+		// Prepare payload - include conversationId if it exists
+		const payload: any = {
+			message: combinedContent,
 		};
-		this.history.push(userMessage);
+		if (this.conversationId) {
+			payload.conversation_id = this.conversationId;
+		}
 
 		// Clear input and pills AFTER preparing the message
 		this.setTextContent("");
 		this.attachedFiles = [];
 		this.renderFilePills();
-
 		this.setLoadingState(true);
 
 		try {
-			await this.callBackend("/chat", {
-				message: combinedContent, // Send combined content
-				history: this.history.slice(0, -1),
-			});
+			await this.callBackend("/chat", payload);
 		} catch (error: any) {
 			console.error("Error sending message:", error);
 			this.addMessageToChat(
@@ -532,15 +534,9 @@ export class ProVibeView extends ItemView {
 				`Error: ${error.message || "Failed to connect to backend"}`,
 				true
 			);
-			// Remove the combined message from history
-			const lastMsgIndex = this.history.findIndex(
-				(msg) => msg === userMessage
-			);
-			if (lastMsgIndex > -1) {
-				this.history.splice(lastMsgIndex, 1);
-			}
+			// No history to roll back here
 		} finally {
-			// setLoadingState(false) is handled by callBackend
+			// setLoadingState(false) handled by callBackend
 			this.textInput.focus();
 		}
 	};
@@ -581,54 +577,53 @@ export class ProVibeView extends ItemView {
 
 			console.log("Backend Response:", responseData);
 
+			// --- Store/Update Conversation ID ---
+			if (responseData.conversation_id) {
+				this.conversationId = responseData.conversation_id;
+				console.log(
+					"ProVibe: Updated conversation ID to:",
+					this.conversationId
+				);
+			} else {
+				// This shouldn't happen if backend always returns it
+				console.warn(
+					"ProVibe: Backend response missing conversation_id!"
+				);
+			}
+
 			// --- Response Handling ---
 
-			let agentMessageToAdd: HistoryMessage | null = null;
-
-			// Always process agent_message first, as it might accompany a tool_call
-			if (responseData.agent_message) {
-				agentMessageToAdd = responseData.agent_message;
-				// Display only the content part for regular agent messages
-				if (!responseData.tool_call) {
-					this.addMessageToChat(
-						"agent",
-						responseData.agent_message.content
-					);
-				}
+			if (
+				responseData.agent_message &&
+				(!responseData.tool_calls ||
+					responseData.tool_calls.length === 0)
+			) {
+				// Handle regular agent message display
+				this.addMessageToChat(
+					"agent",
+					responseData.agent_message.content
+				);
 			}
 
-			// Handle tool call if present
-			if (responseData.tool_call) {
-				// If agent_message was also present (containing the tool call), add it to history now
-				if (agentMessageToAdd) {
-					this.history.push(agentMessageToAdd);
-					// Display a system message indicating tool use
-					this.addMessageToChat(
-						"system",
-						`Agent wants to use tool: ${responseData.tool_call.tool}`
-					);
-				} else {
-					// Should not happen if backend sends agent_message with tool_call, but handle defensively
-					console.warn(
-						"Received tool_call without accompanying agent_message"
-					);
-					this.addMessageToChat(
-						"system",
-						`Agent wants to use tool: ${responseData.tool_call.tool} (missing agent message)`
-					);
-				}
-				await this.handleToolCall(responseData.tool_call);
-				// setLoadingState(false) is handled by the *next* callBackend response after tool result
-				return; // Exit early, as handleToolCall will trigger the next backend call
+			if (responseData.tool_calls && responseData.tool_calls.length > 0) {
+				// Handle tool calls
+				const toolNames = responseData.tool_calls
+					.map((tc) => tc.tool)
+					.join(", ");
+				this.addMessageToChat(
+					"system",
+					`Agent wants to use tool(s): ${toolNames}`
+				);
+				await this.handleMultipleToolCalls(responseData.tool_calls);
+				return;
 			}
 
-			// If it was just a regular agent message, add it to history
-			if (agentMessageToAdd && !responseData.tool_call) {
-				this.history.push(agentMessageToAdd);
-			}
-
-			// If response was neither agent message nor tool call
-			if (!responseData.agent_message && !responseData.tool_call) {
+			if (
+				!responseData.agent_message &&
+				(!responseData.tool_calls ||
+					responseData.tool_calls.length === 0)
+			) {
+				// Handle empty response
 				this.addMessageToChat(
 					"system",
 					"Received an empty or unexpected response from the agent.",
@@ -641,11 +636,14 @@ export class ProVibeView extends ItemView {
 				? `Could not connect to backend at ${backendUrl}. Is it running?`
 				: error.message || `Request to ${endpoint} failed.`;
 			this.addMessageToChat("system", `Error: ${errorMsg}`, true);
-			// Don't modify history here as the error is in communication itself
+			// No history to roll back here
 			throw error; // Re-throw to be caught by handleSend if needed
 		} finally {
-			// Only set loading false if it wasn't a tool call (which triggers its own loading sequence)
-			if (!responseData?.tool_call) {
+			// Only set loading false if it wasn't a tool call sequence
+			if (
+				!responseData?.tool_calls ||
+				responseData.tool_calls.length === 0
+			) {
 				this.setLoadingState(false);
 			}
 		}
@@ -653,76 +651,100 @@ export class ProVibeView extends ItemView {
 
 	// --- Tool Handling ---
 
-	private async handleToolCall(toolCall: BackendToolCall) {
-		this.setLoadingState(true); // Keep loading while tool runs
-		let result: any;
-		let errorOccurred = false;
-
-		try {
-			switch (toolCall.tool) {
-				case "readFile":
-					result = await this.toolReadFile(toolCall.params.path);
-					break;
-				case "editFile":
-					result = await this.toolEditFile(
-						toolCall.params.path,
-						toolCall.params.code_edit,
-						toolCall.params.instructions
-					);
-					break;
-				// Add cases for other tools here
-				default:
-					result = `Error: Unknown tool '${toolCall.tool}' requested.`;
-					errorOccurred = true;
-			}
-		} catch (error: any) {
-			console.error(`Error executing tool ${toolCall.tool}:`, error);
-			result = `Error executing tool ${toolCall.tool}: ${error.message}`;
-			errorOccurred = true;
-		}
-
-		this.addMessageToChat(
-			"system",
-			`Tool ${toolCall.tool} result: ${
-				typeof result === "string" && result.length > 100
-					? result.substring(0, 100) + "..."
-					: JSON.stringify(result)
-			}`,
-			errorOccurred
+	// Function to handle multiple tool calls sequentially
+	private async handleMultipleToolCalls(toolCalls: BackendToolCall[]) {
+		this.setLoadingState(true); // Ensure loading state is active
+		console.log(
+			`ProVibe: Handling ${toolCalls.length} tool calls sequentially.`
 		);
 
-		// Create the ToolMessage for history
-		const toolResultMessage: HistoryMessage = {
-			type: "tool",
-			content:
-				typeof result === "string" ? result : JSON.stringify(result), // Ensure content is string
-			tool_call_id: toolCall.id,
-		};
-		// We add this *before* calling the backend, but ideally it should only be added
-		// if the backend call is successful. This logic might need refinement.
-		this.history.push(toolResultMessage);
+		const toolResults: { id: string; result: any }[] = [];
+		let overallError = false;
 
-		// Send the result back to the backend
+		for (const toolCall of toolCalls) {
+			let result: any;
+			let errorOccurred = false;
+			this.addMessageToChat(
+				"system",
+				`Executing tool: ${toolCall.tool}...`
+			); // Indicate which tool is running
+
+			try {
+				// Re-use the single tool execution logic
+				result = await this.executeSingleTool(toolCall);
+			} catch (error: any) {
+				console.error(
+					`Error executing tool ${toolCall.tool} (ID: ${toolCall.id}):`,
+					error
+				);
+				result = `Error executing tool ${toolCall.tool}: ${error.message}`;
+				errorOccurred = true;
+				overallError = true; // Mark that at least one tool failed
+			}
+
+			toolResults.push({ id: toolCall.id, result: result });
+
+			// Display truncated result in system message
+			const resultString =
+				typeof result === "string" ? result : JSON.stringify(result);
+			const displayResult =
+				resultString.length > 100
+					? resultString.substring(0, 100) + "..."
+					: resultString;
+			this.addMessageToChat(
+				"system",
+				`Tool ${toolCall.tool} result: ${displayResult}`,
+				errorOccurred
+			);
+		}
+
+		console.log(
+			"ProVibe: Finished executing all tool calls. Results:",
+			toolResults
+		);
+
+		// Send all results back to the backend
 		try {
+			// --- Ensure conversationId is sent! ---
+			if (!this.conversationId) {
+				console.error(
+					"ProVibe: Cannot send tool results - conversation ID is missing!"
+				);
+				throw new Error(
+					"Cannot send tool results without a conversation ID."
+				);
+			}
 			await this.callBackend("/tool_result", {
-				tool_result: {
-					id: toolCall.id,
-					result: result, // Send the actual result object/string
-				},
-				history: this.history.slice(0, -1), // Send history *before* this tool result message
+				tool_results: toolResults,
+				conversation_id: this.conversationId, // Send the current ID
+				// No history sent
 			});
 		} catch (error: any) {
 			// Error displayed by callBackend already
 			this.setLoadingState(false); // Ensure loading state is reset on error
-			// Remove the optimistic tool result message from history on error
-			const lastMsgIndex = this.history.findIndex(
-				(msg) => msg === toolResultMessage
-			);
-			if (lastMsgIndex > -1) {
-				this.history.splice(lastMsgIndex, 1);
-			}
 		}
-		// setLoadingState(false) is handled by the final response from the subsequent callBackend call
+		// Loading state reset is handled by the final callBackend response
+	}
+
+	// Executes a single tool call
+	private async executeSingleTool(toolCall: BackendToolCall): Promise<any> {
+		let result: any;
+		switch (toolCall.tool) {
+			case "readFile":
+				result = await this.toolReadFile(toolCall.params.path);
+				break;
+			case "editFile":
+				result = await this.toolEditFile(
+					toolCall.params.path,
+					toolCall.params.code_edit,
+					toolCall.params.instructions
+				);
+				break;
+			default:
+				// Throw error for unknown tool
+				throw new Error(`Unknown tool '${toolCall.tool}' requested.`);
+		}
+		return result;
 	}
 
 	// --- Tool Implementations using Obsidian API ---
