@@ -121,7 +121,7 @@ export default class ProVibePlugin extends Plugin {
 		});
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
+		this.addSettingTab(new ProVibeSettingTab(this.app, this));
 
 		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
 		// Using this function will automatically remove the event listener when this plugin is disabled.
@@ -203,7 +203,7 @@ class SampleModal extends Modal {
 	}
 }
 
-class SampleSettingTab extends PluginSettingTab {
+class ProVibeSettingTab extends PluginSettingTab {
 	plugin: ProVibePlugin;
 
 	constructor(app: App, plugin: ProVibePlugin) {
@@ -255,19 +255,6 @@ class SampleSettingTab extends PluginSettingTab {
 								"Backend URL must start with http:// or https://"
 							);
 						}
-					})
-			);
-
-		new Setting(containerEl)
-			.setName("Setting #1")
-			.setDesc("It's a secret")
-			.addText((text) =>
-				text
-					.setPlaceholder("Enter your secret")
-					.setValue(this.plugin.settings.mySetting)
-					.onChange(async (value) => {
-						this.plugin.settings.mySetting = value;
-						await this.plugin.saveSettings();
 					})
 			);
 
