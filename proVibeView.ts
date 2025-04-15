@@ -10,6 +10,7 @@ import {
 } from "obsidian";
 import ProVibePlugin from "./main"; // Import the plugin class to access settings
 import { diff_match_patch, Diff } from "diff-match-patch"; // Import diff-match-patch
+import { DiffReviewModal, DiffReviewResult } from "./DiffReviewModal"; // Import the new modal
 
 export const PROVIBE_VIEW_TYPE = "provibe-view";
 
@@ -778,17 +779,56 @@ export class ProVibeView extends ItemView {
 		const results: ToolResult[] = [];
 		for (const editCall of pendingEdits) {
 			try {
-				const result = await this.displayDiffForReview(editCall);
-				results.push(result);
+				const result = await this.displayDiffModalForReview(editCall);
+
+				if (result.applied && result.finalContent !== undefined) {
+					this.addMessageToChat(
+						"system",
+						`Applying selected changes to ${editCall.params.path}...`
+					);
+					try {
+						const applyMsg = await this.toolEditFile(
+							editCall.params.path,
+							result.finalContent,
+							editCall.params.instructions
+						);
+						results.push({
+							id: result.toolCallId,
+							result: applyMsg,
+						});
+						this.addMessageToChat("system", applyMsg);
+					} catch (applyError: any) {
+						console.error(
+							`Error applying reconstructed changes to ${editCall.params.path}:`,
+							applyError
+						);
+						const errorMsg = `Failed to apply changes to ${editCall.params.path}: ${applyError.message}`;
+						results.push({
+							id: result.toolCallId,
+							result: errorMsg,
+						});
+						this.addMessageToChat("system", errorMsg, true);
+					}
+				} else {
+					results.push({
+						id: result.toolCallId,
+						result: result.message,
+					});
+					this.addMessageToChat(
+						"system",
+						result.message,
+						!result.applied
+					);
+				}
 			} catch (error: any) {
 				console.error(
-					`Error displaying diff/executing edit for ${editCall.params.path}:`,
+					`Error displaying diff modal for ${editCall.params.path}:`,
 					error
 				);
-				// Add an error result for this specific tool call
+				const errorMsg = `Error processing edit for ${editCall.params.path}: ${error.message}`;
 				results.push({
 					id: editCall.id,
-					result: `Error processing edit for ${editCall.params.path}: ${error.message}`,
+					result: errorMsg,
 				});
 				this.addMessageToChat(
 					"system",
@@ -800,10 +840,9 @@ export class ProVibeView extends ItemView {
 		return results;
 	}
 
-	// New function to display diff and get user confirmation
-	private displayDiffForReview(
+	private displayDiffModalForReview(
 		toolCall: BackendToolCall
-	): Promise<ToolResult> {
+	): Promise<DiffReviewResult> {
 		return new Promise(async (resolve, reject) => {
 			const { path, code_edit, instructions } = toolCall.params;
 			const normalizedPath = path.startsWith("./")
@@ -811,112 +850,26 @@ export class ProVibeView extends ItemView {
 				: path;
 
 			try {
-				// 1. Get original content
-				const originalContent = await this.toolReadFile(normalizedPath); // Use existing tool
+				const originalContent = await this.toolReadFile(normalizedPath);
 
-				// 2. Generate Diff
-				const dmp = new diff_match_patch();
-				const diff = dmp.diff_main(originalContent, code_edit);
-				dmp.diff_cleanupSemantic(diff); // Make diff more human-readable
-				const diffHtml = dmp.diff_prettyHtml(diff);
-
-				// 3. Create UI Elements
-				const diffContainer = document.createElement("div");
-				diffContainer.addClass("provibe-diff-container");
-
-				const instructionEl = diffContainer.createEl("p", {
-					cls: "provibe-diff-instruction",
-				});
-				instructionEl.setText(
-					`Proposed changes for ${normalizedPath} based on: "${instructions}"`
-				);
-
-				const diffContentEl = diffContainer.createDiv({
-					cls: "provibe-diff-content",
-				});
-				diffContentEl.innerHTML = diffHtml; // Use innerHTML for the generated diff HTML
-
-				const buttonContainer = diffContainer.createDiv({
-					cls: "provibe-diff-buttons",
-				});
-
-				const confirmButton = buttonContainer.createEl("button", {
-					text: "Apply Changes",
-					cls: "provibe-button provibe-confirm-button",
-				});
-
-				const cancelButton = buttonContainer.createEl("button", {
-					text: "Cancel",
-					cls: "provibe-button provibe-cancel-button",
-				});
-
-				// 4. Add to chat (using modified addMessageToChat)
-				this.addMessageToChat("system", diffContainer); // Add the whole container
-
-				// 5. Add Event Listeners & Resolve Promise
-				confirmButton.addEventListener("click", async () => {
-					console.log(
-						`ProVibe: User confirmed edit for ${normalizedPath}`
-					);
-					diffContainer.empty(); // Clean up the diff display
-					this.addMessageToChat(
-						"system",
-						`Applying changes to ${normalizedPath}...`
-					);
-					try {
-						// Execute the actual edit using the original tool function
-						const editResult = await this.toolEditFile(
-							path,
-							code_edit,
-							instructions
-						);
-						resolve({ id: toolCall.id, result: editResult });
-					} catch (editError: any) {
-						console.error(
-							`Error applying confirmed edit for ${normalizedPath}:`,
-							editError
-						);
-						this.addMessageToChat(
-							"system",
-							`Error applying edit: ${editError.message}`,
-							true
-						);
-						// Resolve with error for this specific tool call
-						resolve({
-							id: toolCall.id,
-							result: `Error applying edit: ${editError.message}`,
-						});
-					}
-				});
-
-				cancelButton.addEventListener("click", () => {
-					console.log(
-						`ProVibe: User cancelled edit for ${normalizedPath}`
-					);
-					diffContainer.empty(); // Clean up the diff display
-					this.addMessageToChat(
-						"system",
-						`Edit cancelled for ${normalizedPath}.`
-					);
-					resolve({
-						id: toolCall.id,
-						result: "User cancelled edit.",
-					});
-				});
+				new DiffReviewModal(
+					this.app,
+					this.plugin,
+					normalizedPath,
+					originalContent,
+					code_edit,
+					instructions,
+					toolCall.id,
+					resolve
+				).open();
 			} catch (error: any) {
 				console.error(
-					`Error preparing diff for ${normalizedPath}:`,
+					`Error preparing data for diff modal ${normalizedPath}:`,
 					error
 				);
-				this.addMessageToChat(
-					"system",
-					`Error generating diff: ${error.message}`,
-					true
-				);
-				// Reject the promise for this specific tool call if diff generation fails
 				reject(
 					new Error(
-						`Failed to generate diff for ${normalizedPath}: ${error.message}`
+						`Failed to read file for diff review: ${error.message}`
 					)
 				);
 			}
@@ -930,7 +883,7 @@ export class ProVibeView extends ItemView {
 			case "readFile":
 				result = await this.toolReadFile(toolCall.params.path);
 				break;
-			// editFile is now handled by reviewAndExecuteEdits -> displayDiffForReview -> toolEditFile
+			// editFile is now handled by reviewAndExecuteEdits -> displayDiffModalForReview -> toolEditFile
 			// case "editFile":
 			// 	result = await this.toolEditFile(
 			// 		toolCall.params.path,
@@ -969,16 +922,16 @@ export class ProVibeView extends ItemView {
 		return await this.app.vault.read(file);
 	}
 
-	// toolEditFile remains largely the same, executes the actual modification after confirmation
+	// toolEditFile now takes the final reconstructed content
 	private async toolEditFile(
 		path: string,
-		code_edit: string,
-		instructions: string // Keep instructions for logging context if needed
+		final_content: string,
+		instructions: string
 	): Promise<string> {
 		// Strip leading './' if present
 		const normalizedPath = path.startsWith("./") ? path.substring(2) : path;
 		console.log(
-			`Tool: Applying confirmed edit to ${normalizedPath} (Instructions: ${instructions})`
+			`Tool: Applying final content to ${normalizedPath} (Instructions: ${instructions})`
 		);
 		const file = this.app.vault.getAbstractFileByPath(normalizedPath);
 		if (!file) {
@@ -993,7 +946,7 @@ export class ProVibeView extends ItemView {
 		}
 
 		try {
-			await this.app.vault.modify(file, code_edit);
+			await this.app.vault.modify(file, final_content);
 			const successMsg = `Successfully applied changes to ${normalizedPath}`;
 			new Notice(successMsg);
 			return successMsg;

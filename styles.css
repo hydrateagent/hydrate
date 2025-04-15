@@ -132,3 +132,108 @@
 	border: 2px dashed var(--interactive-accent);
 	border-radius: 5px;
 }
+
+/* --- Styles for Diff Review Modal --- */
+
+/* Style the modal itself for width - Increased Specificity */
+/* Target the modal when it has our specific class */
+.modal.provibe-diff-modal {
+	width: 90% !important; /* Make it much wider - Added !important for testing override */
+	max-width: 1200px !important; /* Optional: set a max width - Added !important */
+}
+
+.provibe-diff-modal-content {
+	/* Add padding if needed */
+	padding: 15px;
+}
+
+.diff-hunks-container {
+	max-height: 60vh; /* Limit height and allow scrolling */
+	overflow-y: auto;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 5px;
+	padding: 10px;
+	margin-top: 15px;
+	margin-bottom: 15px;
+	background-color: var(
+		--background-secondary
+	); /* Slightly different background */
+	font-family: var(--font-monospace); /* Use Obsidian's monospace font */
+	font-size: 0.9em; /* Slightly smaller font for code */
+}
+
+.diff-hunk {
+	margin-bottom: 15px;
+	padding: 10px;
+	border: 1px solid var(--background-modifier-border-hover);
+	border-radius: 3px;
+	transition: background-color 0.3s ease;
+}
+
+.diff-hunk-discarded {
+	background-color: rgba(
+		var(--color-red-rgb),
+		0.05
+	); /* Subtle background for discarded */
+	opacity: 0.7; /* Slightly fade discarded hunks */
+}
+
+.diff-hunk-header {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-bottom: 5px;
+	padding: 5px;
+	background-color: var(--background-secondary-alt);
+	border-bottom: 1px solid var(--background-modifier-border);
+	border-radius: 3px 3px 0 0;
+}
+
+.diff-hunk-checkbox {
+	/* Style the checkbox if needed */
+	cursor: pointer;
+}
+
+.diff-hunk-header-text {
+	font-weight: bold;
+	color: var(--text-muted);
+	font-size: 0.9em;
+}
+
+.diff-hunk-lines {
+	/* Container for lines already uses monospace */
+}
+
+.diff-line {
+	white-space: pre-wrap; /* Preserve whitespace, wrap lines */
+	padding: 1px 5px; /* Minimal padding */
+	border-radius: 2px;
+	line-height: 1.4;
+}
+
+.diff-line-context {
+	/* Standard line style, maybe slightly muted */
+	/* color: var(--text-muted); */
+}
+
+.diff-line-addition {
+	background-color: rgba(
+		var(--color-green-rgb),
+		0.1
+	); /* Green background for additions */
+}
+
+.diff-line-deletion {
+	background-color: rgba(
+		var(--color-red-rgb),
+		0.1
+	); /* Red background for deletions */
+	text-decoration: line-through; /* Strikethrough deleted lines */
+}
+
+.diff-modal-buttons {
+	display: flex;
+	justify-content: flex-end;
+	gap: 10px;
+	margin-top: 15px;
+}
