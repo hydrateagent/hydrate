@@ -9,6 +9,7 @@ import {
 	MarkdownRenderer,
 } from "obsidian";
 import ProVibePlugin from "./main"; // Import the plugin class to access settings
+import { diff_match_patch, Diff } from "diff-match-patch"; // Import diff-match-patch
 
 export const PROVIBE_VIEW_TYPE = "provibe-view";
 
@@ -38,6 +39,12 @@ interface BackendResponse {
 	// Can now receive multiple tool calls
 	tool_calls?: BackendToolCall[];
 	conversation_id: string; // ID is always returned
+}
+
+// Interface for storing tool results with their IDs
+interface ToolResult {
+	id: string;
+	result: any;
 }
 
 export class ProVibeView extends ItemView {
@@ -164,7 +171,7 @@ export class ProVibeView extends ItemView {
 
 	private addMessageToChat(
 		role: "user" | "agent" | "system",
-		content: string,
+		content: string | HTMLElement, // Allow HTML content for diffs
 		isError: boolean = false
 	) {
 		const messageEl = this.chatContainer.createDiv({
@@ -174,7 +181,9 @@ export class ProVibeView extends ItemView {
 			messageEl.addClass("provibe-error-message");
 		}
 
-		if (role === "agent" && content) {
+		if (content instanceof HTMLElement) {
+			messageEl.appendChild(content); // Append HTML content directly
+		} else if (role === "agent" && content) {
 			// Use MarkdownRenderer for agent messages
 			try {
 				MarkdownRenderer.render(
@@ -555,8 +564,7 @@ export class ProVibeView extends ItemView {
 		}
 
 		const fullUrl = `${backendUrl}${endpoint}`;
-
-		let responseData: BackendResponse | null = null; // Declare outside try
+		let responseData: BackendResponse | null = null;
 
 		try {
 			const response = await requestUrl({
@@ -566,7 +574,7 @@ export class ProVibeView extends ItemView {
 				body: JSON.stringify(payload),
 			});
 
-			responseData = response.json; // Assign inside try
+			responseData = response.json;
 
 			// Add null/undefined check right after assignment
 			if (!responseData) {
@@ -592,13 +600,8 @@ export class ProVibeView extends ItemView {
 			}
 
 			// --- Response Handling ---
-
-			if (
-				responseData.agent_message &&
-				(!responseData.tool_calls ||
-					responseData.tool_calls.length === 0)
-			) {
-				// Handle regular agent message display
+			// Display agent message first, if present (even if tools are called)
+			if (responseData.agent_message?.content) {
 				this.addMessageToChat(
 					"agent",
 					responseData.agent_message.content
@@ -606,24 +609,19 @@ export class ProVibeView extends ItemView {
 			}
 
 			if (responseData.tool_calls && responseData.tool_calls.length > 0) {
-				// Handle tool calls
+				// Handle tool calls (might involve user interaction for edits)
 				const toolNames = responseData.tool_calls
 					.map((tc) => tc.tool)
 					.join(", ");
 				this.addMessageToChat(
 					"system",
-					`Agent wants to use tool(s): ${toolNames}`
+					`Agent requests actions using: ${toolNames}`
 				);
-				await this.handleMultipleToolCalls(responseData.tool_calls);
-				return;
-			}
-
-			if (
-				!responseData.agent_message &&
-				(!responseData.tool_calls ||
-					responseData.tool_calls.length === 0)
-			) {
-				// Handle empty response
+				// Process tools, potentially involving review
+				await this.processToolCalls(responseData.tool_calls);
+				// Don't return here; further actions happen in processToolCalls
+			} else if (!responseData.agent_message?.content) {
+				// Handle empty response only if no tool calls AND no agent message
 				this.addMessageToChat(
 					"system",
 					"Received an empty or unexpected response from the agent.",
@@ -636,13 +634,24 @@ export class ProVibeView extends ItemView {
 				? `Could not connect to backend at ${backendUrl}. Is it running?`
 				: error.message || `Request to ${endpoint} failed.`;
 			this.addMessageToChat("system", `Error: ${errorMsg}`, true);
-			// No history to roll back here
-			throw error; // Re-throw to be caught by handleSend if needed
+			this.setLoadingState(false); // Ensure loading state is reset on error
+			// Re-throw might not be needed if setLoadingState is handled here
 		} finally {
-			// Only set loading false if it wasn't a tool call sequence
+			// Loading state is now managed within processToolCalls or after non-tool responses
+			// Only set loading false if no tools were called AND we are not in the tool result flow
 			if (
-				!responseData?.tool_calls ||
-				responseData.tool_calls.length === 0
+				endpoint === "/chat" &&
+				(!responseData?.tool_calls ||
+					responseData.tool_calls.length === 0)
+			) {
+				this.setLoadingState(false);
+			}
+			// If endpoint is /tool_result, the final response from the backend (after tools)
+			// will not have tool_calls, so we reset loading state then.
+			if (
+				endpoint === "/tool_result" &&
+				(!responseData?.tool_calls ||
+					responseData.tool_calls.length === 0)
 			) {
 				this.setLoadingState(false);
 			}
@@ -651,98 +660,295 @@ export class ProVibeView extends ItemView {
 
 	// --- Tool Handling ---
 
-	// Function to handle multiple tool calls sequentially
-	private async handleMultipleToolCalls(toolCalls: BackendToolCall[]) {
+	// New function to process incoming tool calls, separating edits for review
+	private async processToolCalls(toolCalls: BackendToolCall[]) {
 		this.setLoadingState(true); // Ensure loading state is active
-		console.log(
-			`ProVibe: Handling ${toolCalls.length} tool calls sequentially.`
-		);
+		console.log(`ProVibe: Processing ${toolCalls.length} tool calls.`);
 
-		const toolResults: { id: string; result: any }[] = [];
-		let overallError = false;
+		const executedResults: ToolResult[] = [];
+		const pendingEdits: BackendToolCall[] = [];
+		let immediateExecutionError = false;
 
+		// Separate immediate tools from edits requiring review
 		for (const toolCall of toolCalls) {
-			let result: any;
-			let errorOccurred = false;
-			this.addMessageToChat(
-				"system",
-				`Executing tool: ${toolCall.tool}...`
-			); // Indicate which tool is running
+			if (toolCall.tool === "editFile") {
+				pendingEdits.push(toolCall);
+				this.addMessageToChat(
+					"system",
+					`Agent proposes changes to ${toolCall.params.path}. Review required.`
+				);
+			} else {
+				// Execute immediate tools (e.g., readFile)
+				let result: any;
+				let errorOccurred = false;
+				this.addMessageToChat(
+					"system",
+					`Executing immediate tool: ${toolCall.tool}...`
+				);
+				try {
+					result = await this.executeSingleTool(toolCall); // Executes readFile, etc.
+				} catch (error: any) {
+					console.error(
+						`Error executing immediate tool ${toolCall.tool} (ID: ${toolCall.id}):`,
+						error
+					);
+					result = `Error executing tool ${toolCall.tool}: ${error.message}`;
+					errorOccurred = true;
+					immediateExecutionError = true;
+				}
+				executedResults.push({ id: toolCall.id, result: result });
 
+				// Display truncated result
+				const resultString =
+					typeof result === "string"
+						? result
+						: JSON.stringify(result);
+				const displayResult =
+					resultString.length > 100
+						? resultString.substring(0, 100) + "..."
+						: resultString;
+				this.addMessageToChat(
+					"system",
+					`Tool ${toolCall.tool} result: ${displayResult}`,
+					errorOccurred
+				);
+			}
+		}
+
+		// If there are edits requiring review, handle them
+		if (pendingEdits.length > 0) {
 			try {
-				// Re-use the single tool execution logic
-				result = await this.executeSingleTool(toolCall);
-			} catch (error: any) {
-				console.error(
-					`Error executing tool ${toolCall.tool} (ID: ${toolCall.id}):`,
-					error
+				// Process edits sequentially, awaiting user confirmation for each
+				const editResults = await this.reviewAndExecuteEdits(
+					pendingEdits
 				);
-				result = `Error executing tool ${toolCall.tool}: ${error.message}`;
-				errorOccurred = true;
-				overallError = true; // Mark that at least one tool failed
+				executedResults.push(...editResults); // Add results from edits
+			} catch (reviewError: any) {
+				// Handle errors during the review process itself (e.g., failed file read for diff)
+				console.error("Error during edit review process:", reviewError);
+				this.addMessageToChat(
+					"system",
+					`Error processing proposed edits: ${reviewError.message}`,
+					true
+				);
+				// We might still want to send back results of successfully executed immediate tools
+				immediateExecutionError = true; // Mark overall error
 			}
+		}
 
-			toolResults.push({ id: toolCall.id, result: result });
-
-			// Display truncated result in system message
-			const resultString =
-				typeof result === "string" ? result : JSON.stringify(result);
-			const displayResult =
-				resultString.length > 100
-					? resultString.substring(0, 100) + "..."
-					: resultString;
-			this.addMessageToChat(
-				"system",
-				`Tool ${toolCall.tool} result: ${displayResult}`,
-				errorOccurred
+		// Send results back ONLY if there were executed tools or reviewed edits
+		if (executedResults.length > 0) {
+			console.log(
+				"ProVibe: Sending tool results back to backend:",
+				executedResults
 			);
-		}
-
-		console.log(
-			"ProVibe: Finished executing all tool calls. Results:",
-			toolResults
-		);
-
-		// Send all results back to the backend
-		try {
-			// --- Ensure conversationId is sent! ---
-			if (!this.conversationId) {
-				console.error(
-					"ProVibe: Cannot send tool results - conversation ID is missing!"
-				);
-				throw new Error(
-					"Cannot send tool results without a conversation ID."
-				);
+			try {
+				if (!this.conversationId) {
+					throw new Error(
+						"Cannot send tool results - conversation ID is missing!"
+					);
+				}
+				await this.callBackend("/tool_result", {
+					tool_results: executedResults,
+					conversation_id: this.conversationId,
+				});
+			} catch (error: any) {
+				// Error sending results is handled by callBackend
+				this.setLoadingState(false); // Ensure loading resets if sending fails
 			}
-			await this.callBackend("/tool_result", {
-				tool_results: toolResults,
-				conversation_id: this.conversationId, // Send the current ID
-				// No history sent
-			});
-		} catch (error: any) {
-			// Error displayed by callBackend already
-			this.setLoadingState(false); // Ensure loading state is reset on error
+			// Loading state will be reset by the *response* from /tool_result in callBackend
+		} else if (!immediateExecutionError && pendingEdits.length === 0) {
+			// If there were no tools to execute and no edits to review (shouldn't happen if tool_calls > 0)
+			console.warn(
+				"ProVibe: processToolCalls finished with no results to send."
+			);
+			this.setLoadingState(false);
+		} else if (immediateExecutionError) {
+			// If an immediate tool failed, we might have already sent its error result. Reset loading.
+			// Or if review process failed.
+			this.setLoadingState(false);
 		}
-		// Loading state reset is handled by the final callBackend response
+		// If only pending edits existed and were cancelled, setLoadingState(false) happens in callBackend response.
 	}
 
-	// Executes a single tool call
+	// New function to handle review and execution of pending edits
+	private async reviewAndExecuteEdits(
+		pendingEdits: BackendToolCall[]
+	): Promise<ToolResult[]> {
+		const results: ToolResult[] = [];
+		for (const editCall of pendingEdits) {
+			try {
+				const result = await this.displayDiffForReview(editCall);
+				results.push(result);
+			} catch (error: any) {
+				console.error(
+					`Error displaying diff/executing edit for ${editCall.params.path}:`,
+					error
+				);
+				// Add an error result for this specific tool call
+				results.push({
+					id: editCall.id,
+					result: `Error processing edit for ${editCall.params.path}: ${error.message}`,
+				});
+				this.addMessageToChat(
+					"system",
+					`Failed to process proposed edit for ${editCall.params.path}.`,
+					true
+				);
+			}
+		}
+		return results;
+	}
+
+	// New function to display diff and get user confirmation
+	private displayDiffForReview(
+		toolCall: BackendToolCall
+	): Promise<ToolResult> {
+		return new Promise(async (resolve, reject) => {
+			const { path, code_edit, instructions } = toolCall.params;
+			const normalizedPath = path.startsWith("./")
+				? path.substring(2)
+				: path;
+
+			try {
+				// 1. Get original content
+				const originalContent = await this.toolReadFile(normalizedPath); // Use existing tool
+
+				// 2. Generate Diff
+				const dmp = new diff_match_patch();
+				const diff = dmp.diff_main(originalContent, code_edit);
+				dmp.diff_cleanupSemantic(diff); // Make diff more human-readable
+				const diffHtml = dmp.diff_prettyHtml(diff);
+
+				// 3. Create UI Elements
+				const diffContainer = document.createElement("div");
+				diffContainer.addClass("provibe-diff-container");
+
+				const instructionEl = diffContainer.createEl("p", {
+					cls: "provibe-diff-instruction",
+				});
+				instructionEl.setText(
+					`Proposed changes for ${normalizedPath} based on: "${instructions}"`
+				);
+
+				const diffContentEl = diffContainer.createDiv({
+					cls: "provibe-diff-content",
+				});
+				diffContentEl.innerHTML = diffHtml; // Use innerHTML for the generated diff HTML
+
+				const buttonContainer = diffContainer.createDiv({
+					cls: "provibe-diff-buttons",
+				});
+
+				const confirmButton = buttonContainer.createEl("button", {
+					text: "Apply Changes",
+					cls: "provibe-button provibe-confirm-button",
+				});
+
+				const cancelButton = buttonContainer.createEl("button", {
+					text: "Cancel",
+					cls: "provibe-button provibe-cancel-button",
+				});
+
+				// 4. Add to chat (using modified addMessageToChat)
+				this.addMessageToChat("system", diffContainer); // Add the whole container
+
+				// 5. Add Event Listeners & Resolve Promise
+				confirmButton.addEventListener("click", async () => {
+					console.log(
+						`ProVibe: User confirmed edit for ${normalizedPath}`
+					);
+					diffContainer.empty(); // Clean up the diff display
+					this.addMessageToChat(
+						"system",
+						`Applying changes to ${normalizedPath}...`
+					);
+					try {
+						// Execute the actual edit using the original tool function
+						const editResult = await this.toolEditFile(
+							path,
+							code_edit,
+							instructions
+						);
+						resolve({ id: toolCall.id, result: editResult });
+					} catch (editError: any) {
+						console.error(
+							`Error applying confirmed edit for ${normalizedPath}:`,
+							editError
+						);
+						this.addMessageToChat(
+							"system",
+							`Error applying edit: ${editError.message}`,
+							true
+						);
+						// Resolve with error for this specific tool call
+						resolve({
+							id: toolCall.id,
+							result: `Error applying edit: ${editError.message}`,
+						});
+					}
+				});
+
+				cancelButton.addEventListener("click", () => {
+					console.log(
+						`ProVibe: User cancelled edit for ${normalizedPath}`
+					);
+					diffContainer.empty(); // Clean up the diff display
+					this.addMessageToChat(
+						"system",
+						`Edit cancelled for ${normalizedPath}.`
+					);
+					resolve({
+						id: toolCall.id,
+						result: "User cancelled edit.",
+					});
+				});
+			} catch (error: any) {
+				console.error(
+					`Error preparing diff for ${normalizedPath}:`,
+					error
+				);
+				this.addMessageToChat(
+					"system",
+					`Error generating diff: ${error.message}`,
+					true
+				);
+				// Reject the promise for this specific tool call if diff generation fails
+				reject(
+					new Error(
+						`Failed to generate diff for ${normalizedPath}: ${error.message}`
+					)
+				);
+			}
+		});
+	}
+
+	// Executes a single tool call (for tools not requiring review, e.g., readFile)
 	private async executeSingleTool(toolCall: BackendToolCall): Promise<any> {
 		let result: any;
 		switch (toolCall.tool) {
 			case "readFile":
 				result = await this.toolReadFile(toolCall.params.path);
 				break;
-			case "editFile":
-				result = await this.toolEditFile(
-					toolCall.params.path,
-					toolCall.params.code_edit,
-					toolCall.params.instructions
-				);
-				break;
+			// editFile is now handled by reviewAndExecuteEdits -> displayDiffForReview -> toolEditFile
+			// case "editFile":
+			// 	result = await this.toolEditFile(
+			// 		toolCall.params.path,
+			// 		toolCall.params.code_edit,
+			// 		toolCall.params.instructions
+			// 	);
+			// 	break;
 			default:
-				// Throw error for unknown tool
-				throw new Error(`Unknown tool '${toolCall.tool}' requested.`);
+				// Throw error for unknown immediate tool
+				console.warn(
+					`Encountered potentially unknown immediate tool: ${toolCall.tool}. Trying to execute...`
+				);
+				// Attempt to execute anyway, maybe more tools exist?
+				// This is risky, better to have explicit cases or a check.
+				// For now, let's throw an error for safety.
+				throw new Error(
+					`Unknown immediate tool '${toolCall.tool}' requested.`
+				);
 		}
 		return result;
 	}
@@ -763,44 +969,43 @@ export class ProVibeView extends ItemView {
 		return await this.app.vault.read(file);
 	}
 
+	// toolEditFile remains largely the same, executes the actual modification after confirmation
 	private async toolEditFile(
 		path: string,
 		code_edit: string,
-		instructions: string
+		instructions: string // Keep instructions for logging context if needed
 	): Promise<string> {
 		// Strip leading './' if present
 		const normalizedPath = path.startsWith("./") ? path.substring(2) : path;
 		console.log(
-			`Tool: Editing file ${normalizedPath} (Original: ${path}) with instructions: ${instructions}`
+			`Tool: Applying confirmed edit to ${normalizedPath} (Instructions: ${instructions})`
 		);
 		const file = this.app.vault.getAbstractFileByPath(normalizedPath);
 		if (!file) {
-			throw new Error(`File not found: ${normalizedPath}`);
+			throw new Error(
+				`File not found during edit application: ${normalizedPath}`
+			);
 		}
 		if (!(file instanceof TFile)) {
-			throw new Error(`Path is not a file: ${normalizedPath}`);
+			throw new Error(
+				`Path is not a file during edit application: ${normalizedPath}`
+			);
 		}
 
-		// Implementation Note:
-		// The agent is expected to provide the *complete* new file content in the code_edit parameter
-		// when using this tool for full replacement.
-
-		// --- Use Approach 1: Full file replacement (as requested) ---
-		await this.app.vault.modify(file, code_edit);
-		const successMsg = `Successfully replaced content of ${normalizedPath}`;
-		new Notice(successMsg);
-		return successMsg;
-
-		/* --- Remove Approach 2 and Fallback --- 
-		// --- Approach 2: Attempt edit in active editor if paths match (Less destructive but limited) ---
-		const activeEditor = this.app.workspace.activeEditor;
-		if (activeEditor && activeEditor.file?.path === normalizedPath) { // Check against normalized path
-			// ... (previous editor logic removed) ...
+		try {
+			await this.app.vault.modify(file, code_edit);
+			const successMsg = `Successfully applied changes to ${normalizedPath}`;
+			new Notice(successMsg);
+			return successMsg;
+		} catch (error: any) {
+			console.error(
+				`Error during vault.modify for ${normalizedPath}:`,
+				error
+			);
+			throw new Error(
+				`Failed to write changes to ${normalizedPath}: ${error.message}`
+			);
 		}
-
-		// --- Fallback/Placeholder: Error --- //
-		throw new Error(`Editing file \'${normalizedPath}\' not directly supported yet unless it\'s the active file. Full file replacement is risky.`);
-		*/
 	}
 
 	// --- Obsidian View Lifecycle Methods ---
