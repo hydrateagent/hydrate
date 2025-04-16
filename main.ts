@@ -99,13 +99,6 @@ export default class ProVibePlugin extends Plugin {
 
 		registerReactView("placeholder", PlaceholderView);
 
-		// --- Existing ProVibe Chat View (keep if needed) ---
-		this.registerView(PROVIBE_VIEW_TYPE, (leaf: WorkspaceLeaf) => {
-			// Assuming ProVibeView is still the chat view
-			return new ProVibeView(leaf, this);
-		});
-		// --- End Existing ProVibe Chat View ---
-
 		// This creates an icon in the left ribbon to toggle the ProVibe pane
 		const ribbonIconEl = this.addRibbonIcon(
 			"text-cursor-input",
@@ -230,7 +223,6 @@ export default class ProVibePlugin extends Plugin {
 			await leaf.setViewState({
 				type: REACT_HOST_VIEW_TYPE,
 				state: { filePath: file.path, viewKey: viewKey },
-				popstate: true, // Add to history for back/forward navigation
 			} as any); // Use 'as any' for state type if needed
 		} else {
 			// We want the Markdown View (or default)
@@ -246,7 +238,6 @@ export default class ProVibePlugin extends Plugin {
 				await leaf.setViewState({
 					type: "markdown",
 					state: { ...previousState, file: file.path }, // Pass file path explicitly
-					popstate: true,
 				});
 			}
 			// Else: It's already a non-React view (e.g., Markdown, Kanban), let Obsidian handle it.
@@ -285,7 +276,6 @@ export default class ProVibePlugin extends Plugin {
 					leaf.setViewState({
 						type: REACT_HOST_VIEW_TYPE,
 						state: { filePath: file.path, viewKey: viewKey },
-						popstate: true,
 					} as any);
 				}
 				return true;
