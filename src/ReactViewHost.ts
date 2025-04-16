@@ -24,6 +24,7 @@ export class ReactViewHost extends ItemView {
 	private currentMarkdownContent: string | null = null; // Store current content for comparison
 
 	constructor(leaf: WorkspaceLeaf, plugin: ProVibePlugin) {
+		console.log("ReactViewHost: Constructor called");
 		super(leaf);
 		this.plugin = plugin;
 		this.navigation = true; // Allow back/forward navigation within this view type
@@ -122,7 +123,7 @@ export class ReactViewHost extends ItemView {
 	private updateDisplayText(): void {
 		// Update tab title - call this after currentFilePath changes
 		const title = this.getDisplayText();
-		this.leaf.setDisplayText(title);
+		// this.leaf.setDisplayText(title); // Remove this line - getDisplayText handles it
 		// Update icon if desired: this.leaf.tabHeaderInnerIconEl.empty(); this.leaf.tabHeaderInnerIconEl.createEl(...)
 	}
 
@@ -276,7 +277,6 @@ export class ReactViewHost extends ItemView {
 		await this.leaf.setViewState({
 			type: "markdown",
 			state: { ...state, file: this.currentFilePath }, // Ensure file is passed
-			popstate: true, // Add to history
 		});
 	};
 

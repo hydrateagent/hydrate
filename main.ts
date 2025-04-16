@@ -97,6 +97,11 @@ export default class ProVibePlugin extends Plugin {
 			checkCallback: this.checkToggleReactView,
 		});
 
+		// --- Add Layout Change Handler ---
+		this.registerEvent(
+			this.app.workspace.on("layout-change", this.handleLayoutChange)
+		);
+
 		registerReactView("placeholder", PlaceholderView);
 
 		// This creates an icon in the left ribbon to toggle the ProVibe pane
@@ -143,6 +148,15 @@ export default class ProVibePlugin extends Plugin {
 		this.registerInterval(
 			window.setInterval(() => console.log("setInterval"), 5 * 60 * 1000)
 		);
+
+		// --- React View Host Registration ---
+		console.log(`ProVibe: Registering view type: ${REACT_HOST_VIEW_TYPE}`);
+		this.registerView(REACT_HOST_VIEW_TYPE, (leaf: WorkspaceLeaf) => {
+			console.log(
+				`ProVibe: Factory function called for view type: ${REACT_HOST_VIEW_TYPE}`
+			);
+			return new ReactViewHost(leaf, this);
+		});
 	}
 
 	async activateView() {
@@ -181,6 +195,8 @@ export default class ProVibePlugin extends Plugin {
 
 	// --- File Open Handler ---
 	handleFileOpen = async (file: TFile | null) => {
+		// *** Temporarily disable this handler's switching logic ***
+		/*
 		if (!file) return;
 
 		const leaf = this.app.workspace.getActiveViewOfType(ItemView)?.leaf; // Get active leaf
@@ -191,9 +207,7 @@ export default class ProVibePlugin extends Plugin {
 		const triggerKey = "provibe-plugin"; // Or make this configurable
 		const viewKey = frontmatter?.[triggerKey] as string | undefined; // Cast to string
 
-		const ReactComponent = viewKey
-			? getReactViewComponent(viewKey)
-			: undefined;
+		const ReactComponent = viewKey ? getReactViewComponent(viewKey) : undefined;
 
 		const currentView = leaf.view;
 
@@ -208,40 +222,68 @@ export default class ProVibePlugin extends Plugin {
 				currentView.currentViewKey === viewKey
 			) {
 				// Already in the correct React view, do nothing
-				console.log(
-					"ProVibe: Already in correct React view:",
-					file.path
-				);
+				// console.log("ProVibe: Already in correct React view:", file.path);
 				return;
 			}
 
-			// Switch to ReactViewHost
+			// Switch to ReactViewHost - DEFERRED
 			console.log(
-				`ProVibe: Switching to React view (${viewKey}) for:`,
-				file.path
+				`ProVibe: Queueing switch to React view (${viewKey}) for: ${file.path}`
 			);
-			await leaf.setViewState({
-				type: REACT_HOST_VIEW_TYPE,
-				state: { filePath: file.path, viewKey: viewKey },
-			} as any); // Use 'as any' for state type if needed
+			setTimeout(() => {
+				console.log(
+					`ProVibe: Executing deferred switch to React view for: ${file.path}`
+				);
+				// Ensure leaf is still valid in the timeout
+				// We can check if the view associated with the leaf is still attached
+				if (leaf.view?.containerEl.isConnected) { // Use the captured leaf directly
+					console.log("ProVibe: Revealing leaf before setting state..."); // Add log
+					this.app.workspace.revealLeaf(leaf); // Reveal the leaf first
+					// Now set the state
+					leaf.setViewState({ // Use the captured leaf directly
+						type: REACT_HOST_VIEW_TYPE,
+						state: { filePath: file.path, viewKey: viewKey },
+					} as any);
+				} else {
+					console.warn(
+						`ProVibe: Leaf captured in closure no longer seems valid for deferred switch.` // Updated warning
+					);
+				}
+			}, 0);
 		} else {
 			// We want the Markdown View (or default)
 
 			// Check if the current view is our React host (needs switching back)
 			if (currentView instanceof ReactViewHost) {
+				// Switch back to Markdown - DEFERRED
 				console.log(
-					"ProVibe: Switching back to Markdown view for:",
-					file.path
+					`ProVibe: Queueing switch back to Markdown view for: ${file.path}`
 				);
-				// Get the state from the React view to potentially preserve scroll etc.
-				const previousState = currentView.getState();
-				await leaf.setViewState({
-					type: "markdown",
-					state: { ...previousState, file: file.path }, // Pass file path explicitly
-				});
+				setTimeout(() => {
+					console.log(
+						`ProVibe: Executing deferred switch to Markdown view for: ${file.path}`
+					);
+					// Check if the leaf/view is still valid
+					if (leaf.view?.containerEl.isConnected && currentView?.containerEl.isConnected) { // Check both leaf and original view
+						console.log("ProVibe: Revealing leaf before setting state (back to Markdown)..."); // Add log
+						this.app.workspace.revealLeaf(leaf); // Reveal the leaf first
+						const previousState = (
+							currentView as ReactViewHost // Use captured currentView
+						).getState();
+						leaf.setViewState({ // Use captured leaf
+							type: "markdown",
+							state: { ...previousState, file: file.path },
+						});
+					} else {
+						console.warn(
+							`ProVibe: Leaf or original view no longer seems valid for deferred switch back to markdown.` // Updated warning
+						);
+					}
+				}, 0);
 			}
 			// Else: It's already a non-React view (e.g., Markdown, Kanban), let Obsidian handle it.
 		}
+		*/
 	};
 	// --- End File Open Handler ---
 
@@ -286,6 +328,54 @@ export default class ProVibePlugin extends Plugin {
 		return false;
 	};
 	// --- End Toggle Command Check Callback ---
+
+	// --- Layout Change Handler ---
+	handleLayoutChange = () => {
+		console.log("ProVibe: layout-change detected");
+		const leaf = this.app.workspace.activeLeaf;
+		if (!leaf) {
+			console.log("ProVibe: No active leaf on layout-change");
+			return;
+		}
+
+		const currentView = leaf.view;
+
+		// Scenario 1: Active view is Markdown, but should be React?
+		if (currentView instanceof MarkdownView && currentView.file) {
+			const file = currentView.file;
+			const fileCache = this.app.metadataCache.getFileCache(file);
+			if (!fileCache) return; // Cache might not be ready immediately
+
+			const frontmatter = fileCache.frontmatter;
+			const triggerKey = "provibe-plugin";
+			const viewKey = frontmatter?.[triggerKey] as string | undefined;
+			const ReactComponent = viewKey
+				? getReactViewComponent(viewKey)
+				: undefined;
+
+			if (ReactComponent) {
+				// This Markdown view should be a React view
+				console.log(
+					`ProVibe [layout-change]: Markdown view for ${file.path} should be React view (${viewKey}). Switching...`
+				);
+				leaf.setViewState({
+					type: REACT_HOST_VIEW_TYPE,
+					state: { filePath: file.path, viewKey: viewKey },
+				} as any);
+				return; // Switched, done for this event
+			}
+		}
+
+		// Scenario 2: Active view is React, but shouldn't be? (File changed/frontmatter removed)
+		// This logic might be better handled within ReactViewHost using handleVaultModify
+		// or by simply letting the normal Markdown view take over if the user navigates away and back.
+		// For now, we primarily focus on switching TO the React view.
+
+		console.log(
+			"ProVibe [layout-change]: No relevant view switch needed for active leaf."
+		);
+	};
+	// --- End Layout Change Handler ---
 
 	onunload() {
 		// Clean up when the plugin is disabled

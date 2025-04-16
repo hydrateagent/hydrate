@@ -33,6 +33,8 @@ const PlaceholderView: React.FC<ReactViewProps> = ({
 		setInternalContent(event.target.value);
 	};
 
+	console.log("PlaceholderView: Rendering component for", filePath);
+
 	return (
 		<div style={{ padding: "10px", fontFamily: "sans-serif" }}>
 			<h2>ProVibe Placeholder View</h2>
