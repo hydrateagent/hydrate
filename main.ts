@@ -5,6 +5,10 @@ import {
 	Modal,
 	Notice,
 	Plugin,
+	TFile, // Added
+	ViewStateResult, // Added
+	MetadataCache, // Added
+	FrontMatterCache, // Added
 	PluginSettingTab,
 	Setting,
 	WorkspaceLeaf,
@@ -13,8 +17,37 @@ import {
 } from "obsidian";
 
 import { ProVibeView, PROVIBE_VIEW_TYPE } from "./proVibeView";
+import * as React from "react"; // Added
+import { Root, createRoot } from "react-dom/client"; // Added
+import { ReactViewProps } from "./src/types"; // Added
+import { ReactViewHost } from "./src/ReactViewHost"; // Added
+import PlaceholderView from "./src/components/PlaceholderView"; // ADD THIS IMPORT
 
 // Remember to rename these classes and interfaces!
+
+// --- React View Registry ---
+const reactViewRegistry = new Map<
+	string,
+	React.ComponentType<ReactViewProps>
+>();
+
+export function registerReactView(
+	key: string,
+	component: React.ComponentType<ReactViewProps>
+): void {
+	if (reactViewRegistry.has(key)) {
+		console.warn(`ProVibe: Overwriting React view for key "${key}"`);
+	}
+	reactViewRegistry.set(key, component);
+	console.log(`ProVibe: Registered React view for key "${key}"`);
+}
+
+export function getReactViewComponent(
+	key: string
+): React.ComponentType<ReactViewProps> | undefined {
+	return reactViewRegistry.get(key);
+}
+// --- End React View Registry ---
 
 interface ProVibePluginSettings {
 	mySetting: string;
@@ -30,6 +63,8 @@ const DEFAULT_SETTINGS: ProVibePluginSettings = {
 	paneOrientation: "Bottom",
 };
 
+export const REACT_HOST_VIEW_TYPE = "provibe-react-host"; // Define type for React host
+
 export default class ProVibePlugin extends Plugin {
 	settings: ProVibePluginSettings;
 	private view: ProVibeView | null = null;
@@ -44,6 +79,32 @@ export default class ProVibePlugin extends Plugin {
 			this.view = new ProVibeView(leaf, this);
 			return this.view;
 		});
+
+		// Register example component (we'll create this later)
+		// Placeholder - create src/components/PlaceholderView.tsx later
+		// import PlaceholderView from './src/components/PlaceholderView'; // Import will be needed
+		// registerReactView('placeholder', PlaceholderView); // Example registration
+
+		// --- Event Listener for File Open ---
+		this.registerEvent(
+			this.app.workspace.on("file-open", this.handleFileOpen)
+		);
+
+		// --- Toggle Command ---
+		this.addCommand({
+			id: "toggle-provibe-react-view",
+			name: "Toggle Markdown/ProVibe React View",
+			checkCallback: this.checkToggleReactView,
+		});
+
+		registerReactView("placeholder", PlaceholderView);
+
+		// --- Existing ProVibe Chat View (keep if needed) ---
+		this.registerView(PROVIBE_VIEW_TYPE, (leaf: WorkspaceLeaf) => {
+			// Assuming ProVibeView is still the chat view
+			return new ProVibeView(leaf, this);
+		});
+		// --- End Existing ProVibe Chat View ---
 
 		// This creates an icon in the left ribbon to toggle the ProVibe pane
 		const ribbonIconEl = this.addRibbonIcon(
@@ -82,52 +143,8 @@ export default class ProVibePlugin extends Plugin {
 			},
 		});
 
-		// This adds a simple command that can be triggered anywhere
-		this.addCommand({
-			id: "open-sample-modal-simple",
-			name: "Open sample modal (simple)",
-			callback: () => {
-				new SampleModal(this.app).open();
-			},
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: "sample-editor-command",
-			name: "Sample editor command",
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				console.log(editor.getSelection());
-				editor.replaceSelection("Sample Editor Command");
-			},
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: "open-sample-modal-complex",
-			name: "Open sample modal (complex)",
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView =
-					this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
-
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
-				}
-			},
-		});
-
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new ProVibeSettingTab(this.app, this));
-
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, "click", (evt: MouseEvent) => {
-			console.log("click", evt);
-		});
 
 		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
 		this.registerInterval(
@@ -169,6 +186,117 @@ export default class ProVibePlugin extends Plugin {
 		this.view = null;
 	}
 
+	// --- File Open Handler ---
+	handleFileOpen = async (file: TFile | null) => {
+		if (!file) return;
+
+		const leaf = this.app.workspace.getActiveViewOfType(ItemView)?.leaf; // Get active leaf
+		if (!leaf) return;
+
+		const fileCache = this.app.metadataCache.getFileCache(file);
+		const frontmatter = fileCache?.frontmatter;
+		const triggerKey = "provibe-plugin"; // Or make this configurable
+		const viewKey = frontmatter?.[triggerKey] as string | undefined; // Cast to string
+
+		const ReactComponent = viewKey
+			? getReactViewComponent(viewKey)
+			: undefined;
+
+		const currentView = leaf.view;
+
+		// --- Logic to Switch Views ---
+		if (ReactComponent) {
+			// We want the React View
+
+			// Check if it's already the correct React view host
+			if (
+				currentView instanceof ReactViewHost &&
+				currentView.currentFilePath === file.path &&
+				currentView.currentViewKey === viewKey
+			) {
+				// Already in the correct React view, do nothing
+				console.log(
+					"ProVibe: Already in correct React view:",
+					file.path
+				);
+				return;
+			}
+
+			// Switch to ReactViewHost
+			console.log(
+				`ProVibe: Switching to React view (${viewKey}) for:`,
+				file.path
+			);
+			await leaf.setViewState({
+				type: REACT_HOST_VIEW_TYPE,
+				state: { filePath: file.path, viewKey: viewKey },
+				popstate: true, // Add to history for back/forward navigation
+			} as any); // Use 'as any' for state type if needed
+		} else {
+			// We want the Markdown View (or default)
+
+			// Check if the current view is our React host (needs switching back)
+			if (currentView instanceof ReactViewHost) {
+				console.log(
+					"ProVibe: Switching back to Markdown view for:",
+					file.path
+				);
+				// Get the state from the React view to potentially preserve scroll etc.
+				const previousState = currentView.getState();
+				await leaf.setViewState({
+					type: "markdown",
+					state: { ...previousState, file: file.path }, // Pass file path explicitly
+					popstate: true,
+				});
+			}
+			// Else: It's already a non-React view (e.g., Markdown, Kanban), let Obsidian handle it.
+		}
+	};
+	// --- End File Open Handler ---
+
+	// --- Toggle Command Check Callback ---
+	checkToggleReactView = (checking: boolean): boolean => {
+		const leaf = this.app.workspace.activeLeaf;
+		if (!leaf) return false;
+
+		const currentView = leaf.view;
+
+		if (currentView instanceof ReactViewHost) {
+			// Can always toggle back to Markdown from React Host
+			if (!checking) {
+				currentView.switchToMarkdownView(); // Use the host's method
+			}
+			return true;
+		} else if (currentView instanceof MarkdownView && currentView.file) {
+			// Check if the Markdown view *should* have a React view
+			const file = currentView.file;
+			const fileCache = this.app.metadataCache.getFileCache(file);
+			const frontmatter = fileCache?.frontmatter;
+			const triggerKey = "provibe-plugin"; // Consistent key
+			const viewKey = frontmatter?.[triggerKey] as string | undefined;
+			const ReactComponent = viewKey
+				? getReactViewComponent(viewKey)
+				: undefined;
+
+			if (ReactComponent) {
+				// Can toggle to React view
+				if (!checking && viewKey) {
+					// Ensure viewKey is valid before setting state
+					leaf.setViewState({
+						type: REACT_HOST_VIEW_TYPE,
+						state: { filePath: file.path, viewKey: viewKey },
+						popstate: true,
+					} as any);
+				}
+				return true;
+			}
+		}
+
+		// Cannot toggle in other cases
+		return false;
+	};
+	// --- End Toggle Command Check Callback ---
+
 	onunload() {
 		// Clean up when the plugin is disabled
 		this.deactivateView();
@@ -184,22 +312,6 @@ export default class ProVibePlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-	}
-}
-
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
-
-	onOpen() {
-		const { contentEl } = this;
-		contentEl.setText("Woah!");
-	}
-
-	onClose() {
-		const { contentEl } = this;
-		contentEl.empty();
 	}
 }
 
