@@ -2,6 +2,16 @@ import * as React from "react";
 import { useState, useEffect, useRef } from "react";
 import { ReactViewProps } from "../types";
 
+// Markdown Processing Imports
+import { unified } from "unified";
+import remarkParse from "remark-parse";
+import remarkFrontmatter from "remark-frontmatter";
+import remarkGfm from "remark-gfm";
+import { visit } from "unist-util-visit";
+import { toString } from "mdast-util-to-string";
+import { Node, Parent } from "unist"; // Import Node and Parent types
+import { Root, Heading, List, ListItem, Text } from "mdast"; // Import specific mdast types
+
 // --- Data Model Interfaces ---
 interface IssueItem {
 	text: string;
@@ -30,129 +40,276 @@ interface EditingItemState {
 	tempValue: string;
 }
 
-// --- Robust Parser ---
+// --- Robust Parser using remark, remark-frontmatter, and remark-gfm ---
 const parseIssueMarkdown = (
 	markdownContent: string
 ): { issues: Issue[]; parsingErrors: string[] } => {
-	console.log("IssueBoardView: Starting parseIssueMarkdown");
-	const lines = markdownContent.split("\n");
 	const issues: Issue[] = [];
 	const parsingErrors: string[] = [];
-	let currentCardData: Partial<Issue> | null = null; // Removed rawLines reference
-	let currentSection: "items" | "status" | null = null;
-	// Removed itemsCounter and statusCounter as they were only for rawLines keys
+	try {
+		// Add remarkGfm to the pipeline
+		const tree = unified()
+			.use(remarkParse)
+			.use(remarkFrontmatter, ["yaml"]) // Specify YAML variant
+			.use(remarkGfm) // Add GFM plugin
+			.parse(markdownContent) as Root;
 
-	for (let i = 0; i < lines.length; i++) {
-		const line = lines[i];
-		const trimmedLine = line.trim();
+		let currentCardData: Partial<Issue> | null = null;
+		let siblingsBetweenH2: Node[] = []; // Store nodes between H2 headings
 
-		// Start of a new potential card
-		if (trimmedLine.startsWith("## ")) {
-			// Finalize the previous card if valid
-			if (currentCardData) {
-				// Basic validation: Did we find items and status sections?
-				if (
-					currentCardData.items !== undefined &&
-					currentCardData.status !== undefined
-				) {
-					issues.push(currentCardData as Issue); // Cast assumes validation passed
+		// Process children, skipping the frontmatter node
+		const contentNodes =
+			tree.children?.filter((node) => node.type !== "yaml") || [];
+
+		// Add a dummy end node to process the last card
+		const nodesToProcess = [
+			...contentNodes,
+			{
+				type: "thematicBreak",
+				position: { start: { line: Infinity } },
+			} as Node,
+		];
+
+		nodesToProcess.forEach((node, nodeIndex) => {
+			console.log(
+				`IssueBoardView Parser Loop: Node ${nodeIndex} Type: ${node.type}`
+			); // Log node type
+
+			// Trigger processing for the previous card if we hit an H2 OR the dummy end node
+			if (
+				(node.type === "heading" && (node as Heading).depth === 2) ||
+				node.type === "thematicBreak"
+			) {
+				console.log(
+					`IssueBoardView Parser Loop: Found H2 Heading or Dummy End Node`
+				);
+
+				// --- Process the PREVIOUS card based on collected siblings ---
+				if (currentCardData) {
+					console.log(
+						`IssueBoardView Parser Loop: Processing previous card: ${currentCardData.name}`
+					);
+					// Make sure siblings were collected before processing
+					if (siblingsBetweenH2.length > 0) {
+						processCardSiblings(
+							siblingsBetweenH2,
+							currentCardData,
+							parsingErrors
+						);
+					} else {
+						console.log(
+							"IssueBoardView Parser Loop: No siblings found for previous card."
+						);
+					}
+
+					// Log state before validation
+					console.log(
+						`IssueBoardView Parser Loop: Pre-validation state for ${
+							currentCardData.name
+						}: items=${JSON.stringify(
+							currentCardData.items
+						)}, status=${JSON.stringify(currentCardData.status)}`
+					);
+
+					// Final validation before pushing - RELAXED CHECK
+					// Check if the sections were *found* (arrays initialized), not necessarily non-empty
+					if (
+						currentCardData.items !== undefined &&
+						currentCardData.status !== undefined
+					) {
+						console.log(
+							"IssueBoardView Parser: Pushing valid card (sections found):",
+							currentCardData.name
+						);
+						issues.push(currentCardData as Issue);
+					} else {
+						const cardName =
+							currentCardData.name || "[Unknown Name]";
+						const cardLine =
+							currentCardData.headerLineIndex !== undefined
+								? currentCardData.headerLineIndex + 1
+								: "[Unknown Line]";
+						// Refine error message based on what's missing
+						let missing = [];
+						if (currentCardData.items === undefined)
+							missing.push("### Items section"); // Check for undefined specifically
+						if (currentCardData.status === undefined)
+							missing.push("### Status section"); // Check for undefined specifically
+						const errorMsg = `Skipped card starting on line ${cardLine} ("${cardName}"): Missing required sections (${missing.join(
+							" & "
+						)}). Ensure '### Items' and '### Status' headings exist.`;
+						console.warn(`IssueBoardView Parser: ${errorMsg}`);
+						parsingErrors.push(errorMsg);
+					}
+				}
+
+				// --- Start NEW card (Only if it was an H2, not the dummy node) ---
+				if (node.type === "heading") {
+					// Check if it's actually the H2
+					siblingsBetweenH2 = []; // Reset siblings for the new card
+					const headingNode = node as Heading;
+					console.log(
+						`IssueBoardView Parser: Found new card H2: ${toString(
+							headingNode
+						).trim()}`
+					);
+					currentCardData = {
+						id: `card-${
+							headingNode.position?.start?.line ?? Math.random()
+						}`,
+						name: toString(headingNode).trim(),
+						number: null,
+						items: [], // Initialize directly
+						status: [], // Initialize directly
+						headerLineIndex: headingNode.position?.start?.line
+							? headingNode.position.start.line - 1
+							: -1,
+					};
 				} else {
-					// Check properties before accessing
-					const cardName = currentCardData.name || "[Unknown Name]";
-					const cardLine =
-						currentCardData.headerLineIndex !== undefined
-							? currentCardData.headerLineIndex + 1
-							: "[Unknown Line]";
-					const errorMsg = `Skipped card starting on line ${cardLine} ("${cardName}"): Missing required sections (Items/Status).`;
-					console.warn(`IssueBoardView Parser: ${errorMsg}`);
-					parsingErrors.push(errorMsg);
+					// If it was the dummy node, ensure we stop processing by clearing currentCardData
+					currentCardData = null;
+				}
+			} else if (currentCardData) {
+				// Collect siblings ONLY if we are inside a card
+				// Do not collect the dummy node itself
+				if (node.type !== "thematicBreak") {
+					siblingsBetweenH2.push(node);
 				}
 			}
-
-			// Start new card
-			// Removed counters
-			currentCardData = {
-				id: `card-${i}`, // Use line index for a temporary key
-				name: trimmedLine.substring(3).trim(),
-				number: null,
-				items: [], // Initialize as empty array
-				status: [], // Initialize as empty array
-				headerLineIndex: i,
-				// rawLines removed
-			};
-			currentSection = null;
-			continue;
-		}
-
-		// Skip lines before the first card is found
-		if (!currentCardData) continue;
-
-		// Process lines within the current potential card
-		if (trimmedLine.startsWith("### ")) {
-			currentSection = null; // Reset section on any H3
-			if (trimmedLine.startsWith("### ISSUE No.")) {
-				currentCardData.number = trimmedLine.substring(14).trim();
-				// No rawLines store
-			} else if (trimmedLine.startsWith("### Items")) {
-				currentSection = "items";
-				// No rawLines store
-				currentCardData.items = currentCardData.items || []; // Ensure array exists
-			} else if (trimmedLine.startsWith("### Status")) {
-				currentSection = "status";
-				// No rawLines store
-				currentCardData.status = currentCardData.status || []; // Ensure array exists
-			}
-			// Ignore other H3s for now
-		} else if (trimmedLine.startsWith("- ") && currentSection) {
-			const itemText = trimmedLine.substring(2).trim();
-			if (currentSection === "items" && currentCardData.items) {
-				currentCardData.items.push({ text: itemText });
-				// No rawLines store
-			} else if (currentSection === "status" && currentCardData.status) {
-				const checkboxMatch = itemText.match(/^\[( |x)\]\s*(.*)/i);
-				if (checkboxMatch) {
-					currentCardData.status.push({
-						text: checkboxMatch[2].trim(),
-						checked: checkboxMatch[1].toLowerCase() === "x",
-					});
-				} else {
-					// Assume unchecked if checkbox marker is missing/malformed
-					currentCardData.status.push({
-						text: itemText,
-						checked: false,
-					});
-				}
-				// No rawLines store
-			}
-		}
-		// Ignore other lines within a card for now
-	}
-
-	// Finalize the last card
-	if (currentCardData) {
-		// Basic validation: Did we find items and status sections?
-		if (
-			currentCardData.items !== undefined &&
-			currentCardData.status !== undefined
-		) {
-			issues.push(currentCardData as Issue);
-		} else {
-			// Check properties before accessing
-			const cardName = currentCardData.name || "[Unknown Name]";
-			const cardLine =
-				currentCardData.headerLineIndex !== undefined
-					? currentCardData.headerLineIndex + 1
-					: "[Unknown Line]";
-			const errorMsg = `Skipped card starting on line ${cardLine} ("${cardName}"): Missing required sections (Items/Status).`;
-			console.warn(`IssueBoardView Parser: ${errorMsg}`);
-			parsingErrors.push(errorMsg);
-		}
+		});
+	} catch (e) {
+		console.error(
+			"IssueBoardView: Error during Markdown parsing with remark:",
+			e
+		);
+		parsingErrors.push(
+			`Critical Markdown parsing error: ${
+				e instanceof Error ? e.message : String(e)
+			}`
+		);
 	}
 
 	console.log(
-		`IssueBoardView: Parsing finished. Found ${issues.length} valid issues, ${parsingErrors.length} errors.`
+		`IssueBoardView: Remark Parsing finished. Found ${issues.length} valid issues, ${parsingErrors.length} errors.`
 	);
 	return { issues, parsingErrors };
+};
+
+// Helper function to process nodes between H2 headings
+const processCardSiblings = (
+	siblings: Node[],
+	cardData: Partial<Issue>,
+	parsingErrors: string[]
+) => {
+	console.log(
+		`IssueBoardView processCardSiblings: Processing ${siblings.length} siblings for card: ${cardData.name}`
+	); // Log entry
+	// Iterate through siblings to find H3 sections and their subsequent lists
+	for (let i = 0; i < siblings.length; i++) {
+		const node = siblings[i];
+		console.log(
+			`IssueBoardView processCardSiblings: Sibling ${i} Type: ${node.type}`
+		); // Log sibling type
+
+		// Look for Level 3 Headings
+		if (node.type === "heading" && (node as Heading).depth === 3) {
+			const headingNode = node as Heading;
+			const headingText = toString(headingNode).trim();
+			let sectionType: "items" | "status" | "issueNo" | null = null;
+			let targetArray: IssueItem[] | StatusItem[] | null = null;
+
+			// Identify the type of section
+			if (headingText.startsWith("ISSUE No.")) {
+				sectionType = "issueNo";
+				cardData.number = headingText.substring(9).trim();
+			} else if (headingText === "Items") {
+				sectionType = "items";
+				cardData.items = cardData.items || []; // Ensure array exists
+				targetArray = cardData.items;
+			} else if (headingText === "Status") {
+				sectionType = "status";
+				cardData.status = cardData.status || []; // Ensure array exists
+				targetArray = cardData.status;
+			} else {
+				// Ignore other H3 headings
+				continue;
+			}
+
+			// If it's an "Items" or "Status" heading, check the *next* sibling for a list
+			if (
+				(sectionType === "items" || sectionType === "status") &&
+				targetArray
+			) {
+				const nextNodeIndex = i + 1;
+				if (
+					nextNodeIndex < siblings.length &&
+					siblings[nextNodeIndex].type === "list"
+				) {
+					const listNode = siblings[nextNodeIndex] as List;
+					console.log(
+						`IssueBoardView processCardSiblings: Found list for section: ${sectionType}` // Debug log
+					);
+
+					visit(listNode, "listItem", (listItem: ListItem) => {
+						let textContent = ""; // Initialize text content
+
+						if (sectionType === "items") {
+							// For regular items, just use toString on the listItem itself
+							(targetArray as IssueItem[]).push({
+								text: toString(listItem).trim(),
+							});
+						} else if (sectionType === "status") {
+							// *** STRICT CHECK: Only process if it IS a GFM task list item ***
+							if (typeof listItem.checked === "boolean") {
+								// Find the paragraph child within the list item (standard for GFM tasks)
+								const paragraphChild = listItem.children?.find(
+									(child) => child.type === "paragraph"
+								) as Parent | undefined;
+
+								if (paragraphChild) {
+									// Extract text from the paragraph node
+									textContent =
+										toString(paragraphChild).trim();
+								} else {
+									// Fallback if no paragraph found (structure might be unexpected)
+									console.warn(
+										"IssueBoardView processCardSiblings: Status List item did not contain expected paragraph child. Falling back to toString(listItem).",
+										listItem
+									);
+									textContent = toString(listItem).trim();
+								}
+								const isChecked = listItem.checked; // Already know it's boolean here
+								console.log(
+									`IssueBoardView processCardSiblings:  - Adding STATUS item. Raw: "${toString(
+										listItem
+									)}", Checked: ${isChecked}, Final Text: "${textContent}"`
+								); // Updated log
+								(targetArray as StatusItem[]).push({
+									text: textContent,
+									checked: isChecked,
+								});
+							}
+						}
+					});
+
+					// IMPORTANT: Skip the next node (the list) since we've processed it
+					i++;
+				} else {
+					// Log a warning if the expected list is missing
+					const nextNodeType =
+						nextNodeIndex < siblings.length
+							? siblings[nextNodeIndex].type
+							: "end of card";
+					console.warn(
+						`IssueBoardView Parser: Expected list after '${headingText}' heading, but found ${nextNodeType}.`
+					);
+					// Optionally add to parsingErrors if this should invalidate the card section
+					// parsingErrors.push(`Card "${cardData.name}": Expected list after '${headingText}' heading.`);
+				}
+			}
+		}
+		// Ignore other node types (like paragraphs, thematic breaks, etc.) between sections
+	}
 };
 
 // --- Markdown Serializer ---
@@ -334,7 +491,7 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 			if (updatedIssues[0].headerLineIndex > fmEndIndex) {
 				firstIssueStartIndex = updatedIssues[0].headerLineIndex;
 			} else {
-				// Fallback if first issue seems to overlap frontmatter (parser issue?)
+				// Fallback if first issue header index seems invalid relative to frontmatter (parser issue?)
 				console.warn(
 					"IssueBoardView: First issue header index seems invalid relative to frontmatter. Defaulting content start after frontmatter."
 				);
