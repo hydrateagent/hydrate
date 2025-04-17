@@ -7,6 +7,10 @@ export interface ReactViewProps {
 	plugin: ProVibePlugin;
 	filePath: string;
 	markdownContent: string;
-	updateMarkdownContent: (newContent: string) => Promise<void>;
+	updateMarkdownContent: (
+		newContent: string, // Full content (still needed as fallback)
+		lineIndex?: number, // Optional line index for targeted update
+		newLineContent?: string // Optional new content for that specific line
+	) => Promise<void>;
 	switchToMarkdownView: () => void;
 }

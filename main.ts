@@ -22,6 +22,7 @@ import { Root, createRoot } from "react-dom/client"; // Added
 import { ReactViewProps } from "./src/types"; // Added
 import { ReactViewHost } from "./src/ReactViewHost"; // Added
 import PlaceholderView from "./src/components/PlaceholderView"; // ADD THIS IMPORT
+import IssueBoardView from "./src/components/IssueBoardView"; // <<< ADD THIS IMPORT
 
 // Remember to rename these classes and interfaces!
 
@@ -84,7 +85,8 @@ export default class ProVibePlugin extends Plugin {
 		// Register example component (we'll create this later)
 		// Placeholder - create src/components/PlaceholderView.tsx later
 		// import PlaceholderView from './src/components/PlaceholderView'; // Import will be needed
-		// registerReactView('placeholder', PlaceholderView); // Example registration
+		registerReactView("placeholder", PlaceholderView); // Example registration
+		registerReactView("issue-board", IssueBoardView); // <<< ADD THIS REGISTRATION
 
 		// --- Event Listener for File Open ---
 		this.registerEvent(
@@ -102,8 +104,6 @@ export default class ProVibePlugin extends Plugin {
 		this.registerEvent(
 			this.app.workspace.on("layout-change", this.handleLayoutChange)
 		);
-
-		registerReactView("placeholder", PlaceholderView);
 
 		// This creates an icon in the left ribbon to toggle the ProVibe pane
 		const ribbonIconEl = this.addRibbonIcon(

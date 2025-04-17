@@ -30,6 +30,8 @@ export class DiffReviewModal extends Modal {
 	private plugin: ProVibePlugin;
 	private resolvePromise: (result: DiffReviewResult) => void; // Function to resolve the promise when done
 	private hunks: DiffHunk[] = [];
+	// The following is fine, ts is confused.
+	// @ts-ignore
 	private dmp: diff_match_patch;
 	private patches: patch_obj[] = []; // Store the raw patches from dmp
 
