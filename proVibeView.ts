@@ -9,7 +9,6 @@ import {
 	MarkdownRenderer,
 } from "obsidian";
 import ProVibePlugin from "./main"; // Import the plugin class to access settings
-import { diff_match_patch, Diff } from "diff-match-patch"; // Import diff-match-patch
 import { DiffReviewModal, DiffReviewResult } from "./DiffReviewModal"; // Import the new modal
 
 export const PROVIBE_VIEW_TYPE = "provibe-view";
