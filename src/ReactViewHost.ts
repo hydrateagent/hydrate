@@ -270,6 +270,9 @@ export class ReactViewHost extends ItemView {
 			`ReactViewHost: Switching leaf to Markdown view for ${this.currentFilePath}`
 		);
 
+		// Set the flag BEFORE changing the state
+		this.plugin.isSwitchingToMarkdown = true;
+
 		// Preserve scroll state etc. if possible
 		const state = this.getState();
 		delete state.viewKey; // Remove our custom key for markdown view

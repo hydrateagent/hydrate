@@ -67,6 +67,7 @@ export const REACT_HOST_VIEW_TYPE = "provibe-react-host"; // Define type for Rea
 
 export default class ProVibePlugin extends Plugin {
 	settings: ProVibePluginSettings;
+	isSwitchingToMarkdown: boolean = false;
 	private view: ProVibeView | null = null;
 
 	async onload() {
@@ -332,6 +333,16 @@ export default class ProVibePlugin extends Plugin {
 	// --- Layout Change Handler ---
 	handleLayoutChange = () => {
 		console.log("ProVibe: layout-change detected");
+
+		// Check if we are intentionally switching back to markdown
+		if (this.isSwitchingToMarkdown) {
+			console.log(
+				"ProVibe [layout-change]: Intentional switch to markdown detected, skipping auto-switch back."
+			);
+			this.isSwitchingToMarkdown = false; // Reset the flag
+			return;
+		}
+
 		const leaf = this.app.workspace.activeLeaf;
 		if (!leaf) {
 			console.log("ProVibe: No active leaf on layout-change");
