@@ -210,17 +210,13 @@ export class ReactViewHost extends ItemView {
 
 	// --- Callback for React Component to Update Markdown ---
 	// Use arrow function to bind 'this' correctly
-	updateMarkdownContent = async (
-		newContent: string, // Full content, potentially used if line numbers mismatch or for non-line edits
-		lineIndex?: number,
-		newLineContent?: string
-	): Promise<void> => {
+	updateMarkdownContent = async (newContent: string): Promise<boolean> => {
 		if (!this.currentFilePath) {
 			console.error(
 				`ReactViewHost: Cannot update markdown, currentFilePath is null.`
 			);
 			new Notice("Error: Cannot save changes, file context lost.", 5000);
-			return;
+			return false;
 		}
 
 		// Get the file object first
@@ -230,78 +226,26 @@ export class ReactViewHost extends ItemView {
 				`ReactViewHost: File not found during update: ${this.currentFilePath}`
 			);
 			new Notice("Error: File not found, cannot save changes.", 5000);
-			return;
+			return false;
 		}
 
-		// Default to using the provided full newContent
-		let contentToWrite = newContent;
-
-		// If line-specific update is requested, try that first
-		if (
-			lineIndex !== undefined &&
-			lineIndex >= 0 &&
-			newLineContent !== undefined
-		) {
+		// Only write if content actually changed
+		if (newContent === this.currentMarkdownContent) {
 			console.log(
-				`ReactViewHost: Attempting line-specific update for ${this.currentFilePath} at index ${lineIndex}`
+				"ReactViewHost: Skipping markdown update, content unchanged."
 			);
-			try {
-				// Read the CURRENT content from the vault to avoid stale state
-				const currentActualContent = await this.app.vault.read(file);
-				const lines = currentActualContent.split("\n");
-
-				if (lineIndex < lines.length) {
-					// Only proceed if the line content actually needs changing
-					if (lines[lineIndex] !== newLineContent) {
-						lines[lineIndex] = newLineContent;
-						contentToWrite = lines.join("\n");
-						console.log(
-							`ReactViewHost: Line ${lineIndex} updated successfully.`
-						);
-					} else {
-						console.log(
-							`ReactViewHost: Skipping line update for ${this.currentFilePath} at index ${lineIndex}, content identical.`
-						);
-						return; // Don't save if the line hasn't changed
-					}
-				} else {
-					console.warn(
-						`ReactViewHost: Line index ${lineIndex} out of bounds for ${this.currentFilePath}. Falling back to full content update.`
-					);
-					// Fallback to using the full newContent passed from the component
-					contentToWrite = newContent;
-				}
-			} catch (readError) {
-				console.error(
-					`ReactViewHost: Error reading file ${this.currentFilePath} during line-specific update:`,
-					readError
-				);
-				new Notice(
-					"Error reading file before saving line change.",
-					5000
-				);
-				return; // Abort update if we can't read the current state
-			}
-		} else {
-			// If not doing a line-specific update, check if full content has changed
-			if (contentToWrite === this.currentMarkdownContent) {
-				console.log(
-					"ReactViewHost: Skipping markdown update, full content unchanged."
-				);
-				return;
-			}
+			return true;
 		}
 
 		try {
 			console.log(
 				`ReactViewHost: Writing content update to ${this.currentFilePath}`
 			);
-			await this.app.vault.modify(file, contentToWrite);
+			await this.app.vault.modify(file, newContent);
 			// Update internal cache AFTER successful write
-			// Note: If vault.modify triggers our own handleVaultModify,
-			// this cache update might be redundant, but it ensures consistency
-			this.currentMarkdownContent = contentToWrite;
+			this.currentMarkdownContent = newContent;
 			new Notice(`${file.basename} updated.`, 1500); // Brief confirmation
+			return true;
 		} catch (error) {
 			console.error(
 				`ReactViewHost: Error updating markdown file ${this.currentFilePath}:`,
@@ -313,6 +257,7 @@ export class ReactViewHost extends ItemView {
 				}`,
 				5000
 			);
+			return false;
 		}
 	};
 
