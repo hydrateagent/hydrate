@@ -57,13 +57,13 @@
 }
 
 .provibe-clear-button {
-	background-color: var(--text-muted);
+	background-color: var(--interactive-accent);
 	color: var(--text-on-accent);
 	margin-right: auto;
 }
 
 .provibe-clear-button:hover {
-	background-color: var(--text-normal);
+	background-color: var(--interactive-accent-hover);
 }
 
 .provibe-send-button {

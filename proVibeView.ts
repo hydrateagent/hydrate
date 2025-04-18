@@ -176,6 +176,23 @@ export class ProVibeView extends ItemView {
 			"system",
 			"ProVibe Agent ready. Type your prompt or drop files."
 		);
+
+		// --- Auto-attach active file on open --- //
+		const activeFile = this.app.workspace.getActiveFile();
+		if (activeFile instanceof TFile) {
+			// Check if it's a real file
+			const activeFilePath = activeFile.path;
+			// Check if it's not already attached (e.g., from a previous session state if implemented)
+			if (!this.attachedFiles.includes(activeFilePath)) {
+				console.log(
+					`ProVibe: Auto-attaching active file on open: ${activeFilePath}`
+				);
+				this.attachedFiles.push(activeFilePath);
+			}
+		}
+		// Render pills after potentially adding the active file
+		this.renderFilePills();
+		// --- End Auto-attach on open ---
 	}
 
 	// --- UI Update Methods ---
@@ -227,10 +244,13 @@ export class ProVibeView extends ItemView {
 			sendButton.textContent = loading ? "Sending..." : "Send";
 		}
 		this.textInput.disabled = loading;
-		this.stopButton.textContent = loading ? "Stop" : "Stop"; // Text might not need changing
-		// Show stop button only when loading, hide otherwise
-		this.stopButton.style.display = loading ? "inline-block" : "none";
-		this.stopButton.disabled = !loading; // Disable if not loading (redundant with display: none but safer)
+		// Add null check for stopButton
+		if (this.stopButton) {
+			this.stopButton.textContent = loading ? "Stop" : "Stop"; // Text might not need changing
+			// Show stop button only when loading, hide otherwise
+			this.stopButton.style.display = loading ? "inline-block" : "none";
+			this.stopButton.disabled = !loading; // Disable if not loading (redundant with display: none but safer)
+		}
 	}
 
 	// --- Event Handlers ---
@@ -513,6 +533,7 @@ export class ProVibeView extends ItemView {
 		if (this.isLoading) return;
 
 		const messageContent = this.getTextContent().trim();
+
 		const attachedFilesContent = this.attachedFiles
 			.map((path) => `[File: ${path}]`)
 			.join("\n");
