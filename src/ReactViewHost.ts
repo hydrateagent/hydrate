@@ -231,16 +231,10 @@ export class ReactViewHost extends ItemView {
 
 		// Only write if content actually changed
 		if (newContent === this.currentMarkdownContent) {
-			console.log(
-				"ReactViewHost: Skipping markdown update, content unchanged."
-			);
 			return true;
 		}
 
 		try {
-			console.log(
-				`ReactViewHost: Writing content update to ${this.currentFilePath}`
-			);
 			await this.app.vault.modify(file, newContent);
 			// Update internal cache AFTER successful write
 			this.currentMarkdownContent = newContent;
@@ -270,9 +264,6 @@ export class ReactViewHost extends ItemView {
 			);
 			return;
 		}
-		console.log(
-			`ReactViewHost: Switching leaf to Markdown view for ${this.currentFilePath}`
-		);
 
 		// Set the flag BEFORE changing the state
 		this.plugin.isSwitchingToMarkdown = true;
@@ -292,22 +283,13 @@ export class ReactViewHost extends ItemView {
 	private handleVaultModify = async (file: TAbstractFile): Promise<void> => {
 		// Check if the modified file is the one currently displayed
 		if (file instanceof TFile && file.path === this.currentFilePath) {
-			console.log(
-				`ReactViewHost: Detected external modification for ${this.currentFilePath}`
-			);
 			try {
 				const newContent = await this.app.vault.read(file);
 				// Check if content actually changed before remounting
 				if (newContent !== this.currentMarkdownContent) {
-					console.log(
-						`ReactViewHost: Content changed externally, remounting component for ${this.currentFilePath}`
-					);
 					this.currentMarkdownContent = newContent; // Update cache *before* remount
 					await this.mountReactComponent(); // Re-render with new content
 				} else {
-					console.log(
-						`ReactViewHost: External modification detected but content is identical for ${this.currentFilePath}, skipping remount.`
-					);
 				}
 			} catch (error) {
 				console.error(

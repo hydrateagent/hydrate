@@ -71,24 +71,13 @@ const parseIssueMarkdown = (
 		];
 
 		nodesToProcess.forEach((node, nodeIndex) => {
-			console.log(
-				`IssueBoardView Parser Loop: Node ${nodeIndex} Type: ${node.type}`
-			); // Log node type
-
 			// Trigger processing for the previous card if we hit an H2 OR the dummy end node
 			if (
 				(node.type === "heading" && (node as Heading).depth === 2) ||
 				node.type === "thematicBreak"
 			) {
-				console.log(
-					`IssueBoardView Parser Loop: Found H2 Heading or Dummy End Node`
-				);
-
 				// --- Process the PREVIOUS card based on collected siblings ---
 				if (currentCardData) {
-					console.log(
-						`IssueBoardView Parser Loop: Processing previous card: ${currentCardData.name}`
-					);
 					// Make sure siblings were collected before processing
 					if (siblingsBetweenH2.length > 0) {
 						processCardSiblings(
@@ -97,19 +86,9 @@ const parseIssueMarkdown = (
 							parsingErrors
 						);
 					} else {
-						console.log(
-							"IssueBoardView Parser Loop: No siblings found for previous card."
-						);
 					}
 
 					// Log state before validation
-					console.log(
-						`IssueBoardView Parser Loop: Pre-validation state for ${
-							currentCardData.name
-						}: items=${JSON.stringify(
-							currentCardData.items
-						)}, status=${JSON.stringify(currentCardData.status)}`
-					);
 
 					// Final validation before pushing - RELAXED CHECK
 					// Check if the sections were *found* (arrays initialized), not necessarily non-empty
@@ -117,10 +96,6 @@ const parseIssueMarkdown = (
 						currentCardData.items !== undefined &&
 						currentCardData.status !== undefined
 					) {
-						console.log(
-							"IssueBoardView Parser: Pushing valid card (sections found):",
-							currentCardData.name
-						);
 						issues.push(currentCardData as Issue);
 					} else {
 						const cardName =
@@ -148,11 +123,6 @@ const parseIssueMarkdown = (
 					// Check if it's actually the H2
 					siblingsBetweenH2 = []; // Reset siblings for the new card
 					const headingNode = node as Heading;
-					console.log(
-						`IssueBoardView Parser: Found new card H2: ${toString(
-							headingNode
-						).trim()}`
-					);
 					currentCardData = {
 						id: `card-${
 							headingNode.position?.start?.line ?? Math.random()
@@ -189,9 +159,6 @@ const parseIssueMarkdown = (
 		);
 	}
 
-	console.log(
-		`IssueBoardView: Remark Parsing finished. Found ${issues.length} valid issues, ${parsingErrors.length} errors.`
-	);
 	return { issues, parsingErrors };
 };
 
@@ -201,15 +168,9 @@ const processCardSiblings = (
 	cardData: Partial<Issue>,
 	parsingErrors: string[]
 ) => {
-	console.log(
-		`IssueBoardView processCardSiblings: Processing ${siblings.length} siblings for card: ${cardData.name}`
-	); // Log entry
 	// Iterate through siblings to find H3 sections and their subsequent lists
 	for (let i = 0; i < siblings.length; i++) {
 		const node = siblings[i];
-		console.log(
-			`IssueBoardView processCardSiblings: Sibling ${i} Type: ${node.type}`
-		); // Log sibling type
 
 		// Look for Level 3 Headings
 		if (node.type === "heading" && (node as Heading).depth === 3) {
@@ -246,9 +207,6 @@ const processCardSiblings = (
 					siblings[nextNodeIndex].type === "list"
 				) {
 					const listNode = siblings[nextNodeIndex] as List;
-					console.log(
-						`IssueBoardView processCardSiblings: Found list for section: ${sectionType}` // Debug log
-					);
 
 					visit(listNode, "listItem", (listItem: ListItem) => {
 						let textContent = ""; // Initialize text content
@@ -279,11 +237,6 @@ const processCardSiblings = (
 									textContent = toString(listItem).trim();
 								}
 								const isChecked = listItem.checked; // Already know it's boolean here
-								console.log(
-									`IssueBoardView processCardSiblings:  - Adding STATUS item. Raw: "${toString(
-										listItem
-									)}", Checked: ${isChecked}, Final Text: "${textContent}"`
-								); // Updated log
 								(targetArray as StatusItem[]).push({
 									text: textContent,
 									checked: isChecked,
@@ -374,9 +327,6 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 
 	// --- Effect for Parsing ---
 	useEffect(() => {
-		console.log(
-			"IssueBoardView: useEffect[markdownContent] - Parsing markdown..."
-		);
 		setError(null);
 		setParsingErrors([]);
 		try {
@@ -417,9 +367,6 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 			const { issueId, itemIndex } = newItemFocusRef.current;
 			const inputElement = inputRefs.current[issueId]?.[itemIndex];
 			if (inputElement) {
-				console.log(
-					`IssueBoardView: useEffect[issues] - Focusing new item input for issue ${issueId}, item ${itemIndex}`
-				);
 				inputElement.focus();
 				if (inputElement.value === "item") {
 					inputElement.select();
@@ -441,9 +388,6 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 				const inputElement =
 					inputRefs.current[targetIssue.id]?.[editingItem.itemIndex];
 				if (inputElement) {
-					console.log(
-						`IssueBoardView: useEffect[editingItem] - Focusing existing item input for issue ${targetIssue.id}, item ${editingItem.itemIndex}`
-					);
 					inputElement.focus();
 				} else {
 					console.warn(
