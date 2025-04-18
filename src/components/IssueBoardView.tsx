@@ -129,12 +129,35 @@ const parseIssueMarkdown = (
 						}`,
 						name: toString(headingNode).trim(),
 						number: null,
-						items: [], // Initialize directly
-						status: [], // Initialize directly
+						items: [],
+						status: [],
 						headerLineIndex: headingNode.position?.start?.line
 							? headingNode.position.start.line - 1
 							: -1,
 					};
+
+					// ---> NEW: Check next sibling for issue number list
+					const nextNode = contentNodes[nodeIndex + 1]; // Look ahead in the original content nodes
+					if (
+						nextNode &&
+						nextNode.type === "list" &&
+						(nextNode as List).children.length > 0
+					) {
+						const firstNumberListItem = (nextNode as List)
+							.children[0] as ListItem;
+						if (firstNumberListItem) {
+							const issueNumberText =
+								toString(firstNumberListItem).trim();
+							// Basic check if it looks like an ID (optional)
+							if (issueNumberText) {
+								currentCardData.number = issueNumberText;
+								// Mark this list node as processed so it's not collected as a sibling
+								// (Requires adjusting sibling collection logic slightly)
+								// OR, easier: just remove it from siblings later in processCardSiblings
+							}
+						}
+					}
+					// <--- END NEW
 				} else {
 					// If it was the dummy node, ensure we stop processing by clearing currentCardData
 					currentCardData = null;
@@ -168,22 +191,38 @@ const processCardSiblings = (
 	cardData: Partial<Issue>,
 	parsingErrors: string[]
 ) => {
+	// ---> NEW: Filter out the first list if it was the issue number list
+	let processableSiblings = siblings;
+	if (
+		cardData.number && // If we found a number earlier
+		siblings.length > 0 &&
+		siblings[0].type === "list"
+	) {
+		// Check if the first item of this list matches the stored number
+		const firstList = siblings[0] as List;
+		if (firstList.children.length > 0) {
+			const firstItemText = toString(firstList.children[0]).trim();
+			if (firstItemText === cardData.number) {
+				processableSiblings = siblings.slice(1); // Skip the first list node
+			}
+		}
+	}
+	// <--- END NEW
+
 	// Iterate through siblings to find H3 sections and their subsequent lists
-	for (let i = 0; i < siblings.length; i++) {
-		const node = siblings[i];
+	// Use processableSiblings instead of siblings from now on
+	for (let i = 0; i < processableSiblings.length; i++) {
+		const node = processableSiblings[i];
 
 		// Look for Level 3 Headings
 		if (node.type === "heading" && (node as Heading).depth === 3) {
 			const headingNode = node as Heading;
 			const headingText = toString(headingNode).trim();
-			let sectionType: "items" | "status" | "issueNo" | null = null;
+			let sectionType: "items" | "status" | null = null; // Removed 'issueNo'
 			let targetArray: IssueItem[] | StatusItem[] | null = null;
 
 			// Identify the type of section
-			if (headingText.startsWith("ISSUE No.")) {
-				sectionType = "issueNo";
-				cardData.number = headingText.substring(9).trim();
-			} else if (headingText === "Items") {
+			if (headingText === "Items") {
 				sectionType = "items";
 				cardData.items = cardData.items || []; // Ensure array exists
 				targetArray = cardData.items;
@@ -203,10 +242,10 @@ const processCardSiblings = (
 			) {
 				const nextNodeIndex = i + 1;
 				if (
-					nextNodeIndex < siblings.length &&
-					siblings[nextNodeIndex].type === "list"
+					nextNodeIndex < processableSiblings.length &&
+					processableSiblings[nextNodeIndex].type === "list"
 				) {
-					const listNode = siblings[nextNodeIndex] as List;
+					const listNode = processableSiblings[nextNodeIndex] as List;
 
 					visit(listNode, "listItem", (listItem: ListItem) => {
 						let textContent = ""; // Initialize text content
@@ -250,8 +289,8 @@ const processCardSiblings = (
 				} else {
 					// Log a warning if the expected list is missing
 					const nextNodeType =
-						nextNodeIndex < siblings.length
-							? siblings[nextNodeIndex].type
+						nextNodeIndex < processableSiblings.length
+							? processableSiblings[nextNodeIndex].type
 							: "end of card";
 					console.warn(
 						`IssueBoardView Parser: Expected list after '${headingText}' heading, but found ${nextNodeType}.`
@@ -273,7 +312,7 @@ const serializeIssuesToMarkdown = (issues: Issue[]): string => {
 	issues.forEach((issue, index) => {
 		lines.push(`## ${issue.name}`); // Always regenerate header
 		if (issue.number) {
-			lines.push(`### ISSUE No. ${issue.number}`); // Always regenerate
+			lines.push(`- ${issue.number}`);
 		}
 		if (issue.items.length > 0) {
 			lines.push("### Items"); // Always regenerate
@@ -670,11 +709,13 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 				return (
 					<div key={issue.id} style={styles.card}>
 						<h2 style={styles.cardHeader}>{issue.name}</h2>
+						{/* ---> NEW: Display issue number simply if it exists */}
 						{issue.number && (
-							<div style={styles.issueNumber}>
-								ISSUE No. {issue.number}
+							<div style={styles.issueNumberDisplay}>
+								{issue.number}
 							</div>
 						)}
+						{/* <--- END NEW */}
 						<div style={styles.columns}>
 							{/* Left Column - Items */}
 							<div style={styles.column}>
@@ -819,6 +860,12 @@ const styles: { [key: string]: React.CSSProperties } = {
 		fontSize: "0.9em",
 		color: "var(--text-muted)",
 		marginBottom: "15px",
+	},
+	issueNumberDisplay: {
+		fontSize: "0.9em",
+		color: "var(--text-muted)",
+		marginBottom: "15px",
+		paddingLeft: "5px",
 	},
 	columns: {
 		display: "flex",
