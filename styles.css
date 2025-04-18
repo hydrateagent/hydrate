@@ -12,6 +12,12 @@
 	margin-bottom: 15px;
 }
 
+/* Ensure all message content is selectable */
+.provibe-message {
+	user-select: text !important;
+	-webkit-user-select: text !important; /* For Safari */
+}
+
 /* Textarea styling */
 .provibe-textarea {
 	width: 100%;
@@ -36,6 +42,7 @@
 	justify-content: flex-end;
 	gap: 10px;
 	margin-bottom: 10px;
+	align-items: center;
 }
 
 /* Button styling */
@@ -46,11 +53,13 @@
 	cursor: pointer;
 	font-size: 14px;
 	transition: background-color 0.2s ease;
+	display: inline-block;
 }
 
 .provibe-clear-button {
 	background-color: var(--text-muted);
 	color: var(--text-on-accent);
+	margin-right: auto;
 }
 
 .provibe-clear-button:hover {
@@ -64,6 +73,23 @@
 
 .provibe-send-button:hover {
 	background-color: var(--interactive-accent-hover);
+}
+
+/* Style for the Stop button */
+.provibe-stop-button {
+	background-color: var(--background-modifier-error);
+	color: var(--text-on-accent);
+}
+
+.provibe-stop-button:hover {
+	background-color: var(--background-modifier-error-hover);
+}
+
+/* Style for disabled stop button (while stopping) */
+.provibe-stop-button:disabled {
+	background-color: var(--text-muted);
+	cursor: not-allowed;
+	opacity: 0.7;
 }
 
 /* Icon in the left ribbon */

@@ -55,6 +55,7 @@ export class ProVibeView extends ItemView {
 	private attachedFiles: string[] = []; // Store paths of attached files
 	private isLoading: boolean = false; // Flag to prevent multiple submissions
 	private conversationId: string | null = null; // Add state for conversation ID
+	private stopButton: HTMLButtonElement | null = null; // Added reference for stop button
 
 	constructor(leaf: WorkspaceLeaf, plugin: ProVibePlugin) {
 		super(leaf);
@@ -118,10 +119,20 @@ export class ProVibeView extends ItemView {
 			cls: "provibe-button provibe-send-button",
 		});
 
+		// Add the Stop button (initially hidden or disabled)
+		this.stopButton = buttonContainer.createEl("button", {
+			text: "Stop",
+			cls: "provibe-button provibe-stop-button",
+		});
+		this.stopButton.style.display = "none"; // Start hidden
+
 		// Add event listeners for buttons
 		clearButton.addEventListener("click", this.handleClear);
 
 		sendButton.addEventListener("click", this.handleSend);
+
+		// Add event listener for the Stop button
+		this.stopButton.addEventListener("click", this.handleStop);
 
 		// Allow sending with Enter key (Shift+Enter for newline)
 		this.textInput.addEventListener("keydown", (event) => {
@@ -199,7 +210,7 @@ export class ProVibeView extends ItemView {
 			}
 		} else {
 			// Use basic text for user and system messages
-			messageEl.setText(content);
+			messageEl.createSpan({ text: content });
 		}
 
 		// Scroll to the bottom
@@ -216,6 +227,10 @@ export class ProVibeView extends ItemView {
 			sendButton.textContent = loading ? "Sending..." : "Send";
 		}
 		this.textInput.disabled = loading;
+		this.stopButton.textContent = loading ? "Stop" : "Stop"; // Text might not need changing
+		// Show stop button only when loading, hide otherwise
+		this.stopButton.style.display = loading ? "inline-block" : "none";
+		this.stopButton.disabled = !loading; // Disable if not loading (redundant with display: none but safer)
 	}
 
 	// --- Event Handlers ---
@@ -547,6 +562,54 @@ export class ProVibeView extends ItemView {
 		} finally {
 			// setLoadingState(false) handled by callBackend
 			this.textInput.focus();
+		}
+	};
+
+	// --- Add handler for the Stop button ---
+	private handleStop = async () => {
+		if (!this.isLoading || !this.conversationId || !this.stopButton) return;
+
+		console.log(
+			`ProVibe: Stop requested for conversation ${this.conversationId}`
+		);
+		this.stopButton.textContent = "Stopping..."; // Indicate stopping action
+		this.stopButton.disabled = true; // Prevent multiple clicks while stopping
+
+		const backendUrl = this.plugin.settings.backendUrl;
+		if (!backendUrl) {
+			new Notice("Backend URL is not configured.");
+			this.stopButton.textContent = "Stop"; // Reset button on error
+			this.stopButton.disabled = false;
+			return;
+		}
+
+		const stopUrl = `${backendUrl}/stop/${this.conversationId}`;
+
+		try {
+			await requestUrl({
+				url: stopUrl,
+				method: "POST",
+				// No body needed for stop request
+			});
+			new Notice("Stop signal sent.");
+			// Don't immediately set isLoading to false here.
+			// The agent response (from the original /chat or /tool_result call)
+			// will eventually return, potentially with a "stopped" message.
+			// The setLoadingState(false) will happen in the finally block of callBackend
+			// or when the stopped message is received.
+
+			// Optionally, add a visual cue that stop was sent but generation might still finish
+			// this.addMessageToChat("system", "Stop request sent. Waiting for current step to finish...");
+			// Keep the button disabled until loading is fully false
+		} catch (error: any) {
+			console.error("Error sending stop signal:", error);
+			new Notice(`Failed to send stop signal: ${error.message}`);
+			// Re-enable the stop button if the stop request itself failed
+			if (this.isLoading && this.stopButton) {
+				// Only re-enable if still in loading state
+				this.stopButton.textContent = "Stop";
+				this.stopButton.disabled = false;
+			}
 		}
 	};
 
