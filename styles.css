@@ -274,6 +274,9 @@
   .min-h-\[1\.3em\] {
     min-height: 1.3em;
   }
+  .\!w-full {
+    width: 100% !important;
+  }
   .w-4 {
     width: calc(var(--spacing) * 4);
   }
@@ -333,6 +336,9 @@
   }
   .items-end {
     align-items: flex-end;
+  }
+  .justify-end {
+    justify-content: flex-end;
   }
   .gap-1 {
     gap: calc(var(--spacing) * 1);
@@ -487,6 +493,12 @@
   }
   .pl-1 {
     padding-left: calc(var(--spacing) * 1);
+  }
+  .\!font-mono {
+    font-family: var(--font-mono) !important;
+  }
+  .font-mono {
+    font-family: var(--font-mono);
   }
   .font-sans {
     font-family: var(--font-sans);

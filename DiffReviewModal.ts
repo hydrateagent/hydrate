@@ -63,6 +63,11 @@ export class DiffReviewModal extends Modal {
 
 		this.modalEl.addClass("provibe-diff-modal"); // Add class to the modal container itself for sizing
 
+		// --- Set Modal Width via JS --- //
+		this.modalEl.style.width = "90vw";
+		this.modalEl.style.maxWidth = "1400px";
+		// --- End Set Modal Width --- //
+
 		contentEl.createEl("h2", {
 			text: `Review Proposed Changes for ${this.filePath}`,
 		});
@@ -72,7 +77,7 @@ export class DiffReviewModal extends Modal {
 
 		// --- Diff Hunk Rendering ---
 		const diffContainer = contentEl.createDiv({
-			cls: "diff-hunks-container",
+			cls: "diff-hunks-container !w-full",
 		});
 
 		// Generate and Render Hunks
@@ -81,7 +86,7 @@ export class DiffReviewModal extends Modal {
 
 		// --- Action Buttons ---
 		const buttonContainer = contentEl.createDiv({
-			cls: "diff-modal-buttons",
+			cls: "diff-modal-buttons flex justify-end gap-2",
 		});
 
 		new ButtonComponent(buttonContainer)
@@ -189,9 +194,8 @@ export class DiffReviewModal extends Modal {
 			});
 
 			const linesContainer = hunkContainer.createDiv({
-				cls: "diff-hunk-lines",
+				cls: "diff-hunk-lines !font-mono",
 			});
-			linesContainer.style.fontFamily = "monospace";
 
 			hunk.lines.forEach((line) => {
 				const lineEl = linesContainer.createDiv({
