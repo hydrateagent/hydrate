@@ -197,14 +197,8 @@
   }
 }
 @layer utilities {
-  .visible {
-    visibility: visible;
-  }
   .absolute {
     position: absolute;
-  }
-  .fixed {
-    position: fixed;
   }
   .relative {
     position: relative;
@@ -355,9 +349,6 @@
   }
   .flex-grow-\[3\] {
     flex-grow: 3;
-  }
-  .grow {
-    flex-grow: 1;
   }
   .animate-pulse {
     animation: var(--animate-pulse);

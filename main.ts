@@ -435,19 +435,27 @@ export default class ProVibePlugin extends Plugin {
 
 			if (ReactComponent && viewKey) {
 				// It should be a React view, but it's currently Markdown.
-				console.log(
-					`ProVibe [layout-change]: Active view is Markdown for ${file.path}, but should be React (${viewKey}). Switching...`
-				);
-				try {
-					await leaf.setViewState({
-						type: REACT_HOST_VIEW_TYPE,
-						state: { filePath: file.path, viewKey: viewKey },
-						active: true,
-					});
-				} catch (error) {
-					console.error(
-						"ProVibe [layout-change]: Error switching Markdown to React:",
-						error
+
+				// *** ADDED CHECK: Only switch if NOT in source mode ***
+				if (currentView.getMode() !== "source") {
+					console.log(
+						`ProVibe [layout-change]: Active view is Markdown (non-source mode) for ${file.path}, but should be React (${viewKey}). Switching...`
+					);
+					try {
+						await leaf.setViewState({
+							type: REACT_HOST_VIEW_TYPE,
+							state: { filePath: file.path, viewKey: viewKey },
+							active: true,
+						});
+					} catch (error) {
+						console.error(
+							"ProVibe [layout-change]: Error switching Markdown to React:",
+							error
+						);
+					}
+				} else {
+					console.log(
+						`ProVibe [layout-change]: Active view is Markdown for ${file.path} (IN SOURCE MODE). File should be React, but respecting source mode. NO SWITCH.`
 					);
 				}
 			} else {
