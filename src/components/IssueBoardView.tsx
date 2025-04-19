@@ -337,7 +337,7 @@ const serializeIssuesToMarkdown = (issues: Issue[]): string => {
 	return lines.join("\n");
 };
 
-const MAX_VISIBLE_ITEMS = 3; // Threshold for collapsing items
+const MAX_VISIBLE_ITEMS = 3;
 
 const IssueBoardView: React.FC<ReactViewProps> = ({
 	filePath,
@@ -622,19 +622,16 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 	// --- Render Logic ---
 	if (error) {
 		return (
-			<div style={styles.container}>
-				<h2>Error Loading Issue Board</h2>
-				<p style={styles.errorText}>{error}</p>
+			<div className="p-4 h-full overflow-y-auto">
+				<h2 className="text-lg font-semibold mb-2">
+					Error Loading Issue Board
+				</h2>
+				<p className="text-red-600 whitespace-pre-wrap">{error}</p>
 				<p>File: {filePath}</p>
 				{parsingErrors.length > 0 && (
 					<div>
 						<h4>Parsing Issues:</h4>
-						<ul
-							style={{
-								fontSize: "0.9em",
-								color: "var(--text-muted)",
-							}}
-						>
+						<ul className="text-sm text-[var(--text-muted)]">
 							{parsingErrors.map((err, i) => (
 								<li key={i}>{err}</li>
 							))}
@@ -646,9 +643,8 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 	}
 
 	if (!issues) {
-		// Check for null issues state (initial load)
 		return (
-			<div style={styles.container}>
+			<div className="p-4 h-full overflow-y-auto">
 				<p>Loading issue data...</p>
 			</div>
 		);
@@ -659,10 +655,11 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 		parsingErrors.length === 0 &&
 		markdownContent.trim().length > 0
 	) {
-		// File has content, but nothing parsed as a valid issue
 		return (
-			<div style={styles.container}>
-				<h2>No Issue Cards Found</h2>
+			<div className="p-4 h-full overflow-y-auto">
+				<h2 className="text-lg font-semibold mb-2">
+					No Issue Cards Found
+				</h2>
 				<p>Could not parse any issue cards from the file content.</p>
 				<p>
 					Ensure each card starts with a Level 2 Markdown header
@@ -674,17 +671,14 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 	}
 
 	return (
-		<div style={styles.container}>
-			{/* Display any parsing errors at the top */}
+		<div className="p-3 h-full overflow-y-auto font-sans">
+			{/* Parsing Error Box (unchanged) */}
 			{parsingErrors.length > 0 && (
-				<div style={styles.parsingErrorBox}>
-					<h4>Note Parsing Issues Found:</h4>
-					<ul
-						style={{
-							fontSize: "0.9em",
-							color: "var(--text-muted)",
-						}}
-					>
+				<div className="border border-[var(--background-modifier-error-border)] bg-[var(--background-modifier-error)] text-[var(--text-error)] p-3 rounded-md mb-4">
+					<h4 className="font-semibold">
+						Note Parsing Issues Found:
+					</h4>
+					<ul className="text-sm text-[var(--text-muted)] list-disc list-inside">
 						{parsingErrors.map((err, i) => (
 							<li key={i}>{err}</li>
 						))}
@@ -701,26 +695,37 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 						? issue.items.slice(0, MAX_VISIBLE_ITEMS)
 						: issue.items;
 
-				// Ensure inputRefs has an entry for this issue
 				if (!inputRefs.current[issue.id]) {
 					inputRefs.current[issue.id] = {};
 				}
 
 				return (
-					<div key={issue.id} style={styles.card}>
-						<h2 style={styles.cardHeader}>{issue.name}</h2>
-						{/* ---> NEW: Display issue number simply if it exists */}
+					// --- Card Styling ---
+					// Adjust padding (p-3), margin-bottom (mb-2)
+					<div
+						key={issue.id}
+						className="border border-[var(--background-modifier-border)] rounded-lg p-3 bg-[var(--background-secondary)] mb-2 shadow-sm"
+					>
+						{/* Card Title - Force margin reset and line-height */}
+						<h2 className="!m-0 text-xl font-semibold leading-snug">
+							{issue.name}
+						</h2>
+						{/* Issue Number - Adjust margin-bottom */}
 						{issue.number && (
-							<div style={styles.issueNumberDisplay}>
+							<div className="text-sm text-[var(--text-muted)] mb-1">
 								{issue.number}
 							</div>
 						)}
-						{/* <--- END NEW */}
-						<div style={styles.columns}>
-							{/* Left Column - Items */}
-							<div style={styles.column}>
-								<h3 style={styles.columnHeader}>Items</h3>
-								<ul style={styles.list}>
+						{/* Columns Container - Adjust gap and padding-top */}
+						<div className="flex flex-row gap-5 pt-0">
+							{/* Left Column - Items - Make it grow even more (3/4) */}
+							<div className="flex-grow-[3] min-w-0">
+								{/* Column Header - Reset margin, apply specific bottom margin and line-height */}
+								<h3 className="text-sm font-semibold !m-0 !mb-0.5 text-[var(--text-accent)] leading-snug">
+									Items
+								</h3>
+								{/* Items List - Adjust space-y */}
+								<ul className="list-none pl-0 m-0 space-y-0 text-sm">
 									{visibleItems.map((item, itemIndex) => {
 										const isEditing =
 											editingItem?.cardIndex ===
@@ -729,9 +734,10 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 												itemIndex;
 
 										return (
+											// Adjust padding, min-height
 											<li
-												key={`${issue.id}-item-${itemIndex}`} // Use composite key
-												style={styles.listItem}
+												key={`${issue.id}-item-${itemIndex}`}
+												className="cursor-pointer px-1 py-0 rounded-sm min-h-[1.3em] hover:bg-[var(--background-modifier-hover)]"
 												onClick={() =>
 													!isEditing &&
 													handleItemClick(
@@ -741,9 +747,9 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 												}
 											>
 												{isEditing ? (
+													// Adjust input padding/styles if needed
 													<input
 														ref={(el) => {
-															// Assign input element ref using issue.id and itemIndex
 															if (
 																inputRefs
 																	.current[
@@ -772,44 +778,39 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 															handleItemKeyDown
 														}
 														autoFocus
-														style={styles.itemInput}
+														className="w-full px-1 py-0 m-0 text-sm border border-[var(--background-modifier-border)] rounded-sm bg-[var(--background-primary)] text-[var(--text-normal)] focus:outline-none focus:border-[var(--interactive-accent)]"
 													/>
 												) : (
-													item.text || (
-														<span
-															style={{
-																color: "var(--text-faint)",
-															}}
-														>
-															&nbsp;
-														</span>
-													)
+													item.text
 												)}
 											</li>
 										);
 									})}
 								</ul>
-								{/* Expansion Toggle */}
+								{/* Expansion Toggle - Adjust margin/padding */}
 								{needsExpansion && (
 									<div
 										onClick={() => toggleExpand(issue.id)}
-										style={styles.expandToggle}
+										className="text-[var(--text-muted)] cursor-pointer pt-0.5 pl-1 mt-1 text-xs select-none hover:text-[var(--text-normal)]"
 									>
 										{isCardExpanded ? "▼" : "▶"}
 									</div>
 								)}
 							</div>
 
-							{/* Right Column - Status */}
-							<div style={styles.column}>
-								<h3 style={styles.columnHeader}>Status</h3>
-								<ul style={styles.list}>
+							{/* Right Column - Status - Keep its growth (1/4) */}
+							<div className="flex-grow min-w-0">
+								{/* Column Header - Reset margin, apply specific bottom margin and line-height */}
+								<h3 className="text-sm font-semibold !m-0 !mb-0.5 text-[var(--text-accent)] leading-snug">
+									Status
+								</h3>
+								{/* Status List - Adjust space-y */}
+								<ul className="list-none pl-0 m-0 space-y-0.5 text-sm">
 									{issue.status.map((item, statusIndex) => (
 										<li
 											key={`${issue.id}-status-${statusIndex}`}
-											style={styles.statusItem}
 										>
-											<label style={styles.checkboxLabel}>
+											<label className="flex items-center cursor-pointer">
 												<input
 													type="checkbox"
 													checked={item.checked}
@@ -820,9 +821,12 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 															e.target.checked
 														)
 													}
-													style={styles.checkbox}
+													// Adjust checkbox margin, size (h-3.5 w-3.5?)
+													className="mr-1.5 cursor-pointer h-4 w-4 rounded border-gray-300 text-[var(--interactive-accent)] focus:ring-[var(--interactive-accent)] focus:ring-offset-0 focus:ring-1"
 												/>
-												{item.text}
+												<span className="select-none">
+													{item.text}
+												</span>
 											</label>
 										</li>
 									))}
@@ -834,106 +838,6 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 			})}
 		</div>
 	);
-};
-
-// Basic inline styles (consider moving to styles.css)
-const styles: { [key: string]: React.CSSProperties } = {
-	container: {
-		padding: "15px",
-		height: "100%",
-		overflowY: "auto", // Allow scrolling if content overflows
-	},
-	card: {
-		border: "1px solid var(--background-modifier-border)",
-		borderRadius: "8px",
-		padding: "20px",
-		backgroundColor: "var(--background-secondary)",
-		marginBottom: "15px", // Add space if multiple cards were supported
-	},
-	cardHeader: {
-		marginTop: "0",
-		marginBottom: "5px",
-		borderBottom: "1px solid var(--background-modifier-border)",
-		paddingBottom: "10px",
-	},
-	issueNumber: {
-		fontSize: "0.9em",
-		color: "var(--text-muted)",
-		marginBottom: "15px",
-	},
-	issueNumberDisplay: {
-		fontSize: "0.9em",
-		color: "var(--text-muted)",
-		marginBottom: "15px",
-		paddingLeft: "5px",
-	},
-	columns: {
-		display: "flex",
-		flexDirection: "row",
-		gap: "20px",
-	},
-	column: {
-		flex: 1, // Each column takes equal space
-		minWidth: 0, // Prevent overflow issues with flex items
-	},
-	columnHeader: {
-		fontSize: "1.1em",
-		marginTop: "0",
-		marginBottom: "10px",
-		color: "var(--text-accent)",
-	},
-	list: {
-		listStyle: "none",
-		paddingLeft: "5px",
-		margin: 0,
-	},
-	listItem: {
-		marginBottom: "5px",
-		cursor: "pointer",
-		padding: "2px 4px",
-		borderRadius: "3px",
-	},
-	itemInput: {
-		width: "100%", // Take full width of list item
-		padding: "2px 4px",
-		margin: 0,
-		border: "1px solid var(--background-modifier-border)",
-		borderRadius: "3px",
-		backgroundColor: "var(--background-primary)",
-		color: "var(--text-normal)",
-	},
-	statusItem: {
-		marginBottom: "8px",
-	},
-	checkboxLabel: {
-		display: "flex",
-		alignItems: "center",
-		cursor: "pointer",
-	},
-	checkbox: {
-		marginRight: "8px",
-		cursor: "pointer",
-	},
-	errorText: {
-		color: "var(--text-error)",
-		whiteSpace: "pre-wrap", // Preserve formatting in error messages
-	},
-	expandToggle: {
-		color: "var(--text-muted)",
-		cursor: "pointer",
-		padding: "4px 0px 0px 5px", // Adjust padding (more top padding?)
-		marginTop: "4px", // Space between list and toggle
-		fontSize: "0.9em",
-		userSelect: "none",
-	},
-	parsingErrorBox: {
-		border: "1px solid var(--background-modifier-error-border)",
-		backgroundColor: "var(--background-modifier-error)",
-		color: "var(--text-error)",
-		padding: "10px 15px",
-		borderRadius: "5px",
-		marginBottom: "15px",
-	},
 };
 
 export default IssueBoardView;

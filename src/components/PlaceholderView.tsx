@@ -36,35 +36,43 @@ const PlaceholderView: React.FC<ReactViewProps> = ({
 	console.log("PlaceholderView: Rendering component for", filePath);
 
 	return (
-		<div style={{ padding: "10px", fontFamily: "sans-serif" }}>
-			<h2>ProVibe Placeholder View</h2>
-			<p>
+		<div className="p-4 font-sans">
+			<h2 className="text-xl font-semibold mb-3">
+				ProVibe Placeholder View
+			</h2>
+			<p className="mb-2">
 				<strong>File Path:</strong> {filePath}
 			</p>
-			<p>
+			<p className="mb-2">
 				<strong>Content Length:</strong> {markdownContent.length}{" "}
 				characters
 			</p>
-			<p>
-				<em>
-					(This is a basic React component replacing the standard
-					Markdown view)
-				</em>
+			<p className="text-sm italic mb-4">
+				(This is a basic React component replacing the standard Markdown
+				view)
 			</p>
 
-			<hr style={{ margin: "15px 0" }} />
+			<hr className="my-4 border-[var(--background-modifier-border)]" />
 
-			<h3>Edit Content:</h3>
+			<h3 className="text-lg font-semibold mb-2">Edit Content:</h3>
 			<textarea
 				value={internalContent}
 				onChange={handleTextAreaChange}
 				rows={10}
-				style={{ width: "100%", marginBottom: "10px" }}
+				className="w-full mb-4 p-2 border border-[var(--background-modifier-border)] rounded bg-[var(--background-primary)] text-[var(--text-normal)] focus:border-[var(--interactive-accent)] focus:outline-none"
 			/>
 
-			<div style={{ display: "flex", gap: "10px" }}>
-				<button onClick={handleSave}>Save Changes to File</button>
-				<button onClick={handleSwitchView}>
+			<div className="flex gap-3">
+				<button
+					onClick={handleSave}
+					className="px-3 py-1.5 bg-[var(--interactive-accent)] text-[var(--text-on-accent)] rounded hover:bg-[var(--interactive-accent-hover)] transition-colors duration-150"
+				>
+					Save Changes to File
+				</button>
+				<button
+					onClick={handleSwitchView}
+					className="px-3 py-1.5 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors duration-150"
+				>
 					Switch to Markdown View
 				</button>
 			</div>

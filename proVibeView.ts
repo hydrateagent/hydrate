@@ -73,76 +73,127 @@ export class ProVibeView extends ItemView {
 	async onOpen(): Promise<void> {
 		const container = this.containerEl.children[1];
 		container.empty();
-		container.addClass("provibe-view-container");
+		// Apply flex layout and full height to the main container
+		container.addClasses([
+			"provibe-view-container",
+			"p-3", // Add overall padding
+			"flex",
+			"flex-col",
+			"h-full",
+		]);
 
-		// Chat history container
+		// Chat history container - Make it grow and scroll
 		this.chatContainer = container.createEl("div", {
-			cls: "provibe-chat-container",
+			cls: "provibe-chat-container flex-grow overflow-y-auto p-2 space-y-3", // Added flex-grow, overflow, padding, spacing
 		});
 
-		// Input area container (will hold pills and textarea+buttons)
+		// Input area container
 		const inputAreaContainer = container.createEl("div", {
-			cls: "provibe-input-area-container",
+			// Added padding-top and top border
+			cls: "provibe-input-area-container pt-3 border-t border-[var(--background-modifier-border)]",
 		});
 
-		// File pills container (above the text area)
+		// File pills container - Add flex styles for pills
 		this.filePillsContainer = inputAreaContainer.createEl("div", {
-			cls: "provibe-file-pills-container",
+			cls: "provibe-file-pills-container flex flex-wrap gap-1 pb-2", // Added flex, wrap, gap, padding-bottom
 		});
 
-		// Text input and buttons area
+		// Text input and buttons area - Use flex
 		const inputControlsArea = inputAreaContainer.createEl("div", {
-			cls: "provibe-input-controls-area",
+			cls: "provibe-input-controls-area flex items-end gap-2", // Added flex, align-items, gap
 		});
 
-		// Create textarea for text input
+		// Create textarea for text input - Style it
 		this.textInput = inputControlsArea.createEl("textarea", {
-			cls: "provibe-textarea",
+			// REMOVED min-h-[60px], added rows=3 initially
+			cls: "provibe-textarea flex-grow p-2 border border-[var(--background-modifier-border)] rounded-md bg-[var(--background-primary)] text-[var(--text-normal)] focus:border-[var(--interactive-accent)] focus:outline-none resize-none",
 			attr: {
 				placeholder: "Enter your prompt or drop files here...",
-				rows: "4",
+				rows: "3", // Start with 3 rows
 			},
 		});
 
-		// Add buttons below the text input
+		// --- Add Auto-Resizing Logic --- //
+		const adjustTextareaHeight = () => {
+			const minRows = 3;
+			const maxRows = 10;
+			// Temporarily reset height to auto calculate scrollHeight based on content
+			// This is more reliable than line counting for variable width fonts/wrapping
+			this.textInput.style.height = "auto";
+			const scrollHeight = this.textInput.scrollHeight;
+
+			// Calculate approximate line height (could be cached)
+			const tempArea = document.createElement("textarea");
+			tempArea.style.cssText = this.textInput.style.cssText;
+			tempArea.style.position = "absolute";
+			tempArea.style.visibility = "hidden";
+			tempArea.style.height = "auto";
+			tempArea.rows = 1;
+			document.body.appendChild(tempArea);
+			const lineHeight = tempArea.scrollHeight;
+			document.body.removeChild(tempArea);
+
+			// Calculate heights based on rows
+			const minHeight = lineHeight * minRows;
+			const maxHeight = lineHeight * maxRows;
+
+			// Clamp the height based on scrollHeight and min/max limits
+			const targetHeight = Math.max(
+				minHeight,
+				Math.min(maxHeight, scrollHeight)
+			);
+
+			this.textInput.style.height = `${targetHeight}px`;
+			// Optional: Show scrollbar only when at max height and content overflows
+			this.textInput.style.overflowY =
+				scrollHeight > maxHeight ? "auto" : "hidden";
+		};
+
+		this.textInput.addEventListener("input", adjustTextareaHeight);
+		adjustTextareaHeight(); // Call once initially
+		// --- End Auto-Resizing Logic --- //
+
+		// Add buttons container - Make it not shrink
 		const buttonContainer = inputControlsArea.createEl("div", {
-			cls: "provibe-button-container",
+			cls: "provibe-button-container flex flex-col gap-1 flex-shrink-0", // Added flex-col, gap, flex-shrink-0
 		});
 
+		// Style Clear Button
 		const clearButton = buttonContainer.createEl("button", {
 			text: "Clear",
-			cls: "provibe-button provibe-clear-button",
+			// Added padding, rounded, bg, text, hover, transition
+			cls: "provibe-button provibe-clear-button px-3 py-1.5 rounded-md bg-[var(--background-modifier-border)] text-[var(--text-muted)] hover:bg-[var(--background-modifier-hover)] transition-colors duration-150",
 		});
 
+		// Style Send Button
 		const sendButton = buttonContainer.createEl("button", {
 			text: "Send",
-			cls: "provibe-button provibe-send-button",
+			// Added padding, rounded, bg, text, hover, transition
+			cls: "provibe-button provibe-send-button px-3 py-1.5 rounded-md bg-[var(--interactive-accent)] text-[var(--text-on-accent)] hover:bg-[var(--interactive-accent-hover)] transition-colors duration-150",
 		});
 
-		// Add the Stop button (initially hidden or disabled)
+		// Style Stop Button (initially hidden)
 		this.stopButton = buttonContainer.createEl("button", {
 			text: "Stop",
-			cls: "provibe-button provibe-stop-button",
+			// Added padding, rounded, bg, text, hover, transition
+			cls: "provibe-button provibe-stop-button px-3 py-1.5 rounded-md bg-red-700 text-white hover:bg-red-600 transition-colors duration-150",
 		});
-		this.stopButton.style.display = "none"; // Start hidden
+		this.stopButton.style.display = "none"; // Keep hidden initially
 
-		// Add event listeners for buttons
+		// Add event listeners for buttons (no changes needed here)
 		clearButton.addEventListener("click", this.handleClear);
-
 		sendButton.addEventListener("click", this.handleSend);
-
-		// Add event listener for the Stop button
 		this.stopButton.addEventListener("click", this.handleStop);
 
-		// Allow sending with Enter key (Shift+Enter for newline)
+		// Allow sending with Enter key (no changes needed here)
 		this.textInput.addEventListener("keydown", (event) => {
 			if (event.key === "Enter" && !event.shiftKey) {
-				event.preventDefault(); // Prevent default newline insertion
+				event.preventDefault();
 				this.handleSend();
 			}
 		});
 
-		// --- Add Drag and Drop Listeners to the *input area container* ---
+		// Drag and Drop Listeners (no changes needed here)
 		this.registerDomEvent(
 			inputAreaContainer,
 			"dragover",
@@ -172,65 +223,116 @@ export class ProVibeView extends ItemView {
 
 		this.registerDomEvent(inputAreaContainer, "drop", this.handleDrop);
 
+		// Add initial system message (styling will be handled by addMessageToChat)
 		this.addMessageToChat(
 			"system",
 			"ProVibe Agent ready. Type your prompt or drop files."
 		);
 
 		// --- Auto-attach active file on open --- //
+		console.log("ProVibe [onOpen]: Attempting to auto-attach file."); // Added log
+		console.log("ProVibe [onOpen]: Current attachedFiles:", [
+			...this.attachedFiles,
+		]); // Added log (copy array)
 		const activeFile = this.app.workspace.getActiveFile();
+
 		if (activeFile instanceof TFile) {
-			// Check if it's a real file
+			console.log(
+				`ProVibe [onOpen]: Found active TFile: ${activeFile.path}`
+			); // Added log
 			const activeFilePath = activeFile.path;
-			// Check if it's not already attached (e.g., from a previous session state if implemented)
 			if (!this.attachedFiles.includes(activeFilePath)) {
-				console.log(
-					`ProVibe: Auto-attaching active file on open: ${activeFilePath}`
-				);
+				console.log(`ProVibe [onOpen]: Attaching ${activeFilePath}...`); // Added log
 				this.attachedFiles.push(activeFilePath);
+				console.log("ProVibe [onOpen]: attachedFiles after push:", [
+					...this.attachedFiles,
+				]); // Added log (copy array)
+			} else {
+				console.log(
+					`ProVibe [onOpen]: File ${activeFilePath} already attached.`
+				); // Added log
 			}
+		} else {
+			console.log(
+				"ProVibe [onOpen]: No active TFile found or not a TFile.",
+				activeFile
+			); // Added log
 		}
 		// Render pills after potentially adding the active file
+		console.log("ProVibe [onOpen]: Calling renderFilePills()."); // Added log
 		this.renderFilePills();
 		// --- End Auto-attach on open ---
 	}
 
 	// --- UI Update Methods ---
 
+	// Update addMessageToChat to add styling classes
 	private addMessageToChat(
 		role: "user" | "agent" | "system",
-		content: string | HTMLElement, // Allow HTML content for diffs
+		content: string | HTMLElement,
 		isError: boolean = false
 	) {
-		const messageEl = this.chatContainer.createDiv({
-			cls: `provibe-message provibe-${role}-message`,
-		});
-		if (isError) {
-			messageEl.addClass("provibe-error-message");
+		const messageClasses = [
+			"provibe-message",
+			`provibe-${role}-message`,
+			"p-2",
+			"rounded-md",
+			"max-w-[90%]",
+			"mb-2",
+			"select-text",
+		];
+
+		// Role-specific alignment and background
+		if (role === "user") {
+			messageClasses.push(
+				"ml-auto",
+				"bg-[var(--interactive-accent)]",
+				"text-[var(--text-on-accent)]"
+			); // Align right, accent background
+		} else if (role === "agent") {
+			messageClasses.push("mr-auto", "bg-[var(--background-secondary)]"); // Align left, secondary background
+		} else {
+			// system
+			messageClasses.push(
+				"mx-auto",
+				"text-xs",
+				"text-[var(--text-muted)]",
+				"italic"
+			); // Center, small, muted, italic
 		}
 
+		if (isError) {
+			messageClasses.push(
+				"provibe-error-message",
+				"bg-[var(--background-modifier-error)]",
+				"text-[var(--text-error)]"
+			);
+		}
+
+		const messageEl = this.chatContainer.createDiv({
+			cls: messageClasses.join(" "), // Join classes with space
+		});
+
+		// Keep existing rendering logic
 		if (content instanceof HTMLElement) {
-			messageEl.appendChild(content); // Append HTML content directly
+			messageEl.appendChild(content);
 		} else if (role === "agent" && content) {
-			// Use MarkdownRenderer for agent messages
 			try {
 				MarkdownRenderer.render(
-					this.plugin.app, // Pass the App instance
+					this.plugin.app,
 					content,
 					messageEl,
-					"", // sourcePath can be empty or a relevant file path
-					this.plugin // Component context for cleanup
+					"",
+					this.plugin
 				);
 			} catch (renderError) {
 				console.error("Markdown rendering error:", renderError);
-				messageEl.setText(`(Error rendering message) ${content}`); // Fallback to text
+				messageEl.setText(`(Error rendering message) ${content}`);
 			}
 		} else {
-			// Use basic text for user and system messages
 			messageEl.createSpan({ text: content });
 		}
 
-		// Scroll to the bottom
 		this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
 	}
 
@@ -507,15 +609,25 @@ export class ProVibeView extends ItemView {
 		this.attachedFiles.forEach((filePath) => {
 			console.log(`ProVibe: Creating pill for ${filePath}`);
 			const pill = this.filePillsContainer.createDiv({
-				cls: "provibe-file-pill",
+				// Force padding with !important - REVERTED padding change
+				cls: "provibe-file-pill flex items-center !px-1.5 !py-0 bg-[var(--background-modifier-border)] rounded-md text-xs text-[var(--text-muted)]",
 			});
 			const fileName = filePath.split("/").pop() || filePath;
-			pill.createSpan({ text: fileName, cls: "provibe-pill-text" });
+			pill.createSpan({
+				text: fileName,
+				cls: "provibe-pill-text leading-none", // Keep leading-none on text
+			});
 
 			const removeBtn = pill.createEl("button", {
 				text: "✕",
-				cls: "provibe-pill-remove",
+				// Force reset with !important, add !appearance-none, REMOVED leading-none
+				cls: "provibe-pill-remove ml-1 !p-0 !border-none !bg-transparent !appearance-none text-[var(--text-muted)] hover:text-[var(--text-normal)] cursor-pointer text-xs",
 			});
+			// Force height override via inline style - KEEPING this
+			removeBtn.style.height = "auto";
+			removeBtn.style.minHeight = "unset";
+			// Remove box shadow
+			removeBtn.style.boxShadow = "none";
 			removeBtn.addEventListener("click", () =>
 				this.removeFilePill(filePath)
 			);
