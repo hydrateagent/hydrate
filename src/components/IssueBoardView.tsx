@@ -1068,7 +1068,7 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 												</div>
 
 												{/* Right Column - Status */}
-												<div className="flex-grow min-w-0">
+												<div className="flex-grow min-w-40">
 													<h3 className="text-sm font-semibold !m-0 !mb-0.5 text-[var(--text-accent)] leading-snug">
 														Status
 													</h3>

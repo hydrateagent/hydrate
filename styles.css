@@ -335,6 +335,18 @@
   .min-w-0 {
     min-width: calc(var(--spacing) * 0);
   }
+  .min-w-2 {
+    min-width: calc(var(--spacing) * 2);
+  }
+  .min-w-20 {
+    min-width: calc(var(--spacing) * 20);
+  }
+  .min-w-40 {
+    min-width: calc(var(--spacing) * 40);
+  }
+  .min-w-200 {
+    min-width: calc(var(--spacing) * 200);
+  }
   .flex-shrink {
     flex-shrink: 1;
   }
