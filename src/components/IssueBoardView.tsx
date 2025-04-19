@@ -28,13 +28,21 @@ interface Issue {
 	number: string | null;
 	items: IssueItem[];
 	status: StatusItem[];
-	headerLineIndex: number;
-	// Store original line text to preserve formatting/comments during serialization - REMOVED
-	// rawLines: { [key: string]: string };
+	headerLineIndex: number; // Line index of the H2 heading
+	// rawLines: { [key: string]: string }; // Removed
 }
 
-// --- Editing State Interface (no changes needed) ---
+// NEW: Group Interface
+interface Group {
+	id: string; // Unique ID for React key
+	name: string; // From H1 heading text, or "Uncategorized"
+	issues: Issue[]; // Cards belonging to this group
+	headerLineIndex: number; // Line index of the H1 heading (-1 for default group)
+}
+
+// --- Editing State Interface (needs groupIndex) ---
 interface EditingItemState {
+	groupIndex: number; // NEW
 	cardIndex: number;
 	itemIndex: number;
 	tempValue: string;
@@ -43,101 +51,169 @@ interface EditingItemState {
 // --- Robust Parser using remark, remark-frontmatter, and remark-gfm ---
 const parseIssueMarkdown = (
 	markdownContent: string
-): { issues: Issue[]; parsingErrors: string[] } => {
-	const issues: Issue[] = [];
+): { groups: Group[]; parsingErrors: string[] } => {
+	// Return groups instead of issues
+	const groups: Group[] = [];
 	const parsingErrors: string[] = [];
+	let currentGroup: Group | null = null; // Track current H1 group
+	let defaultGroupCreated = false; // Flag if default group was made
+
 	try {
-		// Add remarkGfm to the pipeline
 		const tree = unified()
 			.use(remarkParse)
-			.use(remarkFrontmatter, ["yaml"]) // Specify YAML variant
-			.use(remarkGfm) // Add GFM plugin
+			.use(remarkFrontmatter, ["yaml"])
+			.use(remarkGfm)
 			.parse(markdownContent) as Root;
 
 		let currentCardData: Partial<Issue> | null = null;
-		let siblingsBetweenH2: Node[] = []; // Store nodes between H2 headings
+		let siblingsBetweenHeadings: Node[] = []; // Store nodes between H1/H2
 
-		// Process children, skipping the frontmatter node
 		const contentNodes =
 			tree.children?.filter((node) => node.type !== "yaml") || [];
 
-		// Add a dummy end node to process the last card
 		const nodesToProcess = [
 			...contentNodes,
 			{
-				type: "thematicBreak",
+				type: "thematicBreak", // Use thematic break as dummy end node
 				position: { start: { line: Infinity } },
 			} as Node,
 		];
 
 		nodesToProcess.forEach((node, nodeIndex) => {
-			// Trigger processing for the previous card if we hit an H2 OR the dummy end node
-			if (
-				(node.type === "heading" && (node as Heading).depth === 2) ||
-				node.type === "thematicBreak"
-			) {
-				// --- Process the PREVIOUS card based on collected siblings ---
+			const isH1 =
+				node.type === "heading" && (node as Heading).depth === 1;
+			const isH2 =
+				node.type === "heading" && (node as Heading).depth === 2;
+			const isDummyEnd = node.type === "thematicBreak"; // Check for dummy explicitly
+
+			// --- Trigger processing for the PREVIOUS card if we hit H1, H2, or dummy end ---
+			if (isH1 || isH2 || isDummyEnd) {
 				if (currentCardData) {
-					// Make sure siblings were collected before processing
-					if (siblingsBetweenH2.length > 0) {
+					// Process siblings collected for the card
+					if (siblingsBetweenHeadings.length > 0) {
 						processCardSiblings(
-							siblingsBetweenH2,
+							siblingsBetweenHeadings,
 							currentCardData,
 							parsingErrors
 						);
-					} else {
 					}
 
-					// Log state before validation
-
-					// Final validation before pushing - RELAXED CHECK
-					// Check if the sections were *found* (arrays initialized), not necessarily non-empty
+					// Validate and push the completed card to the correct group
 					if (
 						currentCardData.items !== undefined &&
-						currentCardData.status !== undefined
+						currentCardData.status !== undefined &&
+						currentCardData.name // Ensure name exists
 					) {
-						issues.push(currentCardData as Issue);
+						// Ensure currentGroup exists (create default if needed)
+						if (!currentGroup) {
+							if (!defaultGroupCreated) {
+								currentGroup = {
+									id: `group-default-${Date.now()}`,
+									name: "Uncategorized", // Default name
+									issues: [],
+									headerLineIndex: -1, // Indicate no H1
+								};
+								groups.push(currentGroup);
+								defaultGroupCreated = true; // Mark as created
+							} else {
+								// Find the existing default group if it was already added
+								currentGroup =
+									groups.find(
+										(g) => g.headerLineIndex === -1
+									) || null;
+								if (!currentGroup) {
+									// This case should be rare, indicates a logic issue
+									console.error(
+										"IssueBoardView Parser: Could not find existing default group!"
+									);
+									parsingErrors.push(
+										"Internal error: Could not assign card to default group."
+									);
+									currentCardData = null; // Skip this card
+									siblingsBetweenHeadings = [];
+									return; // Move to next node
+								}
+							}
+						}
+						currentGroup.issues.push(currentCardData as Issue);
 					} else {
+						// Handle incomplete card data (same logic as before)
 						const cardName =
 							currentCardData.name || "[Unknown Name]";
 						const cardLine =
 							currentCardData.headerLineIndex !== undefined
 								? currentCardData.headerLineIndex + 1
 								: "[Unknown Line]";
-						// Refine error message based on what's missing
 						let missing = [];
 						if (currentCardData.items === undefined)
-							missing.push("### Items section"); // Check for undefined specifically
+							missing.push("### Items");
 						if (currentCardData.status === undefined)
-							missing.push("### Status section"); // Check for undefined specifically
-						const errorMsg = `Skipped card starting on line ${cardLine} ("${cardName}"): Missing required sections (${missing.join(
+							missing.push("### Status");
+						if (!currentCardData.name) missing.push("H2 Name");
+
+						const errorMsg = `Skipped card starting near line ${cardLine} ("${cardName}"): Missing required sections (${missing.join(
 							" & "
-						)}). Ensure '### Items' and '### Status' headings exist.`;
+						)}). Ensure H2 name, '### Items', and '### Status' exist.`;
 						console.warn(`IssueBoardView Parser: ${errorMsg}`);
 						parsingErrors.push(errorMsg);
 					}
+					// Reset card data and siblings after processing
+					currentCardData = null;
+					siblingsBetweenHeadings = [];
+				}
+			}
+
+			// --- Handle New Group (H1) ---
+			if (isH1) {
+				const headingNode = node as Heading;
+				const groupName = toString(headingNode).trim();
+				const groupLine = headingNode.position?.start?.line
+					? headingNode.position.start.line - 1
+					: -1;
+				currentGroup = {
+					id: `group-${groupLine}-${Date.now()}`, // Include line for uniqueness
+					name: groupName,
+					issues: [],
+					headerLineIndex: groupLine,
+				};
+				groups.push(currentGroup);
+				defaultGroupCreated = groups.some(
+					(g) => g.headerLineIndex === -1
+				); // Update flag if default exists
+				currentCardData = null; // Reset card data when starting a new group
+				siblingsBetweenHeadings = []; // Reset siblings
+			}
+			// --- Handle New Card (H2) ---
+			else if (isH2) {
+				// currentCardData should have been processed and reset by the block above
+				if (currentCardData) {
+					console.warn(
+						"IssueBoardView Parser: Starting new H2 while previous card data was still present. Potential loss of siblings."
+					);
+					// Optionally process the lingering card here if needed, though it might indicate a logic flaw.
 				}
 
-				// --- Start NEW card (Only if it was an H2, not the dummy node) ---
-				if (node.type === "heading") {
-					// Check if it's actually the H2
-					siblingsBetweenH2 = []; // Reset siblings for the new card
-					const headingNode = node as Heading;
-					currentCardData = {
-						id: `card-${
-							headingNode.position?.start?.line ?? Math.random()
-						}`,
-						name: toString(headingNode).trim(),
-						number: null,
-						items: [],
-						status: [],
-						headerLineIndex: headingNode.position?.start?.line
-							? headingNode.position.start.line - 1
-							: -1,
-					};
+				const headingNode = node as Heading;
+				const cardName = toString(headingNode).trim();
+				const cardLine = headingNode.position?.start?.line
+					? headingNode.position.start.line - 1
+					: -1;
 
-					// ---> NEW: Check next sibling for issue number list
-					const nextNode = contentNodes[nodeIndex + 1]; // Look ahead in the original content nodes
+				currentCardData = {
+					id: `card-${cardLine}-${Date.now()}`,
+					name: cardName,
+					number: null, // Will be populated by sibling check
+					items: [], // Initialize as empty
+					status: [], // Initialize as empty
+					headerLineIndex: cardLine,
+				};
+				siblingsBetweenHeadings = []; // Reset siblings for the new card
+
+				// Check next sibling for issue number list (like before)
+				const nextNodeIndex =
+					contentNodes.findIndex((n) => n === node) + 1; // Find index in ORIGINAL nodes
+				if (nextNodeIndex > 0 && nextNodeIndex < contentNodes.length) {
+					const nextNode = contentNodes[nextNodeIndex];
 					if (
 						nextNode &&
 						nextNode.type === "list" &&
@@ -148,26 +224,26 @@ const parseIssueMarkdown = (
 						if (firstNumberListItem) {
 							const issueNumberText =
 								toString(firstNumberListItem).trim();
-							// Basic check if it looks like an ID (optional)
 							if (issueNumberText) {
 								currentCardData.number = issueNumberText;
-								// Mark this list node as processed so it's not collected as a sibling
-								// (Requires adjusting sibling collection logic slightly)
-								// OR, easier: just remove it from siblings later in processCardSiblings
+								// We'll filter this list node out in processCardSiblings
 							}
 						}
 					}
-					// <--- END NEW
-				} else {
-					// If it was the dummy node, ensure we stop processing by clearing currentCardData
-					currentCardData = null;
 				}
-			} else if (currentCardData) {
-				// Collect siblings ONLY if we are inside a card
-				// Do not collect the dummy node itself
-				if (node.type !== "thematicBreak") {
-					siblingsBetweenH2.push(node);
-				}
+			}
+			// --- Collect Siblings ---
+			// Collect nodes only if we are between headings (or after last heading before dummy end)
+			// Avoid collecting the dummy node itself.
+			else if (!isDummyEnd && (currentCardData || currentGroup)) {
+				// Only collect if inside a group or card context
+				siblingsBetweenHeadings.push(node);
+			}
+			// --- Handle Dummy End ---
+			else if (isDummyEnd) {
+				// Processing of the last card/group happens via the check at the top
+				currentGroup = null; // Ensure we stop processing
+				currentCardData = null;
 			}
 		});
 	} catch (e) {
@@ -182,23 +258,28 @@ const parseIssueMarkdown = (
 		);
 	}
 
-	return { issues, parsingErrors };
+	// Final cleanup: Remove empty groups if any were created but had no valid issues
+	const finalGroups = groups.filter(
+		(g) => g.issues.length > 0 || g.name !== "Uncategorized"
+	); // Keep named H1 groups even if empty? Maybe filter later.
+
+	return { groups: finalGroups, parsingErrors };
 };
 
-// Helper function to process nodes between H2 headings
+// Helper function to process nodes between H2 headings (logic largely unchanged)
+// This processes the siblings *for a specific card*
 const processCardSiblings = (
 	siblings: Node[],
 	cardData: Partial<Issue>,
 	parsingErrors: string[]
 ) => {
-	// ---> NEW: Filter out the first list if it was the issue number list
+	// ---> Filter out the first list if it was the issue number list
 	let processableSiblings = siblings;
 	if (
 		cardData.number && // If we found a number earlier
 		siblings.length > 0 &&
 		siblings[0].type === "list"
 	) {
-		// Check if the first item of this list matches the stored number
 		const firstList = siblings[0] as List;
 		if (firstList.children.length > 0) {
 			const firstItemText = toString(firstList.children[0]).trim();
@@ -209,19 +290,16 @@ const processCardSiblings = (
 	}
 	// <--- END NEW
 
-	// Iterate through siblings to find H3 sections and their subsequent lists
-	// Use processableSiblings instead of siblings from now on
+	// Iterate through processableSiblings to find H3 sections and their subsequent lists
 	for (let i = 0; i < processableSiblings.length; i++) {
 		const node = processableSiblings[i];
 
-		// Look for Level 3 Headings
 		if (node.type === "heading" && (node as Heading).depth === 3) {
 			const headingNode = node as Heading;
 			const headingText = toString(headingNode).trim();
-			let sectionType: "items" | "status" | null = null; // Removed 'issueNo'
+			let sectionType: "items" | "status" | null = null;
 			let targetArray: IssueItem[] | StatusItem[] | null = null;
 
-			// Identify the type of section
 			if (headingText === "Items") {
 				sectionType = "items";
 				cardData.items = cardData.items || []; // Ensure array exists
@@ -231,11 +309,9 @@ const processCardSiblings = (
 				cardData.status = cardData.status || []; // Ensure array exists
 				targetArray = cardData.status;
 			} else {
-				// Ignore other H3 headings
-				continue;
+				continue; // Ignore other H3s
 			}
 
-			// If it's an "Items" or "Status" heading, check the *next* sibling for a list
 			if (
 				(sectionType === "items" || sectionType === "status") &&
 				targetArray
@@ -248,92 +324,117 @@ const processCardSiblings = (
 					const listNode = processableSiblings[nextNodeIndex] as List;
 
 					visit(listNode, "listItem", (listItem: ListItem) => {
-						let textContent = ""; // Initialize text content
+						// GFM Task List Item Check (for status)
+						const isTaskList =
+							typeof listItem.checked === "boolean";
 
 						if (sectionType === "items") {
-							// For regular items, just use toString on the listItem itself
 							(targetArray as IssueItem[]).push({
 								text: toString(listItem).trim(),
 							});
-						} else if (sectionType === "status") {
-							// *** STRICT CHECK: Only process if it IS a GFM task list item ***
-							if (typeof listItem.checked === "boolean") {
-								// Find the paragraph child within the list item (standard for GFM tasks)
-								const paragraphChild = listItem.children?.find(
-									(child) => child.type === "paragraph"
-								) as Parent | undefined;
+						} else if (sectionType === "status" && isTaskList) {
+							const paragraphChild = listItem.children?.find(
+								(child) => child.type === "paragraph"
+							) as Parent | undefined;
+							const textContent = paragraphChild
+								? toString(paragraphChild).trim()
+								: toString(listItem).trim(); // Fallback
 
-								if (paragraphChild) {
-									// Extract text from the paragraph node
-									textContent =
-										toString(paragraphChild).trim();
-								} else {
-									// Fallback if no paragraph found (structure might be unexpected)
-									console.warn(
-										"IssueBoardView processCardSiblings: Status List item did not contain expected paragraph child. Falling back to toString(listItem).",
-										listItem
-									);
-									textContent = toString(listItem).trim();
-								}
-								const isChecked = listItem.checked; // Already know it's boolean here
-								(targetArray as StatusItem[]).push({
-									text: textContent,
-									checked: isChecked,
-								});
-							}
+							(targetArray as StatusItem[]).push({
+								text: textContent,
+								checked: listItem.checked ?? false, // Use the checked value
+							});
+						} else if (sectionType === "status" && !isTaskList) {
+							// Warn if a non-task item is under ### Status
+							parsingErrors.push(
+								`Card "${
+									cardData.name || "Unknown"
+								}": Non-task list item found under '### Status' section near line ${
+									listItem.position?.start?.line || "?"
+								}. It will be ignored.`
+							);
+							console.warn(
+								`IssueBoardView Parser: Non-task list item under ### Status`,
+								listItem
+							);
 						}
 					});
-
-					// IMPORTANT: Skip the next node (the list) since we've processed it
-					i++;
+					i++; // Skip the list node
 				} else {
-					// Log a warning if the expected list is missing
+					const cardName = cardData.name || "[Unknown Name]";
 					const nextNodeType =
 						nextNodeIndex < processableSiblings.length
 							? processableSiblings[nextNodeIndex].type
 							: "end of card";
-					console.warn(
-						`IssueBoardView Parser: Expected list after '${headingText}' heading, but found ${nextNodeType}.`
+					parsingErrors.push(
+						`Card "${cardName}": Expected list after '${headingText}' heading, but found ${nextNodeType}. Section ignored.`
 					);
-					// Optionally add to parsingErrors if this should invalidate the card section
-					// parsingErrors.push(`Card "${cardData.name}": Expected list after '${headingText}' heading.`);
+					console.warn(
+						`IssueBoardView Parser: Expected list after '${headingText}' heading for card "${cardName}", but found ${nextNodeType}.`
+					);
 				}
 			}
 		}
-		// Ignore other node types (like paragraphs, thematic breaks, etc.) between sections
 	}
 };
 
 // --- Markdown Serializer ---
-const serializeIssuesToMarkdown = (issues: Issue[]): string => {
+const serializeIssuesToMarkdown = (groups: Group[]): string => {
+	// Accept groups
 	let lines: string[] = [];
-	// Regenerates markdown purely from the structured data model.
 
-	issues.forEach((issue, index) => {
-		lines.push(`## ${issue.name}`); // Always regenerate header
-		if (issue.number) {
-			lines.push(`- ${issue.number}`);
+	groups.forEach((group, groupIndex) => {
+		// Add H1 only if it's not the default "Uncategorized" group *or* if it's the only group
+		if (group.headerLineIndex !== -1 || groups.length === 1) {
+			// Don't add H1 for default group if there are other named groups
+			if (!(group.headerLineIndex === -1 && groups.length > 1)) {
+				lines.push(`# ${group.name}`);
+				lines.push(""); // Add space after H1
+			}
 		}
-		if (issue.items.length > 0) {
-			lines.push("### Items"); // Always regenerate
-			issue.items.forEach((item) => {
-				lines.push(`- ${item.text}`); // Regenerate from data
-			});
-		}
-		if (issue.status.length > 0) {
-			lines.push("### Status"); // Always regenerate
-			issue.status.forEach((item) => {
-				const check = item.checked ? "x" : " ";
-				lines.push(`- [${check}] ${item.text}`); // Regenerate from data
-			});
-		}
-		if (index < issues.length - 1) {
-			lines.push(""); // Add spacing between issues
+
+		group.issues.forEach((issue, issueIndex) => {
+			lines.push(`## ${issue.name}`);
+			if (issue.number) {
+				lines.push(`- ${issue.number}`);
+			}
+			if (issue.items.length > 0) {
+				lines.push("### Items");
+				issue.items.forEach((item) => {
+					lines.push(`- ${item.text}`);
+				});
+			} else {
+				// Optionally add placeholder if needed for consistency?
+				// lines.push("### Items");
+				// lines.push("- (No items)");
+			}
+			if (issue.status.length > 0) {
+				lines.push("### Status");
+				issue.status.forEach((item) => {
+					const check = item.checked ? "x" : " ";
+					lines.push(`- [${check}] ${item.text}`);
+				});
+			} else {
+				// Optionally add placeholder if needed for consistency?
+				// lines.push("### Status");
+				// lines.push("- [ ] (No status items)");
+			}
+			// Add spacing between issues within a group
+			if (issueIndex < group.issues.length - 1) {
+				lines.push("");
+			}
+		});
+
+		// Add spacing between groups
+		if (groupIndex < groups.length - 1) {
+			lines.push("");
+			// Optionally add a separator like ---
+			// lines.push("---");
+			// lines.push("");
 		}
 	});
 
-	// Note: Still needs integration with frontmatter/pre-issue content preservation
-	// which happens in the handleUpdate function.
+	// Needs integration with frontmatter/pre-issue content preservation (in handleUpdate)
 	return lines.join("\n");
 };
 
@@ -345,22 +446,29 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 	updateMarkdownContent,
 	// app, plugin, switchToMarkdownView // available if needed
 }) => {
-	// State holds the array of successfully parsed issues
-	const [issues, setIssues] = useState<Issue[]>([]);
+	// State holds the array of successfully parsed groups
+	const [groups, setGroups] = useState<Group[]>([]); // <<<< CHANGED STATE
 	const [parsingErrors, setParsingErrors] = useState<string[]>([]);
 	const [error, setError] = useState<string | null>(null); // For general errors
 	const [editingItem, setEditingItem] = useState<EditingItemState | null>(
 		null
 	);
-	const [isExpanded, setIsExpanded] = useState<{
+	// State for expanding individual cards (Issues)
+	const [isCardExpanded, setIsCardExpanded] = useState<{
 		[issueId: string]: boolean;
 	}>({});
+	// NEW: State for expanding groups (H1 sections)
+	const [isGroupExpanded, setIsGroupExpanded] = useState<{
+		[groupId: string]: boolean;
+	}>({});
 	const isInitialParseDone = useRef(false);
+	// Adjust refs to handle group structure? For now, keep issueId as key.
 	const inputRefs = useRef<{
 		[issueId: string]: { [itemIndex: number]: HTMLInputElement | null };
 	}>({});
+	// Adjust focus ref to include group info? Using issueId might still work if IDs are unique.
 	const newItemFocusRef = useRef<{
-		issueId: string;
+		issueId: string; // Keep using issue ID for simplicity if unique
 		itemIndex: number;
 	} | null>(null);
 
@@ -369,20 +477,35 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 		setError(null);
 		setParsingErrors([]);
 		try {
-			const { issues: parsedIssues, parsingErrors: pErrors } =
+			// <<<< PARSER CALL CHANGED >>>>
+			const { groups: parsedGroups, parsingErrors: pErrors } =
 				parseIssueMarkdown(markdownContent);
-			setIssues(parsedIssues);
+			setGroups(parsedGroups); // <<<< SET GROUPS >>>>
 			setParsingErrors(pErrors);
 
-			// Initialize expansion state
-			if (parsedIssues.length > 0 && !isInitialParseDone.current) {
-				const initialExpansionState: { [issueId: string]: boolean } =
-					{};
-				parsedIssues.forEach((issue) => {
-					initialExpansionState[issue.id] = false; // Default collapsed
+			// Initialize expansion state for groups and cards
+			if (parsedGroups.length > 0 && !isInitialParseDone.current) {
+				const initialGroupExpansionState: {
+					[groupId: string]: boolean;
+				} = {};
+				const initialCardExpansionState: {
+					[issueId: string]: boolean;
+				} = {};
+
+				parsedGroups.forEach((group) => {
+					// Default groups to expanded, cards to collapsed
+					initialGroupExpansionState[group.id] = true; // << Default groups expanded
+					group.issues.forEach((issue) => {
+						initialCardExpansionState[issue.id] = false; // Default cards collapsed
+					});
 				});
-				setIsExpanded(initialExpansionState);
+				setIsGroupExpanded(initialGroupExpansionState);
+				setIsCardExpanded(initialCardExpansionState);
 				isInitialParseDone.current = true;
+			} else if (parsedGroups.length === 0) {
+				// Reset expansion state if no groups are found after an update
+				setIsGroupExpanded({});
+				setIsCardExpanded({});
 			}
 		} catch (e) {
 			console.error("IssueBoardView: Critical error during parsing:", e);
@@ -391,22 +514,24 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 					e instanceof Error ? e.message : String(e)
 				}`
 			);
-			setIssues([]); // Clear issues on critical error
+			setGroups([]); // Clear groups on critical error
 			setParsingErrors([
 				`A critical error occurred during parsing: ${
 					e instanceof Error ? e.message : String(e)
 				}`,
 			]);
 		}
-	}, [markdownContent]); // Only depends on markdownContent now
+	}, [markdownContent]);
 
-	// --- Effect to Focus New Item ---
+	// --- Effect to Focus New Item (Logic might need adjustment if IDs aren't globally unique) ---
 	useEffect(() => {
-		if (newItemFocusRef.current && issues.length > 0) {
+		if (newItemFocusRef.current && groups.length > 0) {
 			const { issueId, itemIndex } = newItemFocusRef.current;
+			// Find the input element using the potentially nested refs structure or flat structure if IDs are unique
 			const inputElement = inputRefs.current[issueId]?.[itemIndex];
 			if (inputElement) {
 				inputElement.focus();
+				// Select default text "item"
 				if (inputElement.value === "item") {
 					inputElement.select();
 				}
@@ -417,12 +542,14 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 			}
 			newItemFocusRef.current = null; // Clear the ref
 		}
-	}, [issues]); // Run when issues state updates (after re-parse)
+	}, [groups]); // Run when groups state updates
 
 	// --- Effect to Focus Existing Item ---
 	useEffect(() => {
-		if (editingItem && issues.length > 0) {
-			const targetIssue = issues[editingItem.cardIndex]; // Assuming cardIndex maps correctly
+		if (editingItem && groups.length > 0) {
+			// Find the target issue within the correct group
+			const targetGroup = groups[editingItem.groupIndex];
+			const targetIssue = targetGroup?.issues[editingItem.cardIndex];
 			if (targetIssue) {
 				const inputElement =
 					inputRefs.current[targetIssue.id]?.[editingItem.itemIndex];
@@ -430,90 +557,111 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 					inputElement.focus();
 				} else {
 					console.warn(
-						`IssueBoardView: Input ref not found for existing item: issue ${targetIssue.id}, item ${editingItem.itemIndex}`
+						`IssueBoardView: Input ref not found for existing item: group ${editingItem.groupIndex}, issue ${targetIssue.id}, item ${editingItem.itemIndex}`
 					);
 				}
 			}
 		}
-	}, [editingItem]); // Run when editingItem changes
+	}, [editingItem, groups]); // Depend on groups as well
 
 	// --- Event Handlers ---
 
-	const handleUpdate = (updatedIssues: Issue[]) => {
+	// <<<< handleUpdate NEEDS TO BE MODIFIED >>>>
+	const handleUpdate = (updatedGroups: Group[]) => {
+		// Accept groups
 		// Serialize the updated data model back to Markdown
 		const lines = markdownContent.split("\n");
 
 		// --- Preserve Frontmatter and Pre-Issue Content ---
-		// ASSUMPTION: This view only renders if valid frontmatter exists.
 		let frontmatter = "";
 		let preIssueContent = "";
-		let firstIssueStartIndex = lines.length; // Default to end if no issues
+		let firstContentStartIndex = lines.length; // Default to end
 
-		// Find frontmatter end (starts at line 0, find next '---')
+		// Find frontmatter end
 		const fmEndIndex = lines.findIndex(
 			(line, index) => index > 0 && line.trim() === "---"
 		);
 
 		if (fmEndIndex === -1) {
-			// This should ideally not happen if the view switching logic is correct.
 			console.error(
-				"IssueBoardView: Could not find closing frontmatter fence ('---')! Saving might corrupt the file."
+				"IssueBoardView: Could not find closing frontmatter fence ('---')!"
 			);
 			setError(
 				"Error: Could not find end of frontmatter. Cannot safely save."
 			);
-			return; // Abort save
+			return;
 		}
 
-		// Extract frontmatter (including the fences)
 		frontmatter = lines.slice(0, fmEndIndex + 1).join("\n");
 
-		// Find start of the first *parsed* issue
-		if (updatedIssues.length > 0) {
-			// Ensure the headerLineIndex is valid and after the frontmatter
-			if (updatedIssues[0].headerLineIndex > fmEndIndex) {
-				firstIssueStartIndex = updatedIssues[0].headerLineIndex;
-			} else {
-				// Fallback if first issue header index seems invalid relative to frontmatter (parser issue?)
-				console.warn(
-					"IssueBoardView: First issue header index seems invalid relative to frontmatter. Defaulting content start after frontmatter."
-				);
-				firstIssueStartIndex = fmEndIndex + 1;
+		// Find start of the first *actual* content (H1 or H2)
+		let firstValidHeaderIndex = -1;
+		for (const group of updatedGroups) {
+			if (group.headerLineIndex !== -1) {
+				// Found an explicit H1
+				firstValidHeaderIndex = group.headerLineIndex;
+				break;
+			} else if (group.issues.length > 0) {
+				// Found issues in default group
+				// Ensure issue header index is valid
+				if (group.issues[0].headerLineIndex !== -1) {
+					firstValidHeaderIndex = group.issues[0].headerLineIndex;
+					break;
+				}
 			}
-		} else {
-			// No issues parsed, start content after frontmatter
-			firstIssueStartIndex = fmEndIndex + 1;
 		}
 
-		// Extract content *between* frontmatter and first issue
+		// Determine where the managed content starts
+		if (
+			firstValidHeaderIndex !== -1 &&
+			firstValidHeaderIndex > fmEndIndex
+		) {
+			firstContentStartIndex = firstValidHeaderIndex;
+		} else {
+			// Fallback: Start content immediately after frontmatter if no valid headers found
+			// or if the first header index is invalid (e.g., inside frontmatter)
+			if (firstValidHeaderIndex !== -1) {
+				console.warn(
+					"IssueBoardView: First header index is within or before frontmatter. Starting content after frontmatter."
+				);
+			}
+			firstContentStartIndex = fmEndIndex + 1;
+		}
+
+		// Extract content *between* frontmatter and first managed header
 		preIssueContent = lines
-			.slice(fmEndIndex + 1, firstIssueStartIndex)
+			.slice(fmEndIndex + 1, firstContentStartIndex)
 			.join("\n");
 
-		// --- Combine preserved content with serialized issues ---
-		const serializedIssues = serializeIssuesToMarkdown(updatedIssues);
+		// --- Combine preserved content with serialized groups ---
+		const serializedGroups = serializeIssuesToMarkdown(updatedGroups); // <<<< SERIALIZE GROUPS >>>>
 
 		let newMarkdown = frontmatter;
-		// Add pre-issue content if it exists
+		// Add pre-issue content if it exists (trim check)
 		if (preIssueContent.trim()) {
-			newMarkdown += "\n" + preIssueContent;
+			// Ensure newline before pre-issue content if frontmatter doesn't end with one
+			if (!frontmatter.endsWith("\n")) {
+				newMarkdown += "\n";
+			}
+			newMarkdown += preIssueContent;
 		}
 
-		// Add issues, ensuring appropriate spacing
-		if (serializedIssues) {
-			if (!newMarkdown.endsWith("\n\n")) {
+		// Add serialized groups, ensuring appropriate spacing
+		if (serializedGroups) {
+			// Ensure separation from frontmatter/pre-content
+			if (newMarkdown.length > 0 && !newMarkdown.endsWith("\n\n")) {
 				newMarkdown += newMarkdown.endsWith("\n") ? "\n" : "\n\n";
 			}
-			newMarkdown += serializedIssues;
+			newMarkdown += serializedGroups;
 		} else {
-			// Ensure at least one newline after frontmatter/pre-content if no issues exist
-			if (!newMarkdown.endsWith("\n")) {
+			// Ensure at least one newline after frontmatter/pre-content if no groups exist
+			if (newMarkdown.length > 0 && !newMarkdown.endsWith("\n")) {
 				newMarkdown += "\n";
 			}
 		}
 
 		// Update the state optimistically FIRST
-		setIssues(updatedIssues); // Update with the array used for serialization
+		setGroups(updatedGroups); // <<<< SET GROUPS >>>>
 
 		// Call the prop to save the full content
 		updateMarkdownContent(newMarkdown).catch((err) => {
@@ -526,34 +674,51 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 		});
 	};
 
+	// <<<< handleStatusChange NEEDS groupIndex >>>>
 	const handleStatusChange = (
+		groupIndex: number, // NEW
 		issueIndex: number,
 		statusIndex: number,
 		newCheckedState: boolean
 	) => {
 		setError(null); // Clear general errors on interaction
-		const newIssues = issues.map((issue, idx) => {
-			if (idx === issueIndex) {
-				const newStatus = issue.status.map((item, sIdx) => {
-					if (sIdx === statusIndex) {
-						return { ...item, checked: newCheckedState };
+		const newGroups = groups.map((group, gIdx) => {
+			// Map groups
+			if (gIdx === groupIndex) {
+				const newIssues = group.issues.map((issue, iIdx) => {
+					// Map issues within group
+					if (iIdx === issueIndex) {
+						const newStatus = issue.status.map((item, sIdx) => {
+							if (sIdx === statusIndex) {
+								return { ...item, checked: newCheckedState };
+							}
+							return item;
+						});
+						return { ...issue, status: newStatus };
 					}
-					return item;
+					return issue;
 				});
-				return { ...issue, status: newStatus };
+				return { ...group, issues: newIssues }; // Return updated group
 			}
-			return issue;
+			return group; // Return unchanged group
 		});
-		handleUpdate(newIssues);
+		handleUpdate(newGroups); // <<<< Pass updated groups >>>>
 	};
 
-	const handleItemClick = (issueIndex: number, itemIndex: number) => {
+	// <<<< handleItemClick NEEDS groupIndex >>>>
+	const handleItemClick = (
+		groupIndex: number,
+		issueIndex: number,
+		itemIndex: number
+	) => {
 		if (editingItem) return; // Prevent multiple edits
 		setError(null);
-		const issue = issues[issueIndex];
+		const group = groups[groupIndex];
+		const issue = group?.issues[issueIndex];
 		const item = issue?.items[itemIndex];
 		if (item) {
 			setEditingItem({
+				groupIndex: groupIndex, // NEW
 				cardIndex: issueIndex,
 				itemIndex: itemIndex,
 				tempValue: item.text,
@@ -561,62 +726,81 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 		}
 	};
 
+	// handleItemChange remains the same
 	const handleItemChange = (event: React.ChangeEvent<HTMLInputElement>) => {
 		if (editingItem) {
 			setEditingItem({ ...editingItem, tempValue: event.target.value });
 		}
 	};
 
+	// <<<< handleItemSave NEEDS groupIndex >>>>
 	const handleItemSave = (insertNewLine: boolean = false) => {
 		if (!editingItem) return;
 		setError(null);
-		const { cardIndex, itemIndex, tempValue } = editingItem;
+		const { groupIndex, cardIndex, itemIndex, tempValue } = editingItem; // Destructure groupIndex
 		const newText = tempValue.trim();
 		let addFocusRequest: { issueId: string; itemIndex: number } | null =
 			null;
 
-		const newIssues = issues.map((issue, idx) => {
-			if (idx === cardIndex) {
-				const newItems = issue.items.map((item, iIdx) => {
-					if (iIdx === itemIndex) {
-						return { ...item, text: newText }; // Update text
+		const newGroups = groups.map((group, gIdx) => {
+			// Map groups
+			if (gIdx === groupIndex) {
+				const newIssues = group.issues.map((issue, iIdx) => {
+					// Map issues
+					if (iIdx === cardIndex) {
+						const newItems = issue.items.map((item, itemIdx) => {
+							// Map items
+							if (itemIdx === itemIndex) {
+								return { ...item, text: newText }; // Update text
+							}
+							return item;
+						});
+						// Insert new item if requested
+						if (insertNewLine) {
+							const newItem: IssueItem = { text: "item" }; // Default text
+							const insertAtIndex = itemIndex + 1;
+							newItems.splice(insertAtIndex, 0, newItem);
+							// Focus request uses the issue ID, assuming it's unique
+							addFocusRequest = {
+								issueId: issue.id,
+								itemIndex: insertAtIndex,
+							};
+						}
+						return { ...issue, items: newItems }; // Return updated issue
 					}
-					return item;
+					return issue;
 				});
-				// Insert new item if requested
-				if (insertNewLine) {
-					const newItem: IssueItem = { text: "item" }; // Default text
-					const insertAtIndex = itemIndex + 1;
-					newItems.splice(insertAtIndex, 0, newItem);
-					addFocusRequest = {
-						issueId: issue.id,
-						itemIndex: insertAtIndex,
-					}; // Request focus for the new item
-				}
-				return { ...issue, items: newItems };
+				return { ...group, issues: newIssues }; // Return updated group
 			}
-			return issue;
+			return group; // Return unchanged group
 		});
 
 		// Set focus request *before* updating state/saving
 		newItemFocusRef.current = addFocusRequest;
 		setEditingItem(null); // Clear editing state FIRST
-		handleUpdate(newIssues); // Update state and trigger save
+		handleUpdate(newGroups); // <<<< Pass updated groups >>>>
 	};
 
+	// <<<< handleItemKeyDown remains the same functionally, but calls modified save >>>>
 	const handleItemKeyDown = (
 		event: React.KeyboardEvent<HTMLInputElement>
 	) => {
 		if (event.key === "Enter") {
 			event.preventDefault();
-			handleItemSave(true);
+			handleItemSave(true); // Calls the updated save handler
 		} else if (event.key === "Escape") {
 			setEditingItem(null);
 		}
 	};
 
-	const toggleExpand = (issueId: string) => {
-		setIsExpanded((prev) => ({ ...prev, [issueId]: !prev[issueId] }));
+	// <<<< toggleExpand renamed to toggleCardExpand >>>>
+	const toggleCardExpand = (issueId: string) => {
+		setIsCardExpanded((prev) => ({ ...prev, [issueId]: !prev[issueId] }));
+	};
+
+	// <<<< NEW: toggleGroupExpand >>>>
+	const toggleGroupExpand = (groupId: string) => {
+		setIsGroupExpanded((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
 	};
 
 	// --- Render Logic ---
@@ -629,9 +813,11 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 				<p className="text-red-600 whitespace-pre-wrap">{error}</p>
 				<p>File: {filePath}</p>
 				{parsingErrors.length > 0 && (
-					<div>
-						<h4>Parsing Issues:</h4>
-						<ul className="text-sm text-[var(--text-muted)]">
+					<div className="mt-4">
+						<h4 className="font-semibold text-sm text-[var(--text-muted)]">
+							Specific Parsing Issues:
+						</h4>
+						<ul className="text-xs text-[var(--text-muted)] list-disc list-inside pl-2 mt-1">
 							{parsingErrors.map((err, i) => (
 								<li key={i}>{err}</li>
 							))}
@@ -642,29 +828,37 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 		);
 	}
 
-	if (!issues) {
+	// Changed loading message slightly
+	if (!groups && !error) {
+		// Check groups instead of issues
 		return (
 			<div className="p-4 h-full overflow-y-auto">
-				<p>Loading issue data...</p>
+				<p>Loading issue board data...</p>
 			</div>
 		);
 	}
 
+	// Check for no groups AFTER initial loading attempt
 	if (
-		issues.length === 0 &&
+		groups.length === 0 &&
 		parsingErrors.length === 0 &&
-		markdownContent.trim().length > 0
+		markdownContent.trim().length > 0 && // Ensure content isn't just whitespace/frontmatter
+		isInitialParseDone.current // Only show after the first parse attempt
 	) {
 		return (
 			<div className="p-4 h-full overflow-y-auto">
 				<h2 className="text-lg font-semibold mb-2">
-					No Issue Cards Found
+					No Issue Groups or Cards Found
 				</h2>
-				<p>Could not parse any issue cards from the file content.</p>
 				<p>
-					Ensure each card starts with a Level 2 Markdown header
-					(e.g., `## Card Name`) and contains `### Items` and `###
-					Status` sections.
+					Could not parse any H1 groups or H2 issue cards from the
+					file content after the frontmatter.
+				</p>
+				<p>
+					Ensure cards start with a Level 2 Markdown header (e.g., `##
+					Card Name`) and contain `### Items` and `### Status`
+					sections. Optionally, group cards under Level 1 headers (`#
+					Group Name`).
 				</p>
 			</div>
 		);
@@ -672,7 +866,7 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 
 	return (
 		<div className="p-3 h-full overflow-y-auto font-sans">
-			{/* Parsing Error Box (unchanged) */}
+			{/* Parsing Error Box (unchanged styling) */}
 			{parsingErrors.length > 0 && (
 				<div className="border border-[var(--background-modifier-error-border)] bg-[var(--background-modifier-error)] text-[var(--text-error)] p-3 rounded-md mb-4">
 					<h4 className="font-semibold">
@@ -686,154 +880,246 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 				</div>
 			)}
 
-			{/* Render successfully parsed issues */}
-			{issues.map((issue, issueIndex) => {
-				const needsExpansion = issue.items.length > MAX_VISIBLE_ITEMS;
-				const isCardExpanded = !!isExpanded[issue.id];
-				const visibleItems =
-					needsExpansion && !isCardExpanded
-						? issue.items.slice(0, MAX_VISIBLE_ITEMS)
-						: issue.items;
-
-				if (!inputRefs.current[issue.id]) {
-					inputRefs.current[issue.id] = {};
-				}
+			{/* <<<< OUTER LOOP: Render Groups >>>> */}
+			{groups.map((group, groupIndex) => {
+				const groupIsExpanded = isGroupExpanded[group.id] ?? true; // Default to expanded
 
 				return (
-					// --- Card Styling ---
-					// Adjust padding (p-3), margin-bottom (mb-2)
-					<div
-						key={issue.id}
-						className="border border-[var(--background-modifier-border)] rounded-lg p-3 bg-[var(--background-secondary)] mb-2 shadow-sm"
-					>
-						{/* Card Title - Force margin reset and line-height */}
-						<h2 className="!m-0 text-xl font-semibold leading-snug">
-							{issue.name}
-						</h2>
-						{/* Issue Number - Adjust margin-bottom */}
-						{issue.number && (
-							<div className="text-sm text-[var(--text-muted)] mb-1">
-								{issue.number}
+					<div key={group.id} className="mb-4">
+						{" "}
+						{/* Spacing between groups */}
+						{/* Render H1 only if it has a name (i.e., not the default group IF other groups exist) */}
+						{!(
+							group.headerLineIndex === -1 && groups.length > 1
+						) && (
+							<div
+								className="flex items-center mb-2 cursor-pointer group" // Group hover effect for H1
+								onClick={() => toggleGroupExpand(group.id)}
+							>
+								{/* Toggle Icon */}
+								<span className="inline-block w-4 mr-1 text-lg text-[var(--text-muted)] group-hover:text-[var(--text-normal)]">
+									{groupIsExpanded ? "▼" : "▶"}
+								</span>
+								{/* Group Title (H1 equivalent) */}
+								<h1 className="!text-2xl !font-bold !m-0 !p-0 flex-grow text-[var(--text-normal)] group-hover:text-[var(--text-accent)]">
+									{group.name}
+								</h1>
 							</div>
 						)}
-						{/* Columns Container - Adjust gap and padding-top */}
-						<div className="flex flex-row gap-5 pt-0">
-							{/* Left Column - Items - Make it grow even more (3/4) */}
-							<div className="flex-grow-[3] min-w-0">
-								{/* Column Header - Reset margin, apply specific bottom margin and line-height */}
-								<h3 className="text-sm font-semibold !m-0 !mb-0.5 text-[var(--text-accent)] leading-snug">
-									Items
-								</h3>
-								{/* Items List - Adjust space-y */}
-								<ul className="list-none pl-0 m-0 space-y-0 text-sm">
-									{visibleItems.map((item, itemIndex) => {
-										const isEditing =
-											editingItem?.cardIndex ===
-												issueIndex &&
-											editingItem?.itemIndex ===
-												itemIndex;
+						{/* <<<< INNER CONTENT: Render Issues within Group (Conditionally) >>>> */}
+						{groupIsExpanded && (
+							<div
+								className={
+									!(
+										group.headerLineIndex === -1 &&
+										groups.length > 1
+									)
+										? "pl-5"
+										: ""
+								}
+							>
+								{" "}
+								{/* Indent content under explicit H1 */}
+								{group.issues.length === 0 &&
+									!(
+										group.headerLineIndex === -1 &&
+										groups.length > 1
+									) && (
+										<p className="text-sm text-[var(--text-muted)] italic pl-1">
+											No cards in this group.
+										</p>
+									)}
+								{group.issues.map((issue, issueIndex) => {
+									const needsExpansion =
+										issue.items.length > MAX_VISIBLE_ITEMS;
+									// Use isCardExpanded state for individual cards
+									const isCurrentCardExpanded =
+										isCardExpanded[issue.id] ?? false; // Default collapsed
+									const visibleItems =
+										needsExpansion && !isCurrentCardExpanded
+											? issue.items.slice(
+													0,
+													MAX_VISIBLE_ITEMS
+											  )
+											: issue.items;
 
-										return (
-											// Adjust padding, min-height
-											<li
-												key={`${issue.id}-item-${itemIndex}`}
-												className="cursor-pointer px-1 py-0 rounded-sm min-h-[1.3em] hover:bg-[var(--background-modifier-hover)]"
-												onClick={() =>
-													!isEditing &&
-													handleItemClick(
-														issueIndex,
-														itemIndex
-													)
-												}
-											>
-												{isEditing ? (
-													// Adjust input padding/styles if needed
-													<input
-														ref={(el) => {
-															if (
-																inputRefs
-																	.current[
-																	issue.id
-																]
-															) {
-																inputRefs.current[
-																	issue.id
-																][itemIndex] =
-																	el;
-															}
-														}}
-														type="text"
-														value={
-															editingItem.tempValue
-														}
-														onChange={
-															handleItemChange
-														}
-														onBlur={() =>
-															handleItemSave(
-																false
-															)
-														}
-														onKeyDown={
-															handleItemKeyDown
-														}
-														autoFocus
-														className="w-full px-1 py-0 m-0 text-sm border border-[var(--background-modifier-border)] rounded-sm bg-[var(--background-primary)] text-[var(--text-normal)] focus:outline-none focus:border-[var(--interactive-accent)]"
-													/>
-												) : (
-													item.text
-												)}
-											</li>
-										);
-									})}
-								</ul>
-								{/* Expansion Toggle - Adjust margin/padding */}
-								{needsExpansion && (
-									<div
-										onClick={() => toggleExpand(issue.id)}
-										className="text-[var(--text-muted)] cursor-pointer pt-0.5 pl-1 mt-1 text-xs select-none hover:text-[var(--text-normal)]"
-									>
-										{isCardExpanded ? "▼" : "▶"}
-									</div>
-								)}
-							</div>
+									// Initialize refs for the issue if not present
+									if (!inputRefs.current[issue.id]) {
+										inputRefs.current[issue.id] = {};
+									}
 
-							{/* Right Column - Status - Keep its growth (1/4) */}
-							<div className="flex-grow min-w-0">
-								{/* Column Header - Reset margin, apply specific bottom margin and line-height */}
-								<h3 className="text-sm font-semibold !m-0 !mb-0.5 text-[var(--text-accent)] leading-snug">
-									Status
-								</h3>
-								{/* Status List - Adjust space-y */}
-								<ul className="list-none pl-0 m-0 space-y-0.5 text-sm">
-									{issue.status.map((item, statusIndex) => (
-										<li
-											key={`${issue.id}-status-${statusIndex}`}
+									return (
+										// Card Styling (largely unchanged, maybe add margin-top/bottom)
+										<div
+											key={issue.id}
+											className="border border-[var(--background-modifier-border)] rounded-lg p-3 bg-[var(--background-secondary)] mb-2 shadow-sm"
 										>
-											<label className="flex items-center cursor-pointer">
-												<input
-													type="checkbox"
-													checked={item.checked}
-													onChange={(e) =>
-														handleStatusChange(
-															issueIndex,
-															statusIndex,
-															e.target.checked
-														)
-													}
-													// Adjust checkbox margin, size (h-3.5 w-3.5?)
-													className="mr-1.5 cursor-pointer h-4 w-4 rounded border-gray-300 text-[var(--interactive-accent)] focus:ring-[var(--interactive-accent)] focus:ring-offset-0 focus:ring-1"
-												/>
-												<span className="select-none">
-													{item.text}
-												</span>
-											</label>
-										</li>
-									))}
-								</ul>
-							</div>
-						</div>
-					</div>
+											{/* Card Title (H2) */}
+											<h2 className="!m-0 !text-xl !font-semibold !leading-snug">
+												{issue.name}
+											</h2>
+											{/* Issue Number */}
+											{issue.number && (
+												<div className="text-sm text-[var(--text-muted)] mb-1">
+													{issue.number}
+												</div>
+											)}
+											{/* Columns Container */}
+											<div className="flex flex-row gap-5 pt-0">
+												{/* Left Column - Items */}
+												<div className="flex-grow-[3] min-w-0">
+													<h3 className="text-sm font-semibold !m-0 !mb-0.5 text-[var(--text-accent)] leading-snug">
+														Items
+													</h3>
+													<ul className="list-none pl-0 m-0 space-y-0 text-sm">
+														{visibleItems.map(
+															(
+																item,
+																itemIndex
+															) => {
+																const isEditing =
+																	editingItem?.groupIndex ===
+																		groupIndex && // Check groupIndex
+																	editingItem?.cardIndex ===
+																		issueIndex &&
+																	editingItem?.itemIndex ===
+																		itemIndex;
+
+																return (
+																	<li
+																		key={`${issue.id}-item-${itemIndex}`}
+																		className="cursor-pointer px-1 py-0 rounded-sm min-h-[1.3em] hover:bg-[var(--background-modifier-hover)]"
+																		onClick={() =>
+																			!isEditing &&
+																			// Pass groupIndex to handler
+																			handleItemClick(
+																				groupIndex,
+																				issueIndex,
+																				itemIndex
+																			)
+																		}
+																	>
+																		{isEditing ? (
+																			<input
+																				ref={(
+																					el
+																				) => {
+																					if (
+																						inputRefs
+																							.current[
+																							issue
+																								.id
+																						]
+																					) {
+																						inputRefs.current[
+																							issue.id
+																						][
+																							itemIndex
+																						] =
+																							el;
+																					}
+																				}}
+																				type="text"
+																				value={
+																					editingItem.tempValue
+																				}
+																				onChange={
+																					handleItemChange
+																				}
+																				onBlur={() =>
+																					handleItemSave(
+																						false
+																					)
+																				} // Calls updated save
+																				onKeyDown={
+																					handleItemKeyDown
+																				} // Calls updated keydown
+																				autoFocus
+																				className="w-full px-1 py-0 m-0 text-sm border border-[var(--background-modifier-border)] rounded-sm bg-[var(--background-primary)] text-[var(--text-normal)] focus:outline-none focus:border-[var(--interactive-accent)]"
+																			/>
+																		) : (
+																			item.text
+																		)}
+																	</li>
+																);
+															}
+														)}
+													</ul>
+													{/* Card Expansion Toggle */}
+													{needsExpansion && (
+														<div
+															onClick={() =>
+																toggleCardExpand(
+																	issue.id
+																)
+															} // Use card toggle
+															className="text-[var(--text-muted)] cursor-pointer pt-0.5 pl-1 mt-1 text-xs select-none hover:text-[var(--text-normal)]"
+														>
+															{isCurrentCardExpanded
+																? "Collapse Items ▲"
+																: `Show ${
+																		issue
+																			.items
+																			.length -
+																		MAX_VISIBLE_ITEMS
+																  } More ▼`}
+														</div>
+													)}
+												</div>
+
+												{/* Right Column - Status */}
+												<div className="flex-grow min-w-0">
+													<h3 className="text-sm font-semibold !m-0 !mb-0.5 text-[var(--text-accent)] leading-snug">
+														Status
+													</h3>
+													<ul className="list-none pl-0 m-0 space-y-0.5 text-sm">
+														{issue.status.map(
+															(
+																item,
+																statusIndex
+															) => (
+																<li
+																	key={`${issue.id}-status-${statusIndex}`}
+																>
+																	<label className="flex items-center cursor-pointer">
+																		<input
+																			type="checkbox"
+																			checked={
+																				item.checked
+																			}
+																			onChange={(
+																				e
+																			) =>
+																				// Pass groupIndex to handler
+																				handleStatusChange(
+																					groupIndex,
+																					issueIndex,
+																					statusIndex,
+																					e
+																						.target
+																						.checked
+																				)
+																			}
+																			className="mr-1.5 cursor-pointer h-4 w-4 rounded border-gray-300 text-[var(--interactive-accent)] focus:ring-[var(--interactive-accent)] focus:ring-offset-0 focus:ring-1"
+																		/>
+																		<span className="select-none">
+																			{
+																				item.text
+																			}
+																		</span>
+																	</label>
+																</li>
+															)
+														)}
+													</ul>
+												</div>
+											</div>
+										</div>
+									);
+								})}
+							</div> // End group content div
+						)}
+					</div> // End group wrapper div
 				);
 			})}
 		</div>
