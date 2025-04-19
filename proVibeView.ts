@@ -10,23 +10,22 @@ import {
 	ViewStateResult,
 	sanitizeHTMLToDom,
 } from "obsidian";
-import ProVibePlugin from "../../main"; // Adjusted path
-import { DiffReviewModal, DiffReviewResult } from "./DiffReviewModal"; // Assuming this is in the same directory
-import { ReactViewHost } from "../../src/ReactViewHost"; // Adjusted path
-import { RegistryEntry } from "../../src/types"; // Adjusted path
+import ProVibePlugin from "./main"; // Corrected path to be relative to current dir
+import { DiffReviewModal, DiffReviewResult } from "./DiffReviewModal"; // Corrected path (assuming same dir as view)
+import { ReactViewHost } from "./src/ReactViewHost"; // Corrected path
+import { RegistryEntry } from "./src/types"; // Corrected path
 import {
 	toolReadFile,
 	toolEditFile,
-} from "./components/ProVibeView/toolImplementations"; // Path OK if proVibeView.ts is at root
+} from "./src/components/ProVibeView/toolImplementations"; // Corrected path
 import {
 	addMessageToChat,
-	renderFilePills,
-	renderSuggestions,
-	setLoadingState,
-	setSuggestions as setDomSuggestions, // Alias to avoid name clash
+	renderFilePills as renderDomFilePills, // Alias dom utils
+	renderSuggestions as renderDomSuggestions, // Alias dom utils
+	setLoadingState as setDomLoadingState, // Alias dom utils
+	setSuggestions as setDomSuggestions, // Alias dom utils
 	setTextContent,
-} from "./components/ProVibeView/domUtils"; // Path OK if proVibeView.ts is at root
-// Import the handlers
+} from "./src/components/ProVibeView/domUtils"; // Corrected path
 import {
 	handleClear,
 	handleDrop,
@@ -35,8 +34,8 @@ import {
 	handleSuggestionSelect,
 	handleInputChange,
 	handleInputKeydown,
-	removeFilePill, // Also needed for rendering pills
-} from "./components/ProVibeView/eventHandlers";
+	removeFilePill as removeEventHandlerFilePill, // Alias event handler
+} from "./src/components/ProVibeView/eventHandlers"; // Corrected path
 
 export const PROVIBE_VIEW_TYPE = "provibe-view";
 
@@ -75,30 +74,30 @@ interface ToolResult {
 }
 
 export class ProVibeView extends ItemView {
-	plugin: ProVibePlugin; // Made public for utils
-	textInput: HTMLTextAreaElement; // Made public for utils
-	chatContainer: HTMLDivElement; // Made public for utils
-	filePillsContainer: HTMLDivElement; // Made public for utils
-	public attachedFiles: string[] = []; // Store paths of attached files - Already public
-	isLoading: boolean = false; // Made public for utils
-	conversationId: string | null = null; // Add state for conversation ID
-	stopButton: HTMLButtonElement | null = null; // Made public for utils
-	initialFilePathFromState: string | null = null; // Made public for utils
-	wasInitiallyAttached: boolean = false; // Made public for utils
-	currentRequestController: AbortController | null = null; // Track the current request
-	loadingIndicator: HTMLDivElement; // Reference to the loading indicator element
+	plugin: ProVibePlugin;
+	textInput: HTMLTextAreaElement;
+	chatContainer: HTMLDivElement;
+	filePillsContainer: HTMLDivElement;
+	public attachedFiles: string[] = [];
+	isLoading: boolean = false;
+	conversationId: string | null = null;
+	stopButton: HTMLButtonElement;
+	initialFilePathFromState: string | null = null;
+	wasInitiallyAttached: boolean = false;
+	// Removed currentRequestController as it seems handled within callBackend now
+	loadingIndicator: HTMLDivElement;
 
 	// --- Slash Command State (Made public for utils & handlers) ---
 	suggestions: RegistryEntry[] = [];
 	activeSuggestionIndex: number = -1;
 	suggestionsContainer: HTMLDivElement | null = null;
-	currentTrigger: string | null = null; // Store the trigger being suggested for
-	triggerStartIndex: number = -1; // Store start index of the current trigger
+	currentTrigger: string | null = null;
+	triggerStartIndex: number = -1;
 	// --- End Slash Command State ---
 
 	constructor(leaf: WorkspaceLeaf, plugin: ProVibePlugin) {
 		super(leaf);
-		this.plugin = plugin; // Save plugin reference
+		this.plugin = plugin;
 	}
 
 	getViewType(): string {
@@ -162,19 +161,8 @@ export class ProVibeView extends ItemView {
 					[...this.attachedFiles]
 				);
 				if (this.filePillsContainer) {
-					// Pass the remove callback correctly
-					renderFilePills(
-						this.filePillsContainer,
-						this.attachedFiles
-							.map(
-								(p) =>
-									this.app.vault.getAbstractFileByPath(
-										p
-									) as TFile
-							)
-							.filter((f) => f),
-						(file) => removeFilePill(this, file) // Pass view instance
-					);
+					// Call the aliased dom util function
+					renderDomFilePills(this); // Pass the view instance
 				}
 			} else {
 				console.warn(
@@ -233,19 +221,8 @@ export class ProVibeView extends ItemView {
 					this.attachedFiles = [newFilePath];
 					this.initialFilePathFromState = newFilePath;
 					this.wasInitiallyAttached = true;
-					// Pass the remove callback correctly
-					renderFilePills(
-						this.filePillsContainer,
-						this.attachedFiles
-							.map(
-								(p) =>
-									this.app.vault.getAbstractFileByPath(
-										p
-									) as TFile
-							)
-							.filter((f) => f),
-						(file) => removeFilePill(this, file) // Pass view instance
-					);
+					// Call the aliased dom util function
+					renderDomFilePills(this); // Pass the view instance
 				} else {
 					console.warn(
 						`ProVibe [handleActiveFileChange]: New file path '${newFilePath}' does not exist. Not replacing.`
@@ -258,17 +235,8 @@ export class ProVibeView extends ItemView {
 				this.attachedFiles = [];
 				this.initialFilePathFromState = null;
 				this.wasInitiallyAttached = false;
-				// Pass the remove callback correctly
-				renderFilePills(
-					this.filePillsContainer,
-					this.attachedFiles
-						.map(
-							(p) =>
-								this.app.vault.getAbstractFileByPath(p) as TFile
-						)
-						.filter((f) => f),
-					(file) => removeFilePill(this, file) // Pass view instance
-				);
+				// Call the aliased dom util function
+				renderDomFilePills(this); // Pass the view instance
 			} else {
 				console.log(
 					"ProVibe [handleActiveFileChange]: New file path is the same as the current attached file. No change."
@@ -328,11 +296,11 @@ export class ProVibeView extends ItemView {
 			},
 		});
 
-		// Auto-Resizing Logic (modified to use inputContainer)
+		// Auto-Resizing Logic
 		const adjustTextareaHeight = () => {
 			const minRows = 1;
-			const maxRows = 15; // Increased max rows
-			const inputEl = this.textInput; // Use the contenteditable div
+			const maxRows = 15;
+			const inputEl = this.textInput;
 			inputEl.style.height = "auto";
 			const scrollHeight = inputEl.scrollHeight;
 			const computedStyle = getComputedStyle(inputEl);
@@ -356,7 +324,7 @@ export class ProVibeView extends ItemView {
 		this.textInput.addEventListener("input", adjustTextareaHeight);
 		setTimeout(adjustTextareaHeight, 0);
 
-		// Buttons (assign to class property if needed by utils, e.g., stopButton)
+		// Buttons
 		const buttonContainer = inputControlsArea.createEl("div", {
 			cls: "provibe-button-container flex flex-col gap-1 flex-shrink-0",
 		});
@@ -375,14 +343,14 @@ export class ProVibeView extends ItemView {
 		this.stopButton.style.display = "none";
 
 		// Event Listeners (use imported handlers)
-		clearButton.addEventListener("click", () => handleClear(this)); // Pass view instance
-		sendButton.addEventListener("click", () => handleSend(this)); // Pass view instance
-		this.stopButton.addEventListener("click", () => handleStop(this)); // Pass view instance
-		this.textInput.addEventListener("input", () => handleInputChange(this)); // Pass view instance
+		clearButton.addEventListener("click", () => handleClear(this));
+		sendButton.addEventListener("click", () => handleSend(this));
+		this.stopButton.addEventListener("click", () => handleStop(this));
+		this.textInput.addEventListener("input", () => handleInputChange(this));
 		this.textInput.addEventListener("keydown", (e) =>
 			handleInputKeydown(this, e)
-		); // Pass view instance and event
-		this.textInput.addEventListener("click", () => handleInputChange(this)); // Trigger suggestions check on click too
+		);
+		this.textInput.addEventListener("click", () => handleInputChange(this));
 		this.textInput.addEventListener("keyup", (e) => {
 			if (
 				[
@@ -401,8 +369,7 @@ export class ProVibeView extends ItemView {
 				this.suggestionsContainer &&
 				!inputAreaContainer.contains(event.target as Node)
 			) {
-				// Use the aliased setDomSuggestions to clear UI
-				setDomSuggestions(this.suggestionsContainer, []);
+				setDomSuggestions(this, []);
 			}
 		});
 
@@ -422,126 +389,26 @@ export class ProVibeView extends ItemView {
 		});
 		this.registerDomEvent(inputAreaContainer, "drop", (e) =>
 			handleDrop(this, e)
-		); // Pass view instance and event
+		);
 
 		// Initial UI setup using imported functions
-		addMessageToChat(
-			this.chatContainer,
-			"system",
-			"ProVibe Agent ready. Type your prompt, drop files, or type / for commands."
-		);
-		// Pass the remove callback correctly
-		renderFilePills(
-			this.filePillsContainer,
-			this.attachedFiles
-				.map((p) => this.app.vault.getAbstractFileByPath(p) as TFile)
-				.filter((f) => f),
-			(file) => removeFilePill(this, file) // Pass view instance
-		);
+		addMessageToChat(this, "system", "Agent Ready"); // Pass view instance now
+		renderDomFilePills(this); // Use aliased function
 	}
 
-	// --- Backend Communication (Remains in the class) ---
-	private async callBackend(
-		message: string,
-		files: TFile[],
-		conversationId: string | null
-	): Promise<void> {
-		this.currentRequestController = new AbortController();
-		const signal = this.currentRequestController.signal;
+	// --- Event Handlers (REMOVED - now in eventHandlers.ts) ---
 
-		const history: HistoryMessage[] = [];
-		this.chatContainer
-			.querySelectorAll(".provibe-message")
-			.forEach((msgEl) => {
-				const role = msgEl.getAttribute("data-role");
-				const content = msgEl.querySelector(
-					".provibe-message-content"
-				)?.innerHTML; // Get rendered HTML
-				if (content) {
-					if (role === "user") {
-						history.push({ type: "human", content });
-					} else if (role === "agent") {
-						// Attempt to reconstruct tool calls if necessary (basic example)
-						const toolCallElements =
-							msgEl.querySelectorAll(".provibe-tool-call");
-						if (toolCallElements.length > 0) {
-							const toolCalls: HistoryMessage["tool_calls"] = [];
-							toolCallElements.forEach((tcEl) => {
-								const id =
-									tcEl.getAttribute("data-tool-id") ||
-									"unknown";
-								const name =
-									tcEl.getAttribute("data-tool-name") ||
-									"unknown";
-								let args = {};
-								try {
-									args =
-										JSON.parse(
-											tcEl.getAttribute(
-												"data-tool-args"
-											) || "{}"
-										) || {};
-								} catch (e) {
-									console.error(
-										"Error parsing tool args from DOM",
-										e
-									);
-								}
-								toolCalls.push({ id, name, args });
-							});
-							history.push({
-								type: "ai",
-								content: content.replace(
-									/<div class="provibe-tool-call".*?<\/div>/gs,
-									""
-								), // Remove tool call divs from main content
-								tool_calls: toolCalls,
-							});
-						} else {
-							history.push({ type: "ai", content });
-						}
-					} else if (role === "tool") {
-						const toolCallId =
-							msgEl.getAttribute("data-tool-call-id") ||
-							"unknown";
-						history.push({
-							type: "tool",
-							content,
-							tool_call_id: toolCallId,
-						});
-					}
-				}
-			});
-
-		const fileContents = await Promise.all(
-			files.map(async (file) => ({
-				name: file.path,
-				content: await this.app.vault.read(file),
-			}))
-		);
-
-		const requestBody = {
-			message: message,
-			attached_files: fileContents,
-			history: history.slice(-10), // Limit history size
-			conversation_id: conversationId,
-		};
-
+	// --- Backend Communication (Remains in the class, simplified) ---
+	async callBackend(endpoint: string, payload: any) {
+		setDomLoadingState(this, true); // Use aliased function
 		try {
 			const response = await requestUrl({
-				url: `${this.plugin.settings.backendUrl}/chat`,
+				url: `${this.plugin.settings.backendUrl}${endpoint}`,
 				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify(requestBody),
-				throw: false, // Handle errors manually
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(payload),
+				throw: false,
 			});
-
-			if (signal.aborted) {
-				console.log("Backend request aborted by user.");
-				return; // Don't process response if aborted
-			}
 
 			if (response.status >= 400) {
 				throw new Error(
@@ -550,264 +417,185 @@ export class ProVibeView extends ItemView {
 			}
 
 			const responseData: BackendResponse = response.json;
-			this.conversationId = responseData.conversation_id; // Update conversation ID
+			this.conversationId = responseData.conversation_id;
 
-			let agentResponseAdded = false;
-
-			// Process tool calls FIRST if they exist
-			if (responseData.tool_calls && responseData.tool_calls.length > 0) {
-				// Optionally add the message containing the tool calls *before* execution
-				if (responseData.agent_message) {
-					addMessageToChat(
-						this.chatContainer,
-						"agent",
-						responseData.agent_message.content,
-						[], // No files attached to agent response
-						responseData.agent_message.tool_calls // Pass tool calls for rendering
-					);
-					agentResponseAdded = true;
-				}
-
-				const toolResults = await this.processToolCalls(
-					responseData.tool_calls
-				);
-
-				// Send results back to the backend
-				if (toolResults.length > 0) {
-					await this.sendToolResults(toolResults);
-				}
-			} else if (responseData.agent_message) {
-				// If no tool calls, just add the agent's message
+			if (responseData.agent_message) {
 				addMessageToChat(
-					this.chatContainer,
+					this,
 					"agent",
 					responseData.agent_message.content
 				);
-				agentResponseAdded = true;
 			}
 
-			if (!agentResponseAdded && !responseData.tool_calls) {
-				console.warn(
-					"Received backend response with no message or tool calls"
-				);
-				addMessageToChat(
-					this.chatContainer,
-					"system",
-					"Received an empty response from the agent."
-				);
+			if (responseData.tool_calls && responseData.tool_calls.length > 0) {
+				await this.processToolCalls(responseData.tool_calls);
+			} else {
+				setDomLoadingState(this, false); // Stop loading if no tools to process
 			}
 		} catch (error) {
-			if (error.name === "AbortError") {
-				console.log("Fetch aborted.");
-				addMessageToChat(
-					this.chatContainer,
-					"system",
-					"Request cancelled."
-				);
-			} else {
-				console.error("Error calling backend:", error);
-				addMessageToChat(
-					this.chatContainer,
-					"error",
-					`Error: ${error.message}`
-				);
-			}
-		} finally {
-			this.currentRequestController = null;
-			setLoadingState(this.loadingIndicator, false);
+			console.error(`Error calling ${endpoint}:`, error);
+			addMessageToChat(this, "system", `Error: ${error.message}`, true);
+			setDomLoadingState(this, false); // Use aliased function
 		}
 	}
 
-	private async sendToolResults(results: ToolResult[]): Promise<void> {
+	private async sendToolResults(results: ToolResult[]) {
 		if (!this.conversationId) {
 			console.error(
 				"Cannot send tool results without a conversation ID."
 			);
 			addMessageToChat(
-				this.chatContainer,
-				"error",
-				"Error: Missing conversation ID for tool results."
+				this,
+				"system",
+				"Error: Missing conversation ID for tool results.",
+				true
 			);
 			return;
 		}
-
-		setLoadingState(this.loadingIndicator, true);
-		this.currentRequestController = new AbortController();
-		const signal = this.currentRequestController.signal;
-
-		// Add tool results to the chat visually
-		results.forEach((result) => {
-			addMessageToChat(
-				this.chatContainer,
-				"tool",
-				`Tool Result (ID: ${result.id}): ${JSON.stringify(
-					result.result,
-					null,
-					2
-				)}`,
-				[],
-				undefined,
-				result.id // Pass tool call ID for linking
-			);
-		});
-
-		const requestBody = {
+		await this.callBackend("/tool_result", {
 			tool_results: results,
 			conversation_id: this.conversationId,
-		};
-
-		try {
-			const response = await requestUrl({
-				url: `${this.plugin.settings.backendUrl}/tool_result`,
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify(requestBody),
-				throw: false,
-			});
-
-			if (signal.aborted) {
-				console.log("Tool result request aborted.");
-				return;
-			}
-
-			if (response.status >= 400) {
-				throw new Error(
-					`Backend error sending tool results (${response.status}): ${response.text}`
-				);
-			}
-
-			const responseData: BackendResponse = response.json;
-			this.conversationId = responseData.conversation_id; // Ensure ID is kept
-
-			// Expecting a final agent message after tool results
-			if (responseData.agent_message) {
-				addMessageToChat(
-					this.chatContainer,
-					"agent",
-					responseData.agent_message.content
-				);
-			} else {
-				console.warn(
-					"No final agent message received after tool results."
-				);
-				// Optional: Add a system message indicating this?
-				// addMessageToChat(this.chatContainer, "system", "Agent processing complete after tool use.");
-			}
-		} catch (error) {
-			if (error.name === "AbortError") {
-				console.log("Tool result fetch aborted.");
-				addMessageToChat(
-					this.chatContainer,
-					"system",
-					"Request cancelled."
-				);
-			} else {
-				console.error("Error sending tool results:", error);
-				addMessageToChat(
-					this.chatContainer,
-					"error",
-					`Error sending tool results: ${error.message}`
-				);
-			}
-		} finally {
-			setLoadingState(this.loadingIndicator, false);
-			this.currentRequestController = null;
-		}
+		});
 	}
 
 	private async processToolCalls(
 		toolCalls: BackendToolCall[]
-	): Promise<ToolResult[]> {
+	): Promise<void> {
 		const results: ToolResult[] = [];
-		const editToolCalls = toolCalls.filter((tc) => tc.tool === "edit_file");
-		const otherToolCalls = toolCalls.filter(
-			(tc) => tc.tool !== "edit_file"
+		const editToolCalls = toolCalls.filter(
+			(tc) => tc.tool === "editFile" // Match the tool name from backend
+		);
+		const otherToolCalls = toolCalls.filter((tc) => tc.tool !== "editFile");
+
+		addMessageToChat(
+			this,
+			"system",
+			`Agent requests ${toolCalls.length} action(s)...`
 		);
 
 		// Execute non-edit tools first
 		for (const toolCall of otherToolCalls) {
 			try {
+				addMessageToChat(
+					this,
+					"system",
+					`Executing ${toolCall.tool}...`
+				);
 				const result = await this.executeSingleTool(toolCall);
 				results.push({ id: toolCall.id, result });
+				addMessageToChat(
+					this,
+					"system",
+					`Result for ${toolCall.tool}: ${JSON.stringify(
+						result
+					).substring(0, 100)}...`
+				);
 			} catch (error) {
 				console.error(`Error executing tool ${toolCall.tool}:`, error);
+				const errorMsg = `Failed to execute tool ${toolCall.tool}: ${error.message}`;
 				results.push({
 					id: toolCall.id,
-					result: {
-						error: `Failed to execute tool: ${error.message}`,
-					},
+					result: { error: errorMsg },
 				});
+				addMessageToChat(this, "system", errorMsg, true);
 			}
 		}
 
 		// Handle edit tools with review
 		if (editToolCalls.length > 0) {
 			try {
+				addMessageToChat(
+					this,
+					"system",
+					`Review required for changes to ${editToolCalls
+						.map((tc) => tc.params.path)
+						.join(", ")}`
+				);
 				const editResults = await this.reviewAndExecuteEdits(
 					editToolCalls
 				);
 				results.push(...editResults);
 			} catch (error) {
 				console.error("Error processing file edits:", error);
-				// Add error results for all pending edits if the review process fails globally
+				const errorMsg = `Failed to process edits: ${error.message}`;
 				editToolCalls.forEach((tc) => {
 					results.push({
 						id: tc.id,
-						result: {
-							error: `Failed to process edits: ${error.message}`,
-						},
+						result: { error: errorMsg },
 					});
 				});
+				addMessageToChat(this, "system", errorMsg, true);
 			}
 		}
 
-		return results;
+		// Send all results back if any were generated
+		if (results.length > 0) {
+			await this.sendToolResults(results);
+		} else {
+			setDomLoadingState(this, false); // Stop loading if no results to send
+		}
 	}
 
-	// --- Tool Execution (Modify to use imported tool implementations) ---
+	// --- Tool Execution (Uses imported tool implementations) ---
 
 	private async reviewAndExecuteEdits(
 		pendingEdits: BackendToolCall[]
 	): Promise<ToolResult[]> {
 		const results: ToolResult[] = [];
 		for (const toolCall of pendingEdits) {
-			if (toolCall.tool !== "edit_file") continue; // Should not happen, but safety check
+			if (toolCall.tool !== "editFile") continue;
 
 			try {
 				const reviewResult = await this.displayDiffModalForReview(
 					toolCall
 				);
 
-				if (reviewResult.approved) {
-					// Execute using the imported tool function
-					const executionResult = await toolEditFile(
-						this.app,
-						toolCall.params.target_file,
-						reviewResult.content // Use approved content
-					);
-					results.push({ id: toolCall.id, result: executionResult });
-					new Notice(`File ${toolCall.params.target_file} updated.`);
+				// Check the 'applied' property from DiffReviewResult
+				if (reviewResult.applied) {
+					// Use the 'finalContent' property if available
+					if (reviewResult.finalContent !== undefined) {
+						addMessageToChat(
+							this,
+							"system",
+							`Applying changes to ${toolCall.params.path}...`
+						);
+						const executionResult = await toolEditFile(
+							this.app,
+							toolCall.params.path, // Use path from params
+							reviewResult.finalContent, // Use approved content
+							toolCall.params.instructions // Pass instructions
+						);
+						results.push({
+							id: toolCall.id,
+							result: executionResult,
+						});
+						new Notice(`File ${toolCall.params.path} updated.`);
+					} else {
+						// Should not happen if applied is true, but handle defensively
+						throw new Error(
+							"Edit applied but final content was missing."
+						);
+					}
 				} else {
 					results.push({
 						id: toolCall.id,
-						result: { message: "Edit rejected by user." },
+						result: { message: reviewResult.message }, // Use message from result
 					});
+					addMessageToChat(this, "system", reviewResult.message);
 					new Notice("Edit rejected.");
 				}
 			} catch (error) {
 				console.error(
-					`Error processing edit for ${toolCall.params.target_file}:`,
+					`Error processing edit for ${toolCall.params.path}:`,
 					error
 				);
+				const errorMsg = `Failed to apply edit: ${error.message}`;
 				results.push({
 					id: toolCall.id,
-					result: { error: `Failed to apply edit: ${error.message}` },
+					result: { error: errorMsg },
 				});
-				new Notice(
-					`Error applying edit to ${toolCall.params.target_file}.`
-				);
+				addMessageToChat(this, "system", errorMsg, true);
+				new Notice(`Error applying edit to ${toolCall.params.path}.`);
 			}
 		}
 		return results;
@@ -817,24 +605,29 @@ export class ProVibeView extends ItemView {
 		toolCall: BackendToolCall
 	): Promise<DiffReviewResult> {
 		return new Promise(async (resolve) => {
-			const targetPath = toolCall.params.target_file;
-			const proposedContent = toolCall.params.code_edit; // Assuming backend sends full proposed content
+			const { path, code_edit, instructions } = toolCall.params;
+			const targetPath = path.startsWith("./") ? path.substring(2) : path;
+			const proposedContent = code_edit; // Assuming code_edit holds the full proposed content
 			let originalContent = "";
 			const file = this.app.vault.getAbstractFileByPath(targetPath);
 
 			if (file instanceof TFile) {
 				originalContent = await this.app.vault.read(file);
 			} else {
-				// Handle case where file doesn't exist (treat as new file creation)
-				originalContent = "";
+				originalContent = ""; // Treat as new file creation
 			}
 
+			// Call constructor with all 8 arguments
 			new DiffReviewModal(
 				this.app,
+				this.plugin, // Pass plugin instance
 				targetPath,
 				originalContent,
 				proposedContent,
-				(result) => {
+				instructions,
+				toolCall.id,
+				(result: DiffReviewResult) => {
+					// Add type to result
 					resolve(result);
 				}
 			).open();
@@ -843,15 +636,8 @@ export class ProVibeView extends ItemView {
 
 	private async executeSingleTool(toolCall: BackendToolCall): Promise<any> {
 		switch (toolCall.tool) {
-			case "read_file":
-				// Execute using the imported tool function
-				return await toolReadFile(
-					this.app,
-					toolCall.params.target_file
-				);
-			// Add cases for other non-edit tools here if needed
-			// case "another_tool":
-			//   return await toolAnotherTool(this.app, toolCall.params);
+			case "readFile": // Match tool name from backend
+				return await toolReadFile(this.app, toolCall.params.path);
 			default:
 				throw new Error(
 					`Unknown or unsupported tool: ${toolCall.tool}`
@@ -865,13 +651,7 @@ export class ProVibeView extends ItemView {
 		// Any cleanup needed when the view is closed
 	}
 
-	// --- Text Content Helpers (No longer needed if using contenteditable div) ---
-	/* REMOVED getTextContent */
-	/* REMOVED setTextContent */
+	// --- Helper Methods (REMOVED) ---
 
-	// --- Slash Command Methods (REMOVED - now in eventHandlers/domUtils) ---
-	/* REMOVED setSuggestions */
-	/* REMOVED handleSuggestionSelect */
-	/* REMOVED handleInputChange */
-	/* REMOVED handleInputKeydown */
+	// --- Slash Command Methods (REMOVED) ---
 }

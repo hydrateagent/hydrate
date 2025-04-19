@@ -264,3 +264,26 @@ export function renderSuggestions(view: ProVibeView): void {
 		activeEl?.scrollIntoView({ block: "nearest" });
 	}
 }
+
+/**
+ * Updates the suggestions state and re-renders the suggestions UI.
+ */
+export function setSuggestions(
+	view: ProVibeView,
+	newSuggestions: RegistryEntry[]
+): void {
+	(view as any).suggestions = newSuggestions;
+	(view as any).activeSuggestionIndex = -1;
+	renderSuggestions(view); // Call the renderer also in this file
+}
+
+/**
+ * Sets the text content of the input text area and dispatches an input event.
+ */
+export function setTextContent(view: ProVibeView, text: string): void {
+	const textInput = (view as any).textInput as HTMLTextAreaElement;
+	if (textInput) {
+		textInput.value = text;
+		textInput.dispatchEvent(new Event("input", { bubbles: true }));
+	}
+}
