@@ -2,6 +2,7 @@ import ProVibePlugin from "../../main"; // Adjust path if needed
 
 export function injectSettingsStyles(plugin: ProVibePlugin) {
 	// Consolidate all CSS rules here, removing duplicates
+	// These setting are used to override pesky Obsidian styles that otherwise cannot be
 	const css = `
         /* --- General Settings Styles --- */
         .provibe-settings-section {
