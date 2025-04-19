@@ -7,9 +7,11 @@ import {
 	Editor,
 	parseYaml,
 	MarkdownRenderer,
+	ViewStateResult,
 } from "obsidian";
 import ProVibePlugin from "./main"; // Import the plugin class to access settings
 import { DiffReviewModal, DiffReviewResult } from "./DiffReviewModal"; // Import the new modal
+import { ReactViewHost } from "./src/ReactViewHost"; // <<< ADD THIS IMPORT
 
 export const PROVIBE_VIEW_TYPE = "provibe-view";
 
@@ -56,6 +58,7 @@ export class ProVibeView extends ItemView {
 	private isLoading: boolean = false; // Flag to prevent multiple submissions
 	private conversationId: string | null = null; // Add state for conversation ID
 	private stopButton: HTMLButtonElement | null = null; // Added reference for stop button
+	private initialFilePathFromState: string | null = null; // <<< ADDED: Store path from state
 
 	constructor(leaf: WorkspaceLeaf, plugin: ProVibePlugin) {
 		super(leaf);
@@ -70,7 +73,81 @@ export class ProVibeView extends ItemView {
 		return "ProVibe";
 	}
 
+	// <<< ADDED: setState method to capture initialFilePath >>>
+	async setState(state: any, result: ViewStateResult): Promise<void> {
+		console.log("ProVibeView setState called with state:", state);
+		if (state?.sourceFilePath) {
+			this.initialFilePathFromState = state.sourceFilePath;
+			console.log(
+				"ProVibeView setState: Captured sourceFilePath:",
+				this.initialFilePathFromState
+			);
+
+			// <<< MOVED: Auto-attach logic now runs here >>>
+			console.log(
+				"ProVibe [setState]: Attempting to auto-attach file using path from state."
+			);
+			console.log(
+				"ProVibe [setState]: Current attachedFiles BEFORE attach:",
+				[...this.attachedFiles]
+			);
+
+			const fileToAttachPath = this.initialFilePathFromState; // Already set
+
+			console.log(
+				"ProVibe [setState]: File path to check for attachment:",
+				fileToAttachPath
+			);
+
+			if (fileToAttachPath) {
+				if (!this.attachedFiles.includes(fileToAttachPath)) {
+					// Verify the file actually exists in the vault before adding
+					const fileExists =
+						this.app.vault.getAbstractFileByPath(
+							fileToAttachPath
+						) instanceof TFile;
+					if (fileExists) {
+						console.log(
+							`ProVibe [setState]: Attaching ${fileToAttachPath}...`
+						);
+						this.attachedFiles.push(fileToAttachPath);
+						console.log(
+							"ProVibe [setState]: attachedFiles after push:",
+							[...this.attachedFiles]
+						);
+						// Render pills immediately after attach
+						this.renderFilePills();
+					} else {
+						console.warn(
+							`ProVibe [setState]: File path from state '${fileToAttachPath}' does not exist or is not a TFile. Not attaching.`
+						);
+					}
+				} else {
+					console.log(
+						`ProVibe [setState]: File ${fileToAttachPath} already attached.`
+					);
+				}
+			} else {
+				// This case is less likely now as we only run this logic if sourceFilePath exists
+				console.log(
+					"ProVibe [setState]: File path variable was unexpectedly null/empty."
+				);
+			}
+			// <<< END MOVED >>>
+		} else {
+			console.log(
+				"ProVibeView setState: No sourceFilePath found in state."
+			);
+		}
+		await super.setState(state, result);
+	}
+
 	async onOpen(): Promise<void> {
+		// <<< REMOVED: Logging related to path >>>
+		// console.log(
+		// 	"ProVibe [onOpen]: Started. Initial path from state:",
+		// 	this.initialFilePathFromState
+		// );
 		const container = this.containerEl.children[1];
 		container.empty();
 		// Apply flex layout and full height to the main container
@@ -229,39 +306,9 @@ export class ProVibeView extends ItemView {
 			"ProVibe Agent ready. Type your prompt or drop files."
 		);
 
-		// --- Auto-attach active file on open --- //
-		console.log("ProVibe [onOpen]: Attempting to auto-attach file."); // Added log
-		console.log("ProVibe [onOpen]: Current attachedFiles:", [
-			...this.attachedFiles,
-		]); // Added log (copy array)
-		const activeFile = this.app.workspace.getActiveFile();
-
-		if (activeFile instanceof TFile) {
-			console.log(
-				`ProVibe [onOpen]: Found active TFile: ${activeFile.path}`
-			); // Added log
-			const activeFilePath = activeFile.path;
-			if (!this.attachedFiles.includes(activeFilePath)) {
-				console.log(`ProVibe [onOpen]: Attaching ${activeFilePath}...`); // Added log
-				this.attachedFiles.push(activeFilePath);
-				console.log("ProVibe [onOpen]: attachedFiles after push:", [
-					...this.attachedFiles,
-				]); // Added log (copy array)
-			} else {
-				console.log(
-					`ProVibe [onOpen]: File ${activeFilePath} already attached.`
-				); // Added log
-			}
-		} else {
-			console.log(
-				"ProVibe [onOpen]: No active TFile found or not a TFile.",
-				activeFile
-			); // Added log
-		}
-		// Render pills after potentially adding the active file
-		console.log("ProVibe [onOpen]: Calling renderFilePills()."); // Added log
+		// Render pills (in case files were attached by setState before onOpen)
+		console.log("ProVibe [onOpen]: Calling renderFilePills().");
 		this.renderFilePills();
-		// --- End Auto-attach on open ---
 	}
 
 	// --- UI Update Methods ---

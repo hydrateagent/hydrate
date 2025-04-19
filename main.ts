@@ -163,10 +163,45 @@ export default class ProVibePlugin extends Plugin {
 	async activateView() {
 		const { workspace } = this.app;
 
+		// <<< START ADDED: Get active file path BEFORE activating ProVibe view >>>
+		let sourceFilePath: string | null = null;
+		const currentActiveLeaf = workspace.activeLeaf;
+		if (currentActiveLeaf) {
+			const currentView = currentActiveLeaf.view;
+			if (currentView instanceof MarkdownView && currentView.file) {
+				sourceFilePath = currentView.file.path;
+				console.log(
+					`ProVibe activateView: Found source file from MarkdownView: ${sourceFilePath}`
+				);
+			} else if (
+				currentView instanceof ReactViewHost &&
+				currentView.currentFilePath
+			) {
+				sourceFilePath = currentView.currentFilePath;
+				console.log(
+					`ProVibe activateView: Found source file from ReactViewHost: ${sourceFilePath}`
+				);
+			} else {
+				console.log(
+					`ProVibe activateView: Active view is not Markdown or ReactViewHost with a file.`
+				);
+			}
+		}
+		// <<< END ADDED >>>
+
 		// If view is already open in a leaf, reveal that leaf
 		const existingLeaf = workspace.getLeavesOfType(PROVIBE_VIEW_TYPE)[0];
 		if (existingLeaf) {
 			workspace.revealLeaf(existingLeaf);
+			// Optionally update the existing view's state with the source file path if needed
+			if (sourceFilePath && existingLeaf.view instanceof ProVibeView) {
+				// We might need a dedicated method on ProVibeView to handle this
+				// For now, let's just log it. We could potentially call setState again.
+				console.log(
+					`ProVibe activateView: Existing view revealed. Source file was: ${sourceFilePath}. (State not updated yet)`
+				);
+				// existingLeaf.setViewState({ type: PROVIBE_VIEW_TYPE, active: true, state: { sourceFilePath: sourceFilePath } });
+			}
 			return;
 		}
 
@@ -178,10 +213,18 @@ export default class ProVibePlugin extends Plugin {
 
 		// Open the view in a new leaf
 		const leaf = workspace.getLeaf("split", direction);
-		await leaf.setViewState({
+		// <<< ADDED: Log before setting state >>>
+		const viewStateToSet = {
 			type: PROVIBE_VIEW_TYPE,
 			active: true,
-		});
+			state: { sourceFilePath: sourceFilePath },
+		};
+		console.log(
+			`ProVibe activateView: Setting state for new leaf:`,
+			JSON.stringify(viewStateToSet)
+		);
+		// <<< END ADDED >>>
+		await leaf.setViewState(viewStateToSet);
 
 		this.view = leaf.view as ProVibeView;
 		workspace.revealLeaf(leaf);
