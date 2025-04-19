@@ -363,18 +363,6 @@ export default class ProVibePlugin extends Plugin {
 			const ReactComponent = viewKey
 				? getReactViewComponent(viewKey)
 				: undefined;
-
-			if (ReactComponent) {
-				// This Markdown view should be a React view
-				console.log(
-					`ProVibe [layout-change]: Markdown view for ${file.path} should be React view (${viewKey}). Switching...`
-				);
-				leaf.setViewState({
-					type: REACT_HOST_VIEW_TYPE,
-					state: { filePath: file.path, viewKey: viewKey },
-				} as any);
-				return; // Switched, done for this event
-			}
 		}
 
 		// Scenario 2: Active view is React, but shouldn't be? (File changed/frontmatter removed)

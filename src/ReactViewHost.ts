@@ -110,8 +110,6 @@ export class ReactViewHost extends ItemView {
 
 		// Listen for modifications to the current file
 		this.registerEvent(this.app.vault.on("modify", this.handleVaultModify));
-
-		await this.mountReactComponent();
 	}
 
 	// Called when the view is closed

@@ -89,8 +89,8 @@ export class ProVibeView extends ItemView {
 
 		// Input area container
 		const inputAreaContainer = container.createEl("div", {
-			// Added padding-top and top border
-			cls: "provibe-input-area-container pt-3 border-t border-[var(--background-modifier-border)]",
+			// Added padding-top, top border, and mb-4 for bottom margin
+			cls: "provibe-input-area-container pt-3 border-t border-[var(--background-modifier-border)] mb-4",
 		});
 
 		// File pills container - Add flex styles for pills
