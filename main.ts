@@ -91,7 +91,7 @@ export const REACT_HOST_VIEW_TYPE = "provibe-react-host"; // Define type for Rea
 export default class ProVibePlugin extends Plugin {
 	settings: ProVibePluginSettings;
 	isSwitchingToMarkdown: boolean = false;
-	private view: ProVibeView | null = null;
+	view: ProVibeView | null = null; // Keep reference to the view instance
 
 	async onload() {
 		await this.loadSettings();
@@ -100,6 +100,7 @@ export default class ProVibePlugin extends Plugin {
 
 		// Register the custom view
 		this.registerView(PROVIBE_VIEW_TYPE, (leaf: WorkspaceLeaf) => {
+			// Store the view instance when created
 			this.view = new ProVibeView(leaf, this);
 			return this.view;
 		});
@@ -110,7 +111,7 @@ export default class ProVibePlugin extends Plugin {
 		registerReactView("placeholder", PlaceholderView); // Example registration
 		registerReactView("issue-board", IssueBoardView); // <<< ADD THIS REGISTRATION
 
-		// --- Event Listener for File Open ---
+		// --- Event Listener for File Open (Re-enabled for file attachment logic) ---
 		this.registerEvent(
 			this.app.workspace.on("file-open", this.handleFileOpen)
 		);
@@ -123,44 +124,32 @@ export default class ProVibePlugin extends Plugin {
 		});
 
 		// --- Add Layout Change Handler ---
-		this.registerEvent(
-			this.app.workspace.on("layout-change", this.handleLayoutChange)
-		);
+		// this.registerEvent(
+		//  this.app.workspace.on("layout-change", this.handleLayoutChange)
+		// ); // Keep disabled for now, focus on file-open
 
 		// This creates an icon in the left ribbon to toggle the ProVibe pane
 		const ribbonIconEl = this.addRibbonIcon(
-			"text-cursor-input",
+			"text-cursor-input", // Changed icon for better representation
 			"Toggle ProVibe Pane",
 			async (evt: MouseEvent) => {
 				// Toggle the pane when the icon is clicked
-				const leaves =
-					this.app.workspace.getLeavesOfType(PROVIBE_VIEW_TYPE);
-				if (leaves.length > 0) {
-					await this.deactivateView();
-				} else {
-					await this.activateView();
-				}
+				await this.togglePane(); // Use helper function
 			}
 		);
 		// Perform additional things with the ribbon
 		ribbonIconEl.addClass("provibe-ribbon-class");
 
 		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText("Status Bar Text");
+		// const statusBarItemEl = this.addStatusBarItem();
+		// statusBarItemEl.setText("ProVibe Ready"); // Example status
 
 		// This adds a command to toggle the ProVibe pane
 		this.addCommand({
 			id: "toggle-provibe-pane",
 			name: "Toggle ProVibe pane",
 			callback: async () => {
-				const leaves =
-					this.app.workspace.getLeavesOfType(PROVIBE_VIEW_TYPE);
-				if (leaves.length > 0) {
-					await this.deactivateView();
-				} else {
-					await this.activateView();
-				}
+				await this.togglePane(); // Use helper function
 			},
 		});
 
@@ -168,9 +157,9 @@ export default class ProVibePlugin extends Plugin {
 		this.addSettingTab(new ProVibeSettingTab(this.app, this));
 
 		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(
-			window.setInterval(() => console.log("setInterval"), 5 * 60 * 1000)
-		);
+		// this.registerInterval(
+		//  window.setInterval(() => console.log("setInterval"), 5 * 60 * 1000)
+		// );
 
 		// --- React View Host Registration ---
 		console.log(`ProVibe: Registering view type: ${REACT_HOST_VIEW_TYPE}`);
@@ -182,14 +171,26 @@ export default class ProVibePlugin extends Plugin {
 		});
 	}
 
+	// --- Helper to Toggle Pane ---
+	async togglePane() {
+		const leaves = this.app.workspace.getLeavesOfType(PROVIBE_VIEW_TYPE);
+		if (leaves.length > 0) {
+			await this.deactivateView();
+		} else {
+			await this.activateView();
+		}
+	}
+
+	// --- Activate/Deactivate View ---
 	async activateView() {
 		const { workspace } = this.app;
-
-		// <<< START ADDED: Get active file path BEFORE activating ProVibe view >>>
 		let sourceFilePath: string | null = null;
+
+		// Get active file path BEFORE activating ProVibe view
 		const currentActiveLeaf = workspace.activeLeaf;
 		if (currentActiveLeaf) {
 			const currentView = currentActiveLeaf.view;
+			// Get path from MarkdownView or ReactViewHost (if applicable)
 			if (currentView instanceof MarkdownView && currentView.file) {
 				sourceFilePath = currentView.file.path;
 				console.log(
@@ -203,26 +204,53 @@ export default class ProVibePlugin extends Plugin {
 				console.log(
 					`ProVibe activateView: Found source file from ReactViewHost: ${sourceFilePath}`
 				);
+			} else if (
+				currentView instanceof ItemView &&
+				currentView.getViewType() !== PROVIBE_VIEW_TYPE
+			) {
+				// Try to get file from generic ItemView if possible (might not always work)
+				const state = currentView.getState();
+				if (state?.file) {
+					const file = this.app.vault.getAbstractFileByPath(
+						state.file
+					);
+					if (file instanceof TFile) {
+						sourceFilePath = file.path;
+						console.log(
+							`ProVibe activateView: Found source file from generic ItemView state: ${sourceFilePath}`
+						);
+					}
+				}
 			} else {
 				console.log(
-					`ProVibe activateView: Active view is not Markdown or ReactViewHost with a file.`
+					`ProVibe activateView: Active view is not Markdown or ReactViewHost or did not yield a file path.`
 				);
 			}
+		} else {
+			console.log(`ProVibe activateView: No active leaf found.`);
 		}
-		// <<< END ADDED >>>
 
 		// If view is already open in a leaf, reveal that leaf
-		const existingLeaf = workspace.getLeavesOfType(PROVIBE_VIEW_TYPE)[0];
-		if (existingLeaf) {
+		const existingLeaves = workspace.getLeavesOfType(PROVIBE_VIEW_TYPE);
+		if (existingLeaves.length > 0) {
+			const existingLeaf = existingLeaves[0];
 			workspace.revealLeaf(existingLeaf);
-			// Optionally update the existing view's state with the source file path if needed
-			if (sourceFilePath && existingLeaf.view instanceof ProVibeView) {
-				// We might need a dedicated method on ProVibeView to handle this
-				// For now, let's just log it. We could potentially call setState again.
+			// If a source file was found *now*, and the existing view has no files attached, attach it.
+			if (
+				sourceFilePath &&
+				existingLeaf.view instanceof ProVibeView &&
+				existingLeaf.view.attachedFiles.length === 0
+			) {
 				console.log(
-					`ProVibe activateView: Existing view revealed. Source file was: ${sourceFilePath}. (State not updated yet)`
+					`ProVibe activateView: Existing view revealed. Attaching current file: ${sourceFilePath}`
 				);
-				// existingLeaf.setViewState({ type: PROVIBE_VIEW_TYPE, active: true, state: { sourceFilePath: sourceFilePath } });
+				(existingLeaf.view as ProVibeView).attachInitialFile(
+					sourceFilePath
+				);
+			} else {
+				console.log(
+					`ProVibe activateView: Existing view revealed. Source file: ${sourceFilePath}. View state not modified.`
+				);
 			}
 			return;
 		}
@@ -235,36 +263,59 @@ export default class ProVibePlugin extends Plugin {
 
 		// Open the view in a new leaf
 		const leaf = workspace.getLeaf("split", direction);
-		// <<< ADDED: Log before setting state >>>
-		const viewStateToSet = {
+
+		// Pass the source file path in the state when opening the view
+		const viewStateToSet: any = {
+			// Use 'any' temporarily if strict type causes issues
 			type: PROVIBE_VIEW_TYPE,
 			active: true,
-			state: { sourceFilePath: sourceFilePath },
+			state: {}, // Initialize empty state object
 		};
+		if (sourceFilePath) {
+			viewStateToSet.state.sourceFilePath = sourceFilePath; // Add sourceFilePath if found
+		}
+
 		console.log(
 			`ProVibe activateView: Setting state for new leaf:`,
 			JSON.stringify(viewStateToSet)
 		);
-		// <<< END ADDED >>>
 		await leaf.setViewState(viewStateToSet);
 
-		this.view = leaf.view as ProVibeView;
-		workspace.revealLeaf(leaf);
+		// 'this.view' will be set by the view factory function registered earlier
+		if (leaf.view instanceof ProVibeView) {
+			this.view = leaf.view; // Ensure our reference is correct
+		}
+		workspace.revealLeaf(leaf); // Reveal after setting state
 	}
 
 	async deactivateView() {
 		const { workspace } = this.app;
 		const leaves = workspace.getLeavesOfType(PROVIBE_VIEW_TYPE);
 		leaves.forEach((leaf) => leaf.detach());
-		this.view = null;
+		this.view = null; // Clear the reference
 	}
 
-	// --- File Open Handler ---
+	// --- File Open Handler (Simplified for File Attachment Logic) ---
 	handleFileOpen = async (file: TFile | null) => {
-		// *** Temporarily disable this handler's switching logic ***
-		/*
-		if (!file) return;
+		console.log(
+			`ProVibe [file-open]: File changed to: ${file?.path ?? "null"}`
+		);
 
+		// Check if our ProVibe view instance exists and is currently visible
+		if (this.view && this.view.containerEl.isShown()) {
+			console.log(
+				`ProVibe [file-open]: ProVibe view is open, notifying it of file change.`
+			);
+			// Pass the new file path (or null) to the view instance
+			this.view.handleActiveFileChange(file?.path ?? null);
+		} else {
+			console.log(
+				`ProVibe [file-open]: ProVibe view is not open or not visible, ignoring file change.`
+			);
+		}
+
+		// --- Keep original view-switching logic commented out ---
+		/*
 		const leaf = this.app.workspace.getActiveViewOfType(ItemView)?.leaf; // Get active leaf
 		if (!leaf) return;
 
@@ -279,75 +330,9 @@ export default class ProVibePlugin extends Plugin {
 
 		// --- Logic to Switch Views ---
 		if (ReactComponent) {
-			// We want the React View
-
-			// Check if it's already the correct React view host
-			if (
-				currentView instanceof ReactViewHost &&
-				currentView.currentFilePath === file.path &&
-				currentView.currentViewKey === viewKey
-			) {
-				// Already in the correct React view, do nothing
-				// console.log("ProVibe: Already in correct React view:", file.path);
-				return;
-			}
-
-			// Switch to ReactViewHost - DEFERRED
-			console.log(
-				`ProVibe: Queueing switch to React view (${viewKey}) for: ${file.path}`
-			);
-			setTimeout(() => {
-				console.log(
-					`ProVibe: Executing deferred switch to React view for: ${file.path}`
-				);
-				// Ensure leaf is still valid in the timeout
-				// We can check if the view associated with the leaf is still attached
-				if (leaf.view?.containerEl.isConnected) { // Use the captured leaf directly
-					console.log("ProVibe: Revealing leaf before setting state..."); // Add log
-					this.app.workspace.revealLeaf(leaf); // Reveal the leaf first
-					// Now set the state
-					leaf.setViewState({ // Use the captured leaf directly
-						type: REACT_HOST_VIEW_TYPE,
-						state: { filePath: file.path, viewKey: viewKey },
-					} as any);
-				} else {
-					console.warn(
-						`ProVibe: Leaf captured in closure no longer seems valid for deferred switch.` // Updated warning
-					);
-				}
-			}, 0);
+			// ... (Switch to React view logic) ...
 		} else {
-			// We want the Markdown View (or default)
-
-			// Check if the current view is our React host (needs switching back)
-			if (currentView instanceof ReactViewHost) {
-				// Switch back to Markdown - DEFERRED
-				console.log(
-					`ProVibe: Queueing switch back to Markdown view for: ${file.path}`
-				);
-				setTimeout(() => {
-					console.log(
-						`ProVibe: Executing deferred switch to Markdown view for: ${file.path}`
-					);
-					// Check if the leaf/view is still valid
-					if (leaf.view?.containerEl.isConnected && currentView?.containerEl.isConnected) { // Check both leaf and original view
-						console.log("ProVibe: Revealing leaf before setting state (back to Markdown)..."); // Add log
-						this.app.workspace.revealLeaf(leaf); // Reveal the leaf first
-						const previousState = (
-							currentView as ReactViewHost // Use captured currentView
-						).getState();
-						leaf.setViewState({ // Use captured leaf
-							type: "markdown",
-							state: { ...previousState, file: file.path },
-						});
-					} else {
-						console.warn(
-							`ProVibe: Leaf or original view no longer seems valid for deferred switch back to markdown.` // Updated warning
-						);
-					}
-				}, 0);
-			}
-			// Else: It's already a non-React view (e.g., Markdown, Kanban), let Obsidian handle it.
+			// ... (Switch back to Markdown logic) ...
 		}
 		*/
 	};
@@ -384,6 +369,7 @@ export default class ProVibePlugin extends Plugin {
 					leaf.setViewState({
 						type: REACT_HOST_VIEW_TYPE,
 						state: { filePath: file.path, viewKey: viewKey },
+						active: true, // Ensure the leaf becomes active
 					} as any);
 				}
 				return true;
@@ -395,7 +381,8 @@ export default class ProVibePlugin extends Plugin {
 	};
 	// --- End Toggle Command Check Callback ---
 
-	// --- Layout Change Handler ---
+	// --- Layout Change Handler (Keep commented out for now) ---
+	/*
 	handleLayoutChange = () => {
 		console.log("ProVibe: layout-change detected");
 
@@ -418,32 +405,24 @@ export default class ProVibePlugin extends Plugin {
 
 		// Scenario 1: Active view is Markdown, but should be React?
 		if (currentView instanceof MarkdownView && currentView.file) {
-			const file = currentView.file;
-			const fileCache = this.app.metadataCache.getFileCache(file);
-			if (!fileCache) return; // Cache might not be ready immediately
-
-			const frontmatter = fileCache.frontmatter;
-			const triggerKey = "provibe-plugin";
-			const viewKey = frontmatter?.[triggerKey] as string | undefined;
-			const ReactComponent = viewKey
-				? getReactViewComponent(viewKey)
-				: undefined;
+			// ... existing logic ...
 		}
 
-		// Scenario 2: Active view is React, but shouldn't be? (File changed/frontmatter removed)
-		// This logic might be better handled within ReactViewHost using handleVaultModify
-		// or by simply letting the normal Markdown view take over if the user navigates away and back.
-		// For now, we primarily focus on switching TO the React view.
+		// Scenario 2: Active view is React, but shouldn't be?
+		// ... existing logic ...
 
 		console.log(
 			"ProVibe [layout-change]: No relevant view switch needed for active leaf."
 		);
 	};
+	*/
 	// --- End Layout Change Handler ---
 
 	onunload() {
 		// Clean up when the plugin is disabled
-		this.deactivateView();
+		this.deactivateView(); // This will also detach leaves
+		this.view = null; // Ensure reference is cleared
+		console.log("ProVibe Plugin Unloaded");
 	}
 
 	async loadSettings() {
@@ -478,7 +457,9 @@ export default class ProVibePlugin extends Plugin {
 			// Optional: Check if the default /issue exists and add it if missing,
 			// maybe based on ID 'default-issue-board'.
 			const defaultIssueExists = this.settings.registryEntries.some(
-				(entry) => entry.id === "default-issue-board"
+				(entry) =>
+					entry.id === "default-issue-board" ||
+					entry.slashCommandTrigger === "/issue"
 			);
 			if (!defaultIssueExists) {
 				console.log(
@@ -529,6 +510,11 @@ class RegistryEditModal extends Modal {
 	isNew: boolean;
 	onSubmit: (result: RegistryEntry) => void; // Callback on successful save
 
+	// Components for cleanup
+	private textInputs: TextComponent[] = [];
+	private dropdowns: DropdownComponent[] = [];
+	private textAreas: TextAreaComponent[] = [];
+
 	constructor(
 		app: App,
 		plugin: ProVibePlugin,
@@ -538,17 +524,19 @@ class RegistryEditModal extends Modal {
 		super(app);
 		this.plugin = plugin;
 		this.isNew = entry === null;
-		this.entry = entry ?? {
-			// Provide defaults for new entry
-			id: `entry-${Date.now()}-${Math.random()
-				.toString(36)
-				.substring(2, 8)}`, // Generate semi-unique ID
-			description: "",
-			version: 1,
-			contentType: "markdown",
-			content: "",
-			slashCommandTrigger: "",
-		};
+		this.entry = entry
+			? { ...entry } // Create a copy if editing
+			: {
+					// Provide defaults for new entry
+					id: `entry-${Date.now()}-${Math.random()
+						.toString(36)
+						.substring(2, 8)}`, // Generate semi-unique ID
+					description: "",
+					version: 1,
+					contentType: "markdown",
+					content: "",
+					slashCommandTrigger: "",
+			  };
 		this.onSubmit = onSubmit;
 	}
 
@@ -564,33 +552,37 @@ class RegistryEditModal extends Modal {
 		// ID (Read-only)
 		new Setting(contentEl)
 			.setName("ID (Unique Identifier)")
-			.setDesc(
-				"Internal ID for this entry. Cannot be changed after creation."
-			)
-			.addText((text) => text.setValue(this.entry.id).setDisabled(true));
+			.setDesc("Internal ID. Cannot be changed.")
+			.addText((text) => {
+				text.setValue(this.entry.id).setDisabled(true);
+				this.textInputs.push(text); // Store for potential cleanup if needed
+			});
 
 		// Description
+		let descriptionInput: TextComponent;
 		new Setting(contentEl)
 			.setName("Description")
 			.setDesc("What this format/context is used for.")
-			.addText((text) =>
-				text
-					.setPlaceholder("e.g., Standard Issue Board Template")
+			.addText((text) => {
+				descriptionInput = text;
+				text.setPlaceholder("e.g., Standard Issue Board Template")
 					.setValue(this.entry.description)
 					.onChange((value) => {
 						this.entry.description = value.trim(); // Trim description
-					})
-			);
+					});
+				this.textInputs.push(text);
+			});
 
 		// Slash Command Trigger
+		let triggerInput: TextComponent;
 		new Setting(contentEl)
 			.setName("Slash Command Trigger (Optional)")
 			.setDesc(
-				"Enter the command including the slash (e.g., /issue). Leave empty if not needed."
+				"Command like /issue. Must start with / and contain no spaces, or be empty."
 			)
-			.addText((text) =>
-				text
-					.setPlaceholder("/command")
+			.addText((text) => {
+				triggerInput = text;
+				text.setPlaceholder("/command")
 					.setValue(this.entry.slashCommandTrigger ?? "")
 					.onChange((value) => {
 						const trimmed = value.trim();
@@ -604,29 +596,28 @@ class RegistryEditModal extends Modal {
 							// Clear potential error display if valid
 							text.inputEl.removeClass("provibe-input-error");
 						} else {
-							// Optionally provide visual feedback for invalid input
-							new Notice(
-								"Slash command must start with '/' and contain no spaces, or be empty."
-							);
+							// Invalid format, keep the UI state but don't update entry's value yet
+							// Validation will happen on save
 							text.inputEl.addClass("provibe-input-error"); // Add error class (needs CSS)
 						}
-					})
-			);
+					});
+				this.textInputs.push(text);
+			});
 
 		// Content Type
-		let contentTypeDropdown: DropdownComponent;
 		new Setting(contentEl)
 			.setName("Content Type")
 			.addDropdown((dropdown) => {
-				contentTypeDropdown = dropdown;
 				dropdown
 					.addOption("markdown", "Markdown")
 					.addOption("json", "JSON")
 					.addOption("text", "Text")
+					// Add more types as needed
 					.setValue(this.entry.contentType)
 					.onChange((value: RegistryEntryContentType) => {
 						this.entry.contentType = value;
 					});
+				this.dropdowns.push(dropdown);
 			});
 
 		// Content (TextArea)
@@ -634,23 +625,25 @@ class RegistryEditModal extends Modal {
 			.setName("Content")
 			.setDesc("The actual template, schema, or text.")
 			.setClass("provibe-registry-content-setting") // Class for styling
-			.addTextArea((textarea) =>
+			.addTextArea((textarea) => {
 				textarea
 					.setPlaceholder("Enter content here...")
 					.setValue(this.entry.content)
 					.onChange((value) => {
-						this.entry.content = value;
+						this.entry.content = value; // Update content directly
 					})
 					.inputEl.setAttrs({
 						rows: 15, // Increased rows
-						style: "width: 100%; min-height: 150px; font-family: var(--font-monospace);", // Use CSS var for font
-					})
-			);
+						// Use CSS variables for better theme compatibility
+						style: "width: 100%; min-height: 150px; font-family: var(--font-monospace);",
+					});
+				this.textAreas.push(textarea);
+			});
 
 		// Make the setting taller to accommodate the text area
 		contentEl
 			.find(".provibe-registry-content-setting")
-			?.addClass("provibe-setting-item-tall");
+			?.addClass("is-tall"); // Use Obsidian's class if available, else custom
 
 		// --- Buttons ---
 		new Setting(contentEl)
@@ -658,44 +651,75 @@ class RegistryEditModal extends Modal {
 			.addButton((button) =>
 				button
 					.setButtonText("Save")
-					.setCta()
+					.setCta() // Make it the prominent button
 					.onClick(() => {
 						// --- Validation ---
+						// Description
 						if (!this.entry.description) {
 							new Notice("Description cannot be empty.");
+							descriptionInput?.inputEl.addClass(
+								"provibe-input-error"
+							); // Highlight field
 							return;
+						} else {
+							descriptionInput?.inputEl.removeClass(
+								"provibe-input-error"
+							);
 						}
-						const trigger = this.entry.slashCommandTrigger;
-						if (
-							trigger &&
-							(!trigger.startsWith("/") || trigger.includes(" "))
-						) {
+
+						// Trigger Format
+						const trigger = triggerInput.getValue().trim(); // Get current UI value for validation
+						const isValidTrigger =
+							trigger === "" ||
+							(trigger.startsWith("/") && !trigger.includes(" "));
+						if (!isValidTrigger) {
 							new Notice(
 								"Slash command trigger must start with '/' and contain no spaces, or be empty."
 							);
+							triggerInput?.inputEl.addClass(
+								"provibe-input-error"
+							);
 							return;
+						} else {
+							triggerInput?.inputEl.removeClass(
+								"provibe-input-error"
+							);
+							// Update entry's trigger *after* validation
+							this.entry.slashCommandTrigger =
+								trigger === "" ? undefined : trigger;
 						}
-						// Check trigger uniqueness (if defined)
-						if (trigger) {
+
+						// Trigger Uniqueness (only if trigger is set)
+						if (this.entry.slashCommandTrigger) {
 							const existingEntry =
-								this.plugin.getRegistryEntryByTrigger(trigger);
+								this.plugin.getRegistryEntryByTrigger(
+									this.entry.slashCommandTrigger
+								);
 							if (
 								existingEntry &&
 								existingEntry.id !== this.entry.id
 							) {
 								new Notice(
-									`Slash command trigger "${trigger}" is already used by entry "${existingEntry.description}". Please choose a unique trigger.`
+									`Slash command trigger "${this.entry.slashCommandTrigger}" is already used by entry "${existingEntry.description}". Please choose a unique trigger.`
+								);
+								triggerInput?.inputEl.addClass(
+									"provibe-input-error"
 								);
 								return;
+							} else {
+								triggerInput?.inputEl.removeClass(
+									"provibe-input-error"
+								);
 							}
 						}
 
-						// Increment version if editing
+						// Increment version if editing an existing entry
 						if (!this.isNew) {
 							this.entry.version = (this.entry.version || 1) + 1;
 						}
 
-						this.onSubmit(this.entry);
+						// If all validation passes:
+						this.onSubmit(this.entry); // Pass the validated and potentially updated entry
 						this.close();
 					})
 			)
@@ -706,7 +730,11 @@ class RegistryEditModal extends Modal {
 
 	onClose() {
 		const { contentEl } = this;
-		contentEl.empty();
+		// Optional: Clean up component references if necessary, though usually handled by Obsidian
+		this.textInputs = [];
+		this.dropdowns = [];
+		this.textAreas = [];
+		contentEl.empty(); // Clear modal content
 	}
 }
 // --- END MODAL ---
@@ -733,8 +761,8 @@ class ProVibeSettingTab extends PluginSettingTab {
 			.setDesc("Choose where the ProVibe pane opens by default.")
 			.addDropdown((dropdown) => {
 				dropdown
-					.addOption("Bottom", "Bottom")
-					.addOption("Right", "Right")
+					.addOption("Bottom", "Bottom") // Horizontal split
+					.addOption("Right", "Right") // Vertical split
 					.setValue(this.plugin.settings.paneOrientation)
 					.onChange(async (value: "Bottom" | "Right") => {
 						this.plugin.settings.paneOrientation = value;
@@ -744,33 +772,50 @@ class ProVibeSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Backend URL")
-			.setDesc("The URL of the ProVibe agent backend server.")
-			.addText((text) =>
-				text
-					.setPlaceholder("http://localhost:8000")
+			.setDesc(
+				"URL of the ProVibe agent backend (e.g., http://localhost:8000)."
+			)
+			.addText((text) => {
+				text.setPlaceholder("http://localhost:8000")
 					.setValue(this.plugin.settings.backendUrl)
 					.onChange(async (value) => {
-						const trimmedValue = value.trim();
+						const trimmedValue = value.trim().replace(/\/$/, ""); // Trim and remove trailing slash
 						if (
+							trimmedValue === "" ||
 							trimmedValue.startsWith("http://") ||
 							trimmedValue.startsWith("https://")
 						) {
-							this.plugin.settings.backendUrl =
-								trimmedValue.replace(/\/$/, ""); // Remove trailing slash
+							this.plugin.settings.backendUrl = trimmedValue;
 							await this.plugin.saveSettings();
 							text.inputEl.removeClass("provibe-input-error");
 						} else {
-							new Notice(
-								"Backend URL must start with http:// or https://"
-							);
+							// Keep the invalid value in the input for correction, but don't save it.
+							// Show persistent error styling instead of notice spam.
 							text.inputEl.addClass("provibe-input-error");
 						}
-					})
-			);
+					});
+				// Add input listener to clear error on valid input
+				text.inputEl.addEventListener("input", () => {
+					const trimmedValue = text.inputEl.value
+						.trim()
+						.replace(/\/$/, "");
+					if (
+						trimmedValue === "" ||
+						trimmedValue.startsWith("http://") ||
+						trimmedValue.startsWith("https://")
+					) {
+						text.inputEl.removeClass("provibe-input-error");
+					} else {
+						text.inputEl.addClass("provibe-input-error");
+					}
+				});
+			});
 
 		new Setting(containerEl)
 			.setName("Development Path")
-			.setDesc("Path to the plugin development directory")
+			.setDesc(
+				"Internal setting: Path to the plugin development directory."
+			)
 			.addText((text) =>
 				text
 					.setPlaceholder(".obsidian/plugins/provibe")
@@ -785,50 +830,52 @@ class ProVibeSettingTab extends PluginSettingTab {
 		const registrySection = containerEl.createDiv(
 			"provibe-settings-section"
 		);
-		registrySection.createEl("h3", {
-			text: "Format & Context Registry (Slash Commands)",
+		const headingEl = registrySection.createEl("div", {
+			cls: "provibe-settings-heading",
 		});
-		registrySection
-			.createEl("p", {
-				text: "Manage reusable templates, schemas, and commands for quick insertion and agent use.",
-			})
-			.addClass("setting-item-description");
+		headingEl.createEl("h3", { text: "Format & Context Registry" });
+		const addButtonContainer = headingEl.createDiv({
+			cls: "provibe-heading-actions",
+		}); // Container for button
+
+		// Add New Entry Button (aligned with heading)
+		addButtonContainer
+			.createEl("button", { text: "Add New Entry", cls: "mod-cta" })
+			.addEventListener("click", () => {
+				const modal = new RegistryEditModal(
+					this.app,
+					this.plugin,
+					null, // Creating a new entry
+					(newEntry) => {
+						// Add the new entry to settings
+						this.plugin.settings.registryEntries = [
+							...this.plugin.getRegistryEntries(), // Use getter to ensure array exists
+							newEntry,
+						];
+						this.plugin.saveSettings();
+						this.renderRegistryList(registryListEl); // Re-render the list below
+						new Notice(
+							`Added registry entry: ${
+								newEntry.description || newEntry.id
+							}`
+						);
+					}
+				);
+				modal.open();
+			});
+
+		registrySection.createEl("p", {
+			text: "Manage reusable templates, schemas, or context snippets accessible via slash commands in the ProVibe pane.",
+			cls: "setting-item-description", // Use Obsidian's class
+		});
 
 		const registryListEl = registrySection.createDiv(
 			"provibe-registry-list"
-		); // Container for the list
+		); // Container for the list items
 
-		this.renderRegistryList(registryListEl); // Call helper to render the list
+		this.renderRegistryList(registryListEl); // Call helper to render the list items
 
-		// --- Add New Button ---
-		new Setting(registrySection)
-			.setClass("provibe-add-button-setting") // Add class for styling
-			.addButton((button) =>
-				button
-					.setButtonText("Add New Entry")
-					.setCta()
-					.onClick(() => {
-						const modal = new RegistryEditModal(
-							this.app,
-							this.plugin,
-							null,
-							(newEntry) => {
-								this.plugin.settings.registryEntries = [
-									...this.plugin.getRegistryEntries(), // Use getter to ensure array exists
-									newEntry,
-								];
-								this.plugin.saveSettings();
-								this.renderRegistryList(registryListEl); // Re-render the list
-								new Notice(
-									`Added registry entry: ${newEntry.description}`
-								);
-							}
-						);
-						modal.open();
-					})
-			);
-
-		// --- Optional: Add CSS for better layout ---
+		// --- Add CSS ---
 		this.addStyles(); // Add styles method call
 	}
 
@@ -840,49 +887,54 @@ class ProVibeSettingTab extends PluginSettingTab {
 
 		if (entries.length === 0) {
 			containerEl.createEl("p", {
-				text: "No registry entries defined yet.",
-				cls: "provibe-empty-list-message",
+				text: "No registry entries defined yet. Click 'Add New Entry' above to create one.",
+				cls: "provibe-empty-list-message", // Custom class for styling
 			});
 			return;
 		}
 
-		entries.sort((a, b) => a.description.localeCompare(b.description)); // Sort alphabetically by description
+		// Sort alphabetically by description for consistent order
+		entries.sort((a, b) =>
+			(a.description || a.id).localeCompare(b.description || b.id)
+		);
 
 		entries.forEach((entry) => {
 			const settingItem = new Setting(containerEl)
-				.setName(entry.description || `(No description)`)
+				.setName(entry.description || `(ID: ${entry.id})`) // Show ID if no description
 				.setDesc(
 					`Trigger: ${entry.slashCommandTrigger || "None"} | Type: ${
 						entry.contentType
 					} | v${entry.version}`
 				)
-				.setClass("provibe-registry-item")
+				.setClass("provibe-registry-item") // Custom class for item styling
 
 				// Edit Button
 				.addButton((button) =>
 					button
-						.setIcon("pencil")
+						.setIcon("pencil") // Use Obsidian's pencil icon
 						.setTooltip("Edit Entry")
 						.onClick(() => {
 							const modal = new RegistryEditModal(
 								this.app,
 								this.plugin,
-								{ ...entry },
+								entry, // Pass the existing entry (modal constructor makes a copy)
 								(updatedEntry) => {
-									// Pass a copy for editing
+									// Update the entry in the settings array
 									this.plugin.settings.registryEntries =
-										this.plugin.getRegistryEntries().map(
-											(
-												e // Use getter
-											) =>
+										this.plugin
+											.getRegistryEntries()
+											.map((e) =>
 												e.id === updatedEntry.id
 													? updatedEntry
 													: e
-										);
+											);
 									this.plugin.saveSettings();
-									this.renderRegistryList(containerEl); // Re-render
+									this.renderRegistryList(containerEl); // Re-render the list
 									new Notice(
-										`Updated entry: ${updatedEntry.description}`
+										`Updated entry: ${
+											updatedEntry.description ||
+											updatedEntry.id
+										}`
 									);
 								}
 							);
@@ -892,21 +944,30 @@ class ProVibeSettingTab extends PluginSettingTab {
 				// Delete Button
 				.addButton((button) =>
 					button
-						.setIcon("trash")
+						.setIcon("trash") // Use Obsidian's trash icon
 						.setTooltip("Delete Entry")
-						.setClass("mod-warning")
+						.setClass("mod-warning") // Use Obsidian's warning style for delete
 						.onClick(async () => {
-							// Make async for potential confirmation
-							// Optional: Add confirmation dialog
-							// const confirmed = await this.app.plugins.plugins['modal-form']?.api.confirm("Delete Entry?", `Are you sure you want to delete "${entry.description}"?`);
-							// if (!confirmed) return;
-
-							this.plugin.settings.registryEntries = this.plugin
-								.getRegistryEntries()
-								.filter((e) => e.id !== entry.id); // Use getter
-							await this.plugin.saveSettings();
-							this.renderRegistryList(containerEl); // Re-render
-							new Notice(`Deleted entry: ${entry.description}`);
+							// Simple confirmation using window.confirm (consider a custom modal for better UX)
+							if (
+								confirm(
+									`Are you sure you want to delete "${
+										entry.description || entry.id
+									}"?`
+								)
+							) {
+								this.plugin.settings.registryEntries =
+									this.plugin
+										.getRegistryEntries()
+										.filter((e) => e.id !== entry.id); // Filter out the entry
+								await this.plugin.saveSettings();
+								this.renderRegistryList(containerEl); // Re-render the list
+								new Notice(
+									`Deleted entry: ${
+										entry.description || entry.id
+									}`
+								);
+							}
 						})
 				);
 		});
@@ -921,69 +982,89 @@ class ProVibeSettingTab extends PluginSettingTab {
                 padding-top: 20px;
                 margin-top: 20px;
             }
-            /* Input Error State */
+            /* Heading with Action Button */
+            .provibe-settings-heading {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 5px; /* Space below heading */
+            }
+            .provibe-settings-heading h3 {
+                margin-bottom: 0; /* Remove default margin from h3 */
+            }
+             /* Input Error State */
             .provibe-input-error {
-                border-color: var(--background-modifier-error-border) !important;
-                box-shadow: 0 0 0 1px var(--background-modifier-error-border) !important;
+                border-color: var(--text-error) !important; /* More prominent error color */
+                box-shadow: 0 0 0 1px var(--text-error) !important;
             }
             /* Tall setting item for Text Area in Modal */
-             .provibe-setting-item-tall {
-                align-items: flex-start !important;
-                flex-wrap: wrap; /* Allow wrapping */
+            .provibe-registry-content-setting.is-tall .setting-item-control {
+                 height: auto; /* Allow text area to determine height */
+                 align-self: stretch;
             }
-            .provibe-setting-item-tall .setting-item-info {
-                margin-bottom: 8px; /* Space between label/desc and control */
-                flex-basis: 100%; /* Label takes full width */
+            .provibe-registry-content-setting.is-tall .setting-item-info {
+                 width: 100%; /* Ensure label takes full width */
+                 margin-bottom: var(--size-4-2); /* Obsidian variable for spacing */
             }
-            .provibe-setting-item-tall .setting-item-control {
-                width: 100%; /* Control takes full width */
-                max-width: 100%; /* Prevent overflow */
+            .provibe-registry-content-setting.is-tall textarea {
+                min-height: 150px; /* Ensure minimum height */
+                height: 200px; /* Default height */
+                resize: vertical; /* Allow vertical resize */
             }
+
              /* Modal button bar */
             .provibe-modal-button-bar .setting-item-control {
                 display: flex;
                 justify-content: flex-end; /* Align buttons to the right */
-                gap: 10px; /* Space between buttons */
+                gap: var(--size-4-2); /* Space between buttons */
             }
-            /* Registry List Item Styling */
+
+            /* Registry List Container */
             .provibe-registry-list {
                 margin-top: 15px;
                 border: 1px solid var(--background-modifier-border);
-                border-radius: var(--radius-m);
-                padding: 5px 15px; /* Padding inside the list container */
+                border-radius: var(--radius-m); /* Use Obsidian radius variable */
+                padding: 5px 0px 5px 15px; /* Padding inside container, less on right for buttons */
                 max-height: 400px; /* Limit height and allow scrolling */
                 overflow-y: auto;   /* Enable vertical scroll */
+                background-color: var(--background-secondary); /* Subtle background */
             }
+            /* Individual Registry Item */
             .provibe-registry-item {
                  border-bottom: 1px solid var(--background-modifier-border);
-                 padding: 10px 0; /* Vertical padding */
-                 margin: 0; /* Remove default margin */
+                 /* padding: 10px 0; */ /* Use Obsidian's default padding */
+                 /* margin: 0; */ /* Use Obsidian's default margin */
                  align-items: center; /* Vertically align items */
             }
             .provibe-registry-item:last-child {
                  border-bottom: none; /* No border for the last item */
             }
+            /* Let description grow */
             .provibe-registry-item .setting-item-info {
-                flex-grow: 1; /* Allow description to take available space */
-                margin-right: 10px; /* Space before buttons */
+                flex-grow: 1;
+                margin-right: var(--size-4-2); /* Space before buttons */
             }
-             .provibe-registry-item .setting-item-control {
-                 flex-shrink: 0; /* Prevent buttons from shrinking */
+             /* Prevent buttons shrinking */
+            .provibe-registry-item .setting-item-control {
+                 flex-shrink: 0;
                  margin-left: auto; /* Push buttons to the right */
             }
+            /* Message for empty list */
             .provibe-empty-list-message {
                 color: var(--text-muted);
-                padding: 15px 0;
+                padding: 15px;
                 text-align: center;
-            }
-             /* Add New button alignment */
-            .provibe-add-button-setting {
-                margin-top: 15px;
-                justify-content: flex-end; /* Push button to the right */
+                font-style: italic;
             }
 
+            /* Add New button alignment (now in heading) */
+            /*.provibe-add-button-setting {
+                margin-top: 15px;
+                justify-content: flex-end;
+            }*/
+
         `;
-		// Check if style already exists
+		// Use Obsidian's mechanism to add/remove styles
 		const styleId = "provibe-settings-styles";
 		let styleEl = document.getElementById(styleId);
 		if (!styleEl) {
@@ -991,11 +1072,11 @@ class ProVibeSettingTab extends PluginSettingTab {
 			styleEl.id = styleId;
 			styleEl.textContent = css;
 			document.head.appendChild(styleEl);
-			// Register cleanup for when the plugin unloads
+			// Register cleanup using the plugin's register method
 			this.plugin.register(() => styleEl?.remove());
 		} else {
-			// Optionally update content if needed, though usually static CSS is fine
-			// styleEl.textContent = css;
+			// If style already exists, update its content
+			styleEl.textContent = css;
 		}
 	}
 }

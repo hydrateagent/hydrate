@@ -61,6 +61,7 @@ export class ProVibeView extends ItemView {
 	private conversationId: string | null = null; // Add state for conversation ID
 	private stopButton: HTMLButtonElement | null = null; // Added reference for stop button
 	private initialFilePathFromState: string | null = null; // <<< ADDED: Store path from state
+	private wasInitiallyAttached: boolean = false; // Flag if the first file was the auto-attached one
 
 	// --- Slash Command State ---
 	private suggestions: RegistryEntry[] = [];
@@ -86,72 +87,159 @@ export class ProVibeView extends ItemView {
 	// <<< ADDED: setState method to capture initialFilePath >>>
 	async setState(state: any, result: ViewStateResult): Promise<void> {
 		console.log("ProVibeView setState called with state:", state);
+		let fileToAttachPath: string | null = null;
+
 		if (state?.sourceFilePath) {
-			this.initialFilePathFromState = state.sourceFilePath;
+			fileToAttachPath = state.sourceFilePath;
 			console.log(
 				"ProVibeView setState: Captured sourceFilePath:",
-				this.initialFilePathFromState
-			);
-
-			// <<< MOVED: Auto-attach logic now runs here >>>
-			console.log(
-				"ProVibe [setState]: Attempting to auto-attach file using path from state."
-			);
-			console.log(
-				"ProVibe [setState]: Current attachedFiles BEFORE attach:",
-				[...this.attachedFiles]
-			);
-
-			const fileToAttachPath = this.initialFilePathFromState; // Already set
-
-			console.log(
-				"ProVibe [setState]: File path to check for attachment:",
 				fileToAttachPath
 			);
-
-			if (fileToAttachPath) {
-				if (!this.attachedFiles.includes(fileToAttachPath)) {
-					// Verify the file actually exists in the vault before adding
-					const fileExists =
-						this.app.vault.getAbstractFileByPath(
-							fileToAttachPath
-						) instanceof TFile;
-					if (fileExists) {
-						console.log(
-							`ProVibe [setState]: Attaching ${fileToAttachPath}...`
-						);
-						this.attachedFiles.push(fileToAttachPath);
-						console.log(
-							"ProVibe [setState]: attachedFiles after push:",
-							[...this.attachedFiles]
-						);
-						// Render pills immediately after attach (if view is already open)
-						if (this.filePillsContainer) {
-							this.renderFilePills();
-						}
-					} else {
-						console.warn(
-							`ProVibe [setState]: File path from state '${fileToAttachPath}' does not exist or is not a TFile. Not attaching.`
-						);
-					}
-				} else {
-					console.log(
-						`ProVibe [setState]: File ${fileToAttachPath} already attached.`
-					);
-				}
-			} else {
-				// This case is less likely now as we only run this logic if sourceFilePath exists
-				console.log(
-					"ProVibe [setState]: File path variable was unexpectedly null/empty."
-				);
-			}
-			// <<< END MOVED >>>
 		} else {
 			console.log(
 				"ProVibeView setState: No sourceFilePath found in state."
 			);
 		}
+
 		await super.setState(state, result);
+
+		// Run attach logic AFTER super.setState and potentially after onOpen
+		// We only attach if the view is being newly created or focused with a path,
+		// and if no files are currently attached.
+		if (fileToAttachPath && this.attachedFiles.length === 0) {
+			console.log(
+				"ProVibe [setState]: Attempting to auto-attach file from state:",
+				fileToAttachPath
+			);
+			this.attachInitialFile(fileToAttachPath);
+		} else if (fileToAttachPath && this.attachedFiles.length > 0) {
+			console.log(
+				"ProVibe [setState]: Files already attached, skipping auto-attach from state."
+			);
+		}
+	}
+
+	// --- New Method to handle attaching the initial file ---
+	private attachInitialFile(filePath: string) {
+		console.log("ProVibe [attachInitialFile]: Trying to attach:", filePath);
+		console.log(
+			"ProVibe [attachInitialFile]: Current attachedFiles BEFORE attach:",
+			[...this.attachedFiles]
+		);
+
+		if (filePath && !this.attachedFiles.includes(filePath)) {
+			const fileExists =
+				this.app.vault.getAbstractFileByPath(filePath) instanceof TFile;
+			if (fileExists) {
+				console.log(
+					`ProVibe [attachInitialFile]: Attaching ${filePath}...`
+				);
+				this.attachedFiles = [filePath]; // Replace any existing with the initial one
+				this.initialFilePathFromState = filePath; // Track it as the auto-attached one
+				this.wasInitiallyAttached = true; // Set the flag
+				console.log(
+					"ProVibe [attachInitialFile]: attachedFiles after push:",
+					[...this.attachedFiles]
+				);
+				// Render pills immediately if view is already open
+				if (this.filePillsContainer) {
+					this.renderFilePills();
+				}
+			} else {
+				console.warn(
+					`ProVibe [attachInitialFile]: File path '${filePath}' does not exist or is not a TFile. Not attaching.`
+				);
+			}
+		} else if (filePath && this.attachedFiles.includes(filePath)) {
+			console.log(
+				`ProVibe [attachInitialFile]: File ${filePath} already attached.`
+			);
+		} else {
+			console.log(
+				"ProVibe [attachInitialFile]: File path variable was null/empty."
+			);
+		}
+	}
+
+	// --- New Method called by main.ts when active file changes ---
+	public handleActiveFileChange(newFilePath: string | null) {
+		// Only proceed if the view is currently visible/active
+		if (!this.containerEl.isShown()) {
+			console.log(
+				"ProVibe [handleActiveFileChange]: View not visible, ignoring file change."
+			);
+			return;
+		}
+
+		console.log(
+			"ProVibe [handleActiveFileChange]: Received new file path:",
+			newFilePath
+		);
+		console.log(
+			"ProVibe [handleActiveFileChange]: Current attachedFiles:",
+			[...this.attachedFiles]
+		);
+		console.log(
+			"ProVibe [handleActiveFileChange]: wasInitiallyAttached:",
+			this.wasInitiallyAttached
+		);
+		console.log(
+			"ProVibe [handleActiveFileChange]: initialFilePathFromState:",
+			this.initialFilePathFromState
+		);
+
+		// Condition: Only follow if exactly one file is attached AND it was the initially auto-attached one.
+		if (
+			this.attachedFiles.length === 1 &&
+			this.wasInitiallyAttached &&
+			this.attachedFiles[0] === this.initialFilePathFromState
+		) {
+			if (newFilePath && newFilePath !== this.initialFilePathFromState) {
+				// Check if the new file exists before replacing
+				const fileExists =
+					this.app.vault.getAbstractFileByPath(newFilePath) instanceof
+					TFile;
+				if (fileExists) {
+					console.log(
+						`ProVibe [handleActiveFileChange]: Replacing ${this.initialFilePathFromState} with ${newFilePath}`
+					);
+					this.attachedFiles = [newFilePath]; // Replace the array
+					this.initialFilePathFromState = newFilePath; // Update the tracking path
+					this.wasInitiallyAttached = true; // Keep the flag true as it's still the 'auto' file
+					this.renderFilePills();
+				} else {
+					console.warn(
+						`ProVibe [handleActiveFileChange]: New file path '${newFilePath}' does not exist. Not replacing.`
+					);
+					// Optionally, remove the invalid initial file? Or leave it? Let's leave it for now.
+					// this.attachedFiles = [];
+					// this.initialFilePathFromState = null;
+					// this.wasInitiallyAttached = false;
+					// this.renderFilePills();
+				}
+			} else if (!newFilePath) {
+				// If the user switched to a view without a file (e.g., new tab, graph view)
+				console.log(
+					"ProVibe [handleActiveFileChange]: Switched to view without a file. Removing initial attachment."
+				);
+				this.attachedFiles = [];
+				this.initialFilePathFromState = null;
+				this.wasInitiallyAttached = false;
+				this.renderFilePills();
+			} else {
+				// New file path is the same as the current one, do nothing.
+				console.log(
+					"ProVibe [handleActiveFileChange]: New file path is the same as the current attached file. No change."
+				);
+			}
+		} else {
+			// Stop following if more than one file is attached or if the single file wasn't the initial auto-attach
+			console.log(
+				"ProVibe [handleActiveFileChange]: Conditions not met for following active file. Stopping."
+			);
+			// We don't need to explicitly set wasInitiallyAttached to false here,
+			// because the condition `attachedFiles.length === 1 && wasInitiallyAttached` will fail next time anyway.
+		}
 	}
 
 	async onOpen(): Promise<void> {
@@ -290,6 +378,7 @@ export class ProVibeView extends ItemView {
 			"system",
 			"ProVibe Agent ready. Type your prompt, drop files, or type / for commands."
 		);
+		// Render pills now that the container exists, potentially attaching the initial file if setState ran first
 		this.renderFilePills();
 	}
 
@@ -443,6 +532,8 @@ export class ProVibeView extends ItemView {
 		this.textInput.value = "";
 		this.chatContainer.empty();
 		this.attachedFiles = [];
+		this.initialFilePathFromState = null; // Reset tracked initial file
+		this.wasInitiallyAttached = false; // Reset flag
 		this.renderFilePills();
 		this.conversationId = null;
 		this.setSuggestions([]);
@@ -509,9 +600,10 @@ export class ProVibeView extends ItemView {
 					const url = new URL(potentialPath);
 					const filePathParam = url.searchParams.get("file");
 					if (filePathParam) {
-						vaultPath = filePathParam;
+						normalizedPathForComparison =
+							decodeURIComponent(filePathParam);
 						console.log(
-							`ProVibe: Extracted path from Obsidian URI: ${vaultPath}`
+							`ProVibe: Extracted path from Obsidian URI: ${normalizedPathForComparison}`
 						);
 					} else {
 						console.warn(
@@ -524,40 +616,16 @@ export class ProVibeView extends ItemView {
 						e
 					);
 				}
-				if (vaultPath) {
-					normalizedPathForComparison = vaultPath;
-					vaultPath = null;
-				}
 			} else if (potentialPath.startsWith("file://")) {
 				try {
 					let osPath = decodeURIComponent(potentialPath.substring(7));
 					if (/^\/[a-zA-Z]:/.test(osPath)) {
 						osPath = osPath.substring(1);
 					}
-					const normalizedOsPath = osPath.replace(/\\\\/g, "/");
+					normalizedPathForComparison = osPath.replace(/\\/g, "/");
 					console.log(
-						`ProVibe: Decoded file URI to OS path: ${normalizedOsPath}`
+						`ProVibe: Decoded file URI to OS path: ${normalizedPathForComparison}`
 					);
-					let foundVaultFile: TFile | null = null;
-					const directMatch =
-						this.app.vault.getAbstractFileByPath(normalizedOsPath);
-					if (directMatch instanceof TFile) {
-						foundVaultFile = directMatch;
-					}
-					if (!foundVaultFile)
-						foundVaultFile =
-							allVaultFiles.find((vf) =>
-								normalizedOsPath.endsWith("/" + vf.path)
-							) || null;
-					if (!foundVaultFile)
-						foundVaultFile =
-							allVaultFiles.find((vf) =>
-								normalizedOsPath.endsWith(vf.path)
-							) || null;
-
-					if (foundVaultFile) {
-						vaultPath = foundVaultFile.path;
-					}
 				} catch (e) {
 					console.error(
 						`ProVibe: Error processing file URI: ${potentialPath}`,
@@ -565,10 +633,7 @@ export class ProVibeView extends ItemView {
 					);
 				}
 			} else {
-				normalizedPathForComparison = potentialPath.replace(
-					/\\\\/g,
-					"/"
-				);
+				normalizedPathForComparison = potentialPath.replace(/\\/g, "/");
 				console.log(
 					`ProVibe: Treating potential path as direct/OS path: ${normalizedPathForComparison}`
 				);
@@ -584,26 +649,31 @@ export class ProVibeView extends ItemView {
 						`ProVibe: Found vault file by exact path: ${foundVaultFile.path}`
 					);
 				}
+
 				if (!foundVaultFile) {
 					foundVaultFile =
-						allVaultFiles.find((vf) =>
-							normalizedPathForComparison?.endsWith("/" + vf.path)
+						allVaultFiles.find(
+							(vf) =>
+								normalizedPathForComparison.endsWith(
+									"/" + vf.path.toLowerCase()
+								) ||
+								normalizedPathForComparison ===
+									vf.path.toLowerCase()
 						) || null;
-					if (!foundVaultFile) {
-						foundVaultFile =
-							allVaultFiles.find((vf) =>
-								normalizedPathForComparison?.endsWith(vf.path)
-							) || null;
-					}
 					if (foundVaultFile) {
 						console.log(
-							`ProVibe: Found vault file by OS path endsWith: ${foundVaultFile.path}`
+							`ProVibe: Found vault file by OS path endsWith/exact match: ${foundVaultFile.path}`
 						);
 					}
 				}
+
 				if (!foundVaultFile) {
 					const possibleMatches = allVaultFiles.filter((vf) =>
-						vf.path.startsWith(normalizedPathForComparison + ".")
+						vf.path
+							.toLowerCase()
+							.startsWith(
+								normalizedPathForComparison!.toLowerCase() + "."
+							)
 					);
 					if (possibleMatches.length === 1) {
 						foundVaultFile = possibleMatches[0];
@@ -630,6 +700,7 @@ export class ProVibeView extends ItemView {
 						`ProVibe: Adding ${vaultPath} to attachedFiles.`
 					);
 					this.attachedFiles.push(vaultPath);
+					this.wasInitiallyAttached = false; // Manually adding stops following
 					filesAdded++;
 				} else {
 					console.log(`ProVibe: File ${vaultPath} already attached.`);
@@ -638,7 +709,6 @@ export class ProVibeView extends ItemView {
 				console.warn(
 					`ProVibe: Could not resolve path/URI ${potentialPath} (normalized: ${normalizedPathForComparison}) to a vault file.`
 				);
-				new Notice(`Could not add: ${potentialPath}`);
 			}
 		});
 
@@ -648,6 +718,7 @@ export class ProVibeView extends ItemView {
 				this.attachedFiles
 			);
 			this.renderFilePills();
+			new Notice(`Added ${filesAdded} file(s).`);
 		} else {
 			console.log("ProVibe: No new files added from drop.");
 		}
@@ -656,8 +727,20 @@ export class ProVibeView extends ItemView {
 	private renderFilePills() {
 		console.log(
 			"ProVibe: renderFilePills called. Attached files:",
-			this.attachedFiles
+			this.attachedFiles,
+			"wasInitiallyAttached:",
+			this.wasInitiallyAttached,
+			"initialFilePath:",
+			this.initialFilePathFromState
 		);
+
+		if (!this.filePillsContainer) {
+			console.error(
+				"ProVibe: renderFilePills - filePillsContainer is null!"
+			);
+			return;
+		}
+
 		this.filePillsContainer.empty();
 		if (this.attachedFiles.length === 0) {
 			console.log("ProVibe: No attached files, hiding pills container.");
@@ -693,10 +776,31 @@ export class ProVibeView extends ItemView {
 	}
 
 	private removeFilePill(filePath: string) {
+		const initialLength = this.attachedFiles.length;
 		this.attachedFiles = this.attachedFiles.filter(
 			(path) => path !== filePath
 		);
-		this.renderFilePills(); // Re-render after removal
+		const removed = initialLength > this.attachedFiles.length;
+
+		if (removed) {
+			// If the removed file was the 'initial' one, stop following
+			if (filePath === this.initialFilePathFromState) {
+				console.log(
+					"ProVibe [removeFilePill]: Removed the initial auto-attached file. Stopping following."
+				);
+				this.initialFilePathFromState = null; // Clear tracking
+				this.wasInitiallyAttached = false; // Stop following explicitly
+			} else {
+				// If *any* other file is removed, it implies manual interaction occurred, so stop following anyway.
+				if (this.wasInitiallyAttached) {
+					console.log(
+						"ProVibe [removeFilePill]: Removed a manually added file while following was active. Stopping following."
+					);
+					this.wasInitiallyAttached = false;
+				}
+			}
+			this.renderFilePills(); // Re-render after removal
+		}
 	}
 
 	// --- Modified handleSend for new slash command logic ---
@@ -744,7 +848,7 @@ export class ProVibeView extends ItemView {
 					(match) => {
 						const commandName = match.substring(1); // Remove leading slash
 						const content = triggerMap.get(match) ?? ""; // Get content from map
-						return `${commandName}\n${content}`; // Substitute with command\ncontent
+						return `${commandName}\n${content}`;
 					}
 				);
 			}
@@ -752,7 +856,8 @@ export class ProVibeView extends ItemView {
 		// --- End Transformation ---
 
 		// Prepare file content prefix
-		const attachedFilesContent = this.attachedFiles
+		const currentAttachedFiles = [...this.attachedFiles]; // Capture current state
+		const attachedFilesContent = currentAttachedFiles
 			.map((path) => `[File: ${path}]`)
 			.join("\n");
 
@@ -770,12 +875,13 @@ export class ProVibeView extends ItemView {
 		// Add *original* user message to UI for display
 		this.addMessageToChat(
 			"user",
-			originalMessageContent || "(Sent with attached files)"
+			originalMessageContent ||
+				`(Sent with ${currentAttachedFiles.length} attached file(s))`
 		);
 
 		// Prepare payload for backend
 		const payload: any = {
-			message: combinedPayload, // Send the transformed content
+			message: combinedPayload, // Send the combined/transformed content
 		};
 		if (this.conversationId) {
 			payload.conversation_id = this.conversationId;
@@ -785,8 +891,9 @@ export class ProVibeView extends ItemView {
 
 		// Clear input and pills AFTER preparing the message
 		this.setTextContent("");
-		this.attachedFiles = [];
-		this.renderFilePills();
+		// Don't clear attached files here anymore - let them persist unless cleared or replaced
+		// this.attachedFiles = [];
+		// this.renderFilePills();
 		this.setSuggestions([]); // Clear suggestions on send
 		this.setLoadingState(true);
 
@@ -799,8 +906,9 @@ export class ProVibeView extends ItemView {
 				`Error: ${error.message || "Failed to connect to backend"}`,
 				true
 			);
+			this.setLoadingState(false); // Ensure loading state is reset on error
 		} finally {
-			// setLoadingState handled by callBackend response/error
+			// setLoadingState handled by callBackend response/error/finally
 			this.textInput.focus();
 			this.textInput.style.height = "auto";
 			this.textInput.dispatchEvent(new Event("input"));
@@ -820,8 +928,11 @@ export class ProVibeView extends ItemView {
 		const backendUrl = this.plugin.settings.backendUrl;
 		if (!backendUrl) {
 			new Notice("Backend URL is not configured.");
-			this.stopButton.textContent = "Stop";
-			this.stopButton.disabled = false;
+			if (this.isLoading && this.stopButton) {
+				// Check isLoading again before resetting
+				this.stopButton.textContent = "Stop";
+				this.stopButton.disabled = false; // Re-enable if URL is missing
+			}
 			return;
 		}
 
@@ -837,8 +948,9 @@ export class ProVibeView extends ItemView {
 			console.error("Error sending stop signal:", error);
 			new Notice(`Failed to send stop signal: ${error.message}`);
 			if (this.isLoading && this.stopButton) {
+				// Check isLoading again before resetting
 				this.stopButton.textContent = "Stop";
-				this.stopButton.disabled = false;
+				this.stopButton.disabled = false; // Re-enable button on error
 			}
 		}
 	};
@@ -858,6 +970,7 @@ export class ProVibeView extends ItemView {
 
 		const fullUrl = `${backendUrl}${endpoint}`;
 		let responseData: BackendResponse | null = null;
+		let requestCompleted = false; // Flag to track if the request finished naturally
 
 		try {
 			const response = await requestUrl({
@@ -868,6 +981,7 @@ export class ProVibeView extends ItemView {
 			});
 
 			responseData = response.json;
+			requestCompleted = true; // Request finished
 
 			if (!responseData) {
 				throw new Error(
@@ -883,7 +997,8 @@ export class ProVibeView extends ItemView {
 					"ProVibe: Updated conversation ID to:",
 					this.conversationId
 				);
-			} else {
+			} else if (endpoint !== "/tool_result") {
+				// Tool results might not always return a new ID if chained
 				console.warn(
 					"ProVibe: Backend response missing conversation_id!"
 				);
@@ -905,7 +1020,10 @@ export class ProVibeView extends ItemView {
 					`Agent requests actions using: ${toolNames}`
 				);
 				await this.processToolCalls(responseData.tool_calls);
-			} else if (!responseData.agent_message?.content) {
+			} else if (
+				!responseData.agent_message?.content &&
+				endpoint === "/chat"
+			) {
 				this.addMessageToChat(
 					"system",
 					"Received an empty or unexpected response from the agent.",
@@ -918,17 +1036,11 @@ export class ProVibeView extends ItemView {
 				? `Could not connect to backend at ${backendUrl}. Is it running?`
 				: error.message || `Request to ${endpoint} failed.`;
 			this.addMessageToChat("system", `Error: ${errorMsg}`, true);
-			this.setLoadingState(false);
+			this.setLoadingState(false); // No matter what, reset loading state if an error occurs
 		} finally {
+			// Reset loading state ONLY if the request completed AND there were no tool calls to process
 			if (
-				endpoint === "/chat" &&
-				(!responseData?.tool_calls ||
-					responseData.tool_calls.length === 0)
-			) {
-				this.setLoadingState(false);
-			}
-			if (
-				endpoint === "/tool_result" &&
+				requestCompleted &&
 				(!responseData?.tool_calls ||
 					responseData.tool_calls.length === 0)
 			) {
@@ -946,6 +1058,7 @@ export class ProVibeView extends ItemView {
 		const executedResults: ToolResult[] = [];
 		const pendingEdits: BackendToolCall[] = [];
 		let immediateExecutionError = false;
+		let requiresFurtherAction = false; // Flag if more backend calls are needed
 
 		for (const toolCall of toolCalls) {
 			if (toolCall.tool === "editFile") {
@@ -954,6 +1067,7 @@ export class ProVibeView extends ItemView {
 					"system",
 					`Agent proposes changes to ${toolCall.params.path}. Review required.`
 				);
+				requiresFurtherAction = true; // Edit always requires sending results back
 			} else {
 				let result: any;
 				let errorOccurred = false;
@@ -963,6 +1077,7 @@ export class ProVibeView extends ItemView {
 				);
 				try {
 					result = await this.executeSingleTool(toolCall);
+					requiresFurtherAction = true; // Assume non-edit tools also need results sent back
 				} catch (error: any) {
 					console.error(
 						`Error executing immediate tool ${toolCall.tool} (ID: ${toolCall.id}):`,
@@ -971,6 +1086,7 @@ export class ProVibeView extends ItemView {
 					result = `Error executing tool ${toolCall.tool}: ${error.message}`;
 					errorOccurred = true;
 					immediateExecutionError = true;
+					requiresFurtherAction = true; // Send back errors too
 				}
 				executedResults.push({ id: toolCall.id, result: result });
 
@@ -990,12 +1106,14 @@ export class ProVibeView extends ItemView {
 			}
 		}
 
+		// --- Handle Pending Edits ---
 		if (pendingEdits.length > 0) {
 			try {
 				const editResults = await this.reviewAndExecuteEdits(
 					pendingEdits
 				);
 				executedResults.push(...editResults);
+				requiresFurtherAction = true;
 			} catch (reviewError: any) {
 				console.error("Error during edit review process:", reviewError);
 				this.addMessageToChat(
@@ -1004,10 +1122,12 @@ export class ProVibeView extends ItemView {
 					true
 				);
 				immediateExecutionError = true;
+				requiresFurtherAction = true;
 			}
 		}
 
-		if (executedResults.length > 0) {
+		// --- Send Results Back (if any) ---
+		if (requiresFurtherAction && executedResults.length > 0) {
 			console.log(
 				"ProVibe: Sending tool results back to backend:",
 				executedResults
@@ -1025,12 +1145,15 @@ export class ProVibeView extends ItemView {
 			} catch (error: any) {
 				this.setLoadingState(false);
 			}
-		} else if (!immediateExecutionError && pendingEdits.length === 0) {
+		} else if (!requiresFurtherAction) {
 			console.warn(
-				"ProVibe: processToolCalls finished with no results to send."
+				"ProVibe: processToolCalls finished with no results or requirement to send."
 			);
 			this.setLoadingState(false);
-		} else if (immediateExecutionError) {
+		} else if (immediateExecutionError && executedResults.length === 0) {
+			console.warn(
+				"ProVibe: All tool executions resulted in errors, no results to send."
+			);
 			this.setLoadingState(false);
 		}
 	}
@@ -1206,7 +1329,13 @@ export class ProVibeView extends ItemView {
 
 	// --- Lifecycle Methods ---
 
-	async onClose() {}
+	async onClose() {
+		// Optional: Clear state if needed when the view is closed
+		// this.attachedFiles = [];
+		// this.initialFilePathFromState = null;
+		// this.wasInitiallyAttached = false;
+		// this.conversationId = null;
+	}
 
 	// --- Helper Methods ---
 
@@ -1250,17 +1379,19 @@ export class ProVibeView extends ItemView {
 			itemEl.id = `provibe-suggestion-${index}`;
 
 			if (index === this.activeSuggestionIndex) {
+				itemEl.addClass("is-selected");
 				itemEl.addClass("bg-[var(--background-modifier-hover)]");
 			}
 
 			const triggerEl = itemEl.createEl("strong");
 			triggerEl.textContent = entry.slashCommandTrigger ?? "";
 			itemEl.createSpan({
-				text: `: ${entry.description}`,
-				cls: "text-[var(--text-muted)]",
+				text: `: ${entry.description || "(No description)"}`,
+				cls: "text-[var(--text-muted)] ml-1",
 			});
 
-			itemEl.addEventListener("click", () => {
+			itemEl.addEventListener("click", (e) => {
+				e.stopPropagation();
 				this.handleSuggestionSelect(index);
 			});
 		});
@@ -1273,74 +1404,40 @@ export class ProVibeView extends ItemView {
 		}
 	}
 
-	// --- Modified handleSuggestionSelect ---
-	private handleSuggestionSelect(index: number) {
-		if (
-			index < 0 ||
-			index >= this.suggestions.length ||
-			!this.currentTrigger || // Need the trigger text that was being typed
-			this.triggerStartIndex === -1
-		) {
-			this.setSuggestions([]);
-			return;
-		}
-
-		const selectedEntry = this.suggestions[index];
-		if (!selectedEntry?.slashCommandTrigger) return; // Need the command trigger itself
-
-		const currentValue = this.textInput.value;
-		const triggerEndIndex =
-			this.triggerStartIndex + this.currentTrigger.length;
-
-		// Replace the partially typed trigger with the full trigger text and a space
-		const newValue =
-			currentValue.substring(0, this.triggerStartIndex) +
-			selectedEntry.slashCommandTrigger + // Insert the full trigger text
-			" " + // Add a space after it
-			currentValue.substring(triggerEndIndex); // Text after the original partial trigger
-
-		this.textInput.value = newValue;
-		this.setSuggestions([]); // Hide suggestions
-
-		// Move cursor to the end of the inserted trigger + space
-		const newCursorPos =
-			this.triggerStartIndex +
-			selectedEntry.slashCommandTrigger.length +
-			1;
-		this.textInput.focus();
-		setTimeout(() => {
-			this.textInput.setSelectionRange(newCursorPos, newCursorPos);
-		}, 0);
-
-		this.textInput.dispatchEvent(new Event("input", { bubbles: true }));
-	}
-	// --- End Modified handleSuggestionSelect ---
-
 	private handleInputChange = () => {
 		const value = this.textInput.value;
 		const cursorPos = this.textInput.selectionStart;
+		if (cursorPos === null) {
+			this.setSuggestions([]);
+			return;
+		}
 		const textBeforeCursor = value.substring(0, cursorPos);
 
 		const match = textBeforeCursor.match(/(?:\s|^)(\/([a-zA-Z0-9_-]*))$/);
 
 		if (match) {
 			const trigger = match[1];
+			const triggerQuery = match[2];
 			const triggerStart =
 				match.index !== undefined
 					? match.index + (match[0].startsWith("/") ? 0 : 1)
 					: -1;
 
-			const allEntries = this.plugin.getRegistryEntries();
-			const matchingEntries = allEntries.filter(
-				(entry) =>
-					entry.slashCommandTrigger?.startsWith(trigger) &&
-					entry.slashCommandTrigger !== "/"
-			);
+			if (triggerStart !== -1) {
+				const allEntries = this.plugin.getRegistryEntries();
+				const matchingEntries = allEntries.filter(
+					(entry) =>
+						entry.slashCommandTrigger?.startsWith(trigger) &&
+						entry.slashCommandTrigger !== "/"
+				);
 
-			if (matchingEntries.length > 0 && triggerStart !== -1) {
-				this.currentTrigger = trigger; // Store the *typed* trigger (e.g., "/iss")
-				this.triggerStartIndex = triggerStart;
-				this.setSuggestions(matchingEntries);
+				if (matchingEntries.length > 0) {
+					this.currentTrigger = trigger;
+					this.triggerStartIndex = triggerStart;
+					this.setSuggestions(matchingEntries);
+				} else {
+					this.setSuggestions([]);
+				}
 			} else {
 				this.setSuggestions([]);
 			}
@@ -1350,10 +1447,11 @@ export class ProVibeView extends ItemView {
 	};
 
 	private handleInputKeydown = (event: KeyboardEvent) => {
-		if (
+		const suggestionsVisible =
 			this.suggestions.length > 0 &&
-			this.suggestionsContainer?.style.display !== "none"
-		) {
+			this.suggestionsContainer?.style.display !== "none";
+
+		if (suggestionsVisible) {
 			switch (event.key) {
 				case "ArrowUp":
 					event.preventDefault();
@@ -1377,11 +1475,12 @@ export class ProVibeView extends ItemView {
 						event.preventDefault();
 						this.handleSuggestionSelect(this.activeSuggestionIndex);
 					} else {
-						this.setSuggestions([]);
 						if (event.key === "Enter" && !event.shiftKey) {
-							// Prevent default Enter if suggestions were visible but none selected
 							event.preventDefault();
+							this.setSuggestions([]);
 							this.handleSend();
+						} else if (event.key === "Tab") {
+							this.setSuggestions([]);
 						}
 					}
 					break;
