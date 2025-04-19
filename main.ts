@@ -125,9 +125,9 @@ export default class ProVibePlugin extends Plugin {
 		});
 
 		// --- Add Layout Change Handler ---
-		// this.registerEvent(
-		//  this.app.workspace.on("layout-change", this.handleLayoutChange)
-		// ); // Keep disabled for now, focus on file-open
+		this.registerEvent(
+			this.app.workspace.on("layout-change", this.handleLayoutChange)
+		);
 
 		// This creates an icon in the left ribbon to toggle the ProVibe pane
 		const ribbonIconEl = this.addRibbonIcon(
@@ -302,7 +302,7 @@ export default class ProVibePlugin extends Plugin {
 			`ProVibe [file-open]: File changed to: ${file?.path ?? "null"}`
 		);
 
-		// Check if our ProVibe view instance exists and is currently visible
+		// --- Part 1: Notify the ProVibe Pane (Keep this logic) ---
 		if (this.view && this.view.containerEl.isShown()) {
 			console.log(
 				`ProVibe [file-open]: ProVibe view is open, notifying it of file change.`
@@ -315,27 +315,46 @@ export default class ProVibePlugin extends Plugin {
 			);
 		}
 
-		// --- Keep original view-switching logic commented out ---
-		/*
-		const leaf = this.app.workspace.getActiveViewOfType(ItemView)?.leaf; // Get active leaf
-		if (!leaf) return;
-
-		const fileCache = this.app.metadataCache.getFileCache(file);
-		const frontmatter = fileCache?.frontmatter;
-		const triggerKey = "provibe-plugin"; // Or make this configurable
-		const viewKey = frontmatter?.[triggerKey] as string | undefined; // Cast to string
-
-		const ReactComponent = viewKey ? getReactViewComponent(viewKey) : undefined;
+		// --- Part 2: Handle Main Editor View Switching (Uncommented and Refined) ---
+		const leaf = this.app.workspace.getActiveViewOfType(ItemView)?.leaf; // Get active leaf first
+		if (!leaf) {
+			console.log(
+				"ProVibe [file-open]: No active leaf found. Cannot switch view."
+			);
+			return; // Exit if no active leaf
+		}
 
 		const currentView = leaf.view;
 
-		// --- Logic to Switch Views ---
-		if (ReactComponent) {
-			// ... (Switch to React view logic) ...
-		} else {
-			// ... (Switch back to Markdown logic) ...
+		// Handle case where file becomes null (e.g., closing last tab)
+		if (!file) {
+			if (currentView instanceof ReactViewHost) {
+				console.log(
+					"ProVibe [file-open]: File is null, switching React Host back to Markdown."
+				);
+				// Check if ReactViewHost expects a file path; might need adjustment if it crashes on null
+				// Assuming switchToMarkdownView handles the transition gracefully
+				if (!this.isSwitchingToMarkdown) {
+					currentView.switchToMarkdownView();
+				} else {
+					console.log(
+						"ProVibe [file-open]: Already switching to markdown, skipping."
+					);
+				}
+			} else {
+				console.log(
+					"ProVibe [file-open]: File is null, current view is not React Host. No action needed."
+				);
+			}
+			return; // Stop processing if file is null
 		}
-		*/
+
+		// File is guaranteed non-null from here onwards
+
+		// ---- VIEW SWITCHING LOGIC REMOVED ----
+		// The handleLayoutChange listener is now responsible for enforcing the correct view type.
+		// Attempting to switch views directly within file-open proved unreliable.
+		// We keep the file-open listener primarily to notify the separate ProVibe pane if needed.
 	};
 	// --- End File Open Handler ---
 
@@ -382,41 +401,102 @@ export default class ProVibePlugin extends Plugin {
 	};
 	// --- End Toggle Command Check Callback ---
 
-	// --- Layout Change Handler (Keep commented out for now) ---
-	/*
-	handleLayoutChange = () => {
-		console.log("ProVibe: layout-change detected");
+	// --- Layout Change Handler (Re-enabled and Refined) ---
+	handleLayoutChange = async () => {
+		console.log("ProVibe [layout-change]: Layout change detected.");
 
 		// Check if we are intentionally switching back to markdown
 		if (this.isSwitchingToMarkdown) {
 			console.log(
-				"ProVibe [layout-change]: Intentional switch to markdown detected, skipping auto-switch back."
+				"ProVibe [layout-change]: Intentional switch to markdown detected, skipping checks and resetting flag."
 			);
-			this.isSwitchingToMarkdown = false; // Reset the flag
+			this.isSwitchingToMarkdown = false; // Reset the flag *after* skipping the check
 			return;
 		}
 
 		const leaf = this.app.workspace.activeLeaf;
 		if (!leaf) {
-			console.log("ProVibe: No active leaf on layout-change");
+			console.log("ProVibe [layout-change]: No active leaf.");
 			return;
 		}
 
 		const currentView = leaf.view;
 
-		// Scenario 1: Active view is Markdown, but should be React?
+		// Scenario 1: Active view is Markdown, but should it be React?
 		if (currentView instanceof MarkdownView && currentView.file) {
-			// ... existing logic ...
+			const file = currentView.file;
+			const fileCache = this.app.metadataCache.getFileCache(file);
+			const frontmatter = fileCache?.frontmatter;
+			const triggerKey = "provibe-plugin";
+			const viewKey = frontmatter?.[triggerKey] as string | undefined;
+			const ReactComponent = viewKey
+				? getReactViewComponent(viewKey)
+				: undefined;
+
+			if (ReactComponent && viewKey) {
+				// It should be a React view, but it's currently Markdown.
+				console.log(
+					`ProVibe [layout-change]: Active view is Markdown for ${file.path}, but should be React (${viewKey}). Switching...`
+				);
+				try {
+					await leaf.setViewState({
+						type: REACT_HOST_VIEW_TYPE,
+						state: { filePath: file.path, viewKey: viewKey },
+						active: true,
+					});
+				} catch (error) {
+					console.error(
+						"ProVibe [layout-change]: Error switching Markdown to React:",
+						error
+					);
+				}
+			} else {
+				// console.log("ProVibe [layout-change]: Active view is Markdown, and it should be (no valid provibe-plugin key). No switch needed.");
+			}
 		}
+		// Scenario 2: Active view is React, but should it be Markdown?
+		else if (currentView instanceof ReactViewHost) {
+			const filePath = currentView.currentFilePath;
+			if (!filePath) {
+				console.log(
+					"ProVibe [layout-change]: Active view is ReactHost, but has no file path. Switching to Markdown."
+				);
+				// Need to be careful not to cause loops if switchToMarkdownView itself triggers layout-change before flag is reset
+				await currentView.switchToMarkdownView(); // Flag is set inside this method
+				return; // Exit early after switching
+			}
 
-		// Scenario 2: Active view is React, but shouldn't be?
-		// ... existing logic ...
+			const file = this.app.vault.getAbstractFileByPath(filePath);
+			if (!(file instanceof TFile)) {
+				console.warn(
+					`ProVibe [layout-change]: ReactHost has path ${filePath}, but it's not a valid file. Switching to Markdown.`
+				);
+				await currentView.switchToMarkdownView();
+				return;
+			}
 
-		console.log(
-			"ProVibe [layout-change]: No relevant view switch needed for active leaf."
-		);
+			const fileCache = this.app.metadataCache.getFileCache(file);
+			const frontmatter = fileCache?.frontmatter;
+			const triggerKey = "provibe-plugin";
+			const viewKey = frontmatter?.[triggerKey] as string | undefined;
+			const ReactComponent = viewKey
+				? getReactViewComponent(viewKey)
+				: undefined;
+
+			if (!ReactComponent || !viewKey) {
+				// It should be Markdown, but it's currently React.
+				console.log(
+					`ProVibe [layout-change]: Active view is React for ${filePath}, but should be Markdown (key missing or invalid). Switching back...`
+				);
+				await currentView.switchToMarkdownView();
+				// Flag is set inside switchToMarkdownView, which prevents immediate re-checking in this handler
+			} else {
+				// console.log("ProVibe [layout-change]: Active view is React, and it should be. No switch needed.");
+			}
+		} else {
+			// console.log("ProVibe [layout-change]: Active view is neither Markdown nor ReactHost, no action needed.");
+		}
 	};
-	*/
 	// --- End Layout Change Handler ---
 
 	onunload() {
