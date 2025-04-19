@@ -56,7 +56,7 @@ export class ProVibeView extends ItemView {
 	private textInput: HTMLTextAreaElement;
 	private chatContainer: HTMLDivElement; // Container for chat messages
 	private filePillsContainer: HTMLDivElement; // Container for file pills
-	private attachedFiles: string[] = []; // Store paths of attached files
+	public attachedFiles: string[] = []; // Store paths of attached files - MADE PUBLIC
 	private isLoading: boolean = false; // Flag to prevent multiple submissions
 	private conversationId: string | null = null; // Add state for conversation ID
 	private stopButton: HTMLButtonElement | null = null; // Added reference for stop button
@@ -119,8 +119,8 @@ export class ProVibeView extends ItemView {
 		}
 	}
 
-	// --- New Method to handle attaching the initial file ---
-	private attachInitialFile(filePath: string) {
+	// --- New Method to handle attaching the initial file --- MADE PUBLIC ---
+	public attachInitialFile(filePath: string) {
 		console.log("ProVibe [attachInitialFile]: Trying to attach:", filePath);
 		console.log(
 			"ProVibe [attachInitialFile]: Current attachedFiles BEFORE attach:",
@@ -1359,7 +1359,13 @@ export class ProVibeView extends ItemView {
 	}
 
 	private renderSuggestions() {
-		if (!this.suggestionsContainer) return;
+		// Add null check for suggestionsContainer
+		if (!this.suggestionsContainer) {
+			console.error(
+				"ProVibe: renderSuggestions - suggestionsContainer is null!"
+			);
+			return;
+		}
 
 		this.suggestionsContainer.empty();
 
@@ -1373,9 +1379,12 @@ export class ProVibeView extends ItemView {
 		this.suggestionsContainer.style.display = "block";
 
 		this.suggestions.forEach((entry, index) => {
+			// Use checked suggestionsContainer
 			const itemEl = this.suggestionsContainer.createDiv({
 				cls: "provibe-suggestion-item p-1.5 cursor-pointer hover:bg-[var(--background-modifier-hover)] rounded-sm text-sm",
 			});
+
+			// No need for null check on itemEl as createDiv returns non-null
 			itemEl.id = `provibe-suggestion-${index}`;
 
 			if (index === this.activeSuggestionIndex) {
@@ -1397,6 +1406,7 @@ export class ProVibeView extends ItemView {
 		});
 
 		if (this.activeSuggestionIndex !== -1) {
+			// Use checked suggestionsContainer
 			const activeEl = this.suggestionsContainer.querySelector(
 				`#provibe-suggestion-${this.activeSuggestionIndex}`
 			);
@@ -1496,4 +1506,46 @@ export class ProVibeView extends ItemView {
 			this.handleSend();
 		}
 	};
+
+	// --- ADDED BACK: handleSuggestionSelect ---
+	private handleSuggestionSelect(index: number) {
+		if (
+			index < 0 ||
+			index >= this.suggestions.length ||
+			!this.currentTrigger || // Need the trigger text that was being typed
+			this.triggerStartIndex === -1
+		) {
+			this.setSuggestions([]);
+			return;
+		}
+
+		const selectedEntry = this.suggestions[index];
+		if (!selectedEntry?.slashCommandTrigger) return; // Need the command trigger itself
+
+		const currentValue = this.textInput.value;
+		const triggerEndIndex =
+			this.triggerStartIndex + this.currentTrigger.length;
+
+		// Replace the partially typed trigger with the full trigger text and a space
+		const newValue =
+			currentValue.substring(0, this.triggerStartIndex) +
+			selectedEntry.slashCommandTrigger + // Insert the full trigger text
+			" " + // Add a space after it
+			currentValue.substring(triggerEndIndex); // Text after the original partial trigger
+
+		this.setTextContent(newValue); // Use helper to ensure input event fires
+		this.setSuggestions([]); // Hide suggestions
+
+		// Move cursor to the end of the inserted trigger + space
+		const newCursorPos =
+			this.triggerStartIndex +
+			selectedEntry.slashCommandTrigger.length +
+			1;
+		this.textInput.focus();
+		// Use requestAnimationFrame or timeout to ensure focus happens before setting selection
+		requestAnimationFrame(() => {
+			this.textInput.setSelectionRange(newCursorPos, newCursorPos);
+		});
+	}
+	// --- END ADDED BACK: handleSuggestionSelect ---
 }
