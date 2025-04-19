@@ -8,10 +8,12 @@ import {
 	parseYaml,
 	MarkdownRenderer,
 	ViewStateResult,
+	sanitizeHTMLToDom,
 } from "obsidian";
 import ProVibePlugin from "./main"; // Import the plugin class to access settings
 import { DiffReviewModal, DiffReviewResult } from "./DiffReviewModal"; // Import the new modal
 import { ReactViewHost } from "./src/ReactViewHost"; // <<< ADD THIS IMPORT
+import { RegistryEntry } from "./src/types"; // <<< Import RegistryEntry type
 
 export const PROVIBE_VIEW_TYPE = "provibe-view";
 
@@ -59,6 +61,14 @@ export class ProVibeView extends ItemView {
 	private conversationId: string | null = null; // Add state for conversation ID
 	private stopButton: HTMLButtonElement | null = null; // Added reference for stop button
 	private initialFilePathFromState: string | null = null; // <<< ADDED: Store path from state
+
+	// --- Slash Command State ---
+	private suggestions: RegistryEntry[] = [];
+	private activeSuggestionIndex: number = -1;
+	private suggestionsContainer: HTMLDivElement | null = null;
+	private currentTrigger: string | null = null; // Store the trigger being suggested for
+	private triggerStartIndex: number = -1; // Store start index of the current trigger
+	// --- End Slash Command State ---
 
 	constructor(leaf: WorkspaceLeaf, plugin: ProVibePlugin) {
 		super(leaf);
@@ -115,8 +125,10 @@ export class ProVibeView extends ItemView {
 							"ProVibe [setState]: attachedFiles after push:",
 							[...this.attachedFiles]
 						);
-						// Render pills immediately after attach
-						this.renderFilePills();
+						// Render pills immediately after attach (if view is already open)
+						if (this.filePillsContainer) {
+							this.renderFilePills();
+						}
 					} else {
 						console.warn(
 							`ProVibe [setState]: File path from state '${fileToAttachPath}' does not exist or is not a TFile. Not attaching.`
@@ -143,177 +155,147 @@ export class ProVibeView extends ItemView {
 	}
 
 	async onOpen(): Promise<void> {
-		// <<< REMOVED: Logging related to path >>>
-		// console.log(
-		// 	"ProVibe [onOpen]: Started. Initial path from state:",
-		// 	this.initialFilePathFromState
-		// );
 		const container = this.containerEl.children[1];
 		container.empty();
-		// Apply flex layout and full height to the main container
 		container.addClasses([
 			"provibe-view-container",
-			"p-3", // Add overall padding
+			"p-3",
 			"flex",
 			"flex-col",
 			"h-full",
 		]);
 
-		// Chat history container - Make it grow and scroll
 		this.chatContainer = container.createEl("div", {
-			cls: "provibe-chat-container flex-grow overflow-y-auto p-2 space-y-3", // Added flex-grow, overflow, padding, spacing
+			cls: "provibe-chat-container flex-grow overflow-y-auto p-2 space-y-3",
 		});
 
-		// Input area container
 		const inputAreaContainer = container.createEl("div", {
-			// Added padding-top, top border, and mb-4 for bottom margin
-			cls: "provibe-input-area-container pt-3 border-t border-[var(--background-modifier-border)] mb-4",
+			cls: "provibe-input-area-container relative pt-3 border-t border-[var(--background-modifier-border)] mb-4",
 		});
 
-		// File pills container - Add flex styles for pills
+		this.suggestionsContainer = inputAreaContainer.createEl("div", {
+			cls: "provibe-suggestions-container absolute bottom-full left-0 right-0 mb-1 p-1 bg-[var(--background-secondary)] border border-[var(--background-modifier-border)] rounded-md shadow-lg z-10 hidden max-h-40 overflow-y-auto",
+		});
+
 		this.filePillsContainer = inputAreaContainer.createEl("div", {
-			cls: "provibe-file-pills-container flex flex-wrap gap-1 pb-2", // Added flex, wrap, gap, padding-bottom
+			cls: "provibe-file-pills-container flex flex-wrap gap-1 pb-2",
 		});
 
-		// Text input and buttons area - Use flex
 		const inputControlsArea = inputAreaContainer.createEl("div", {
-			cls: "provibe-input-controls-area flex items-end gap-2", // Added flex, align-items, gap
+			cls: "provibe-input-controls-area flex items-end gap-2",
 		});
 
-		// Create textarea for text input - Style it
 		this.textInput = inputControlsArea.createEl("textarea", {
-			// REMOVED min-h-[60px], added rows=3 initially
 			cls: "provibe-textarea flex-grow p-2 border border-[var(--background-modifier-border)] rounded-md bg-[var(--background-primary)] text-[var(--text-normal)] focus:border-[var(--interactive-accent)] focus:outline-none resize-none",
 			attr: {
-				placeholder: "Enter your prompt or drop files here...",
-				rows: "3", // Start with 3 rows
+				placeholder:
+					"Enter your prompt, drop files, or type / for commands...",
+				rows: "3",
 			},
 		});
 
-		// --- Add Auto-Resizing Logic --- //
+		// Auto-Resizing Logic
 		const adjustTextareaHeight = () => {
 			const minRows = 3;
 			const maxRows = 10;
-			// Temporarily reset height to auto calculate scrollHeight based on content
-			// This is more reliable than line counting for variable width fonts/wrapping
 			this.textInput.style.height = "auto";
 			const scrollHeight = this.textInput.scrollHeight;
-
-			// Calculate approximate line height (could be cached)
-			const tempArea = document.createElement("textarea");
-			tempArea.style.cssText = this.textInput.style.cssText;
-			tempArea.style.position = "absolute";
-			tempArea.style.visibility = "hidden";
-			tempArea.style.height = "auto";
-			tempArea.rows = 1;
-			document.body.appendChild(tempArea);
-			const lineHeight = tempArea.scrollHeight;
-			document.body.removeChild(tempArea);
-
-			// Calculate heights based on rows
-			const minHeight = lineHeight * minRows;
-			const maxHeight = lineHeight * maxRows;
-
-			// Clamp the height based on scrollHeight and min/max limits
+			const computedStyle = getComputedStyle(this.textInput);
+			const lineHeight = parseFloat(computedStyle.lineHeight) || 18;
+			const padding =
+				parseFloat(computedStyle.paddingTop) +
+				parseFloat(computedStyle.paddingBottom);
+			const border =
+				parseFloat(computedStyle.borderTopWidth) +
+				parseFloat(computedStyle.borderBottomWidth);
+			const minHeight = lineHeight * minRows + padding + border;
+			const maxHeight = lineHeight * maxRows + padding + border;
 			const targetHeight = Math.max(
 				minHeight,
 				Math.min(maxHeight, scrollHeight)
 			);
-
 			this.textInput.style.height = `${targetHeight}px`;
-			// Optional: Show scrollbar only when at max height and content overflows
 			this.textInput.style.overflowY =
 				scrollHeight > maxHeight ? "auto" : "hidden";
 		};
-
 		this.textInput.addEventListener("input", adjustTextareaHeight);
-		adjustTextareaHeight(); // Call once initially
-		// --- End Auto-Resizing Logic --- //
+		setTimeout(adjustTextareaHeight, 0);
 
-		// Add buttons container - Make it not shrink
+		// Buttons
 		const buttonContainer = inputControlsArea.createEl("div", {
-			cls: "provibe-button-container flex flex-col gap-1 flex-shrink-0", // Added flex-col, gap, flex-shrink-0
+			cls: "provibe-button-container flex flex-col gap-1 flex-shrink-0",
 		});
-
-		// Style Clear Button
 		const clearButton = buttonContainer.createEl("button", {
 			text: "Clear",
-			// Added padding, rounded, bg, text, hover, transition
 			cls: "provibe-button provibe-clear-button px-3 py-1.5 rounded-md bg-[var(--background-modifier-border)] text-[var(--text-muted)] hover:bg-[var(--background-modifier-hover)] transition-colors duration-150",
 		});
-
-		// Style Send Button
 		const sendButton = buttonContainer.createEl("button", {
 			text: "Send",
-			// Added padding, rounded, bg, text, hover, transition
 			cls: "provibe-button provibe-send-button px-3 py-1.5 rounded-md bg-[var(--interactive-accent)] text-[var(--text-on-accent)] hover:bg-[var(--interactive-accent-hover)] transition-colors duration-150",
 		});
-
-		// Style Stop Button (initially hidden)
 		this.stopButton = buttonContainer.createEl("button", {
 			text: "Stop",
-			// Added padding, rounded, bg, text, hover, transition
 			cls: "provibe-button provibe-stop-button px-3 py-1.5 rounded-md bg-red-700 text-white hover:bg-red-600 transition-colors duration-150",
 		});
-		this.stopButton.style.display = "none"; // Keep hidden initially
+		this.stopButton.style.display = "none";
 
-		// Add event listeners for buttons (no changes needed here)
+		// Event Listeners
 		clearButton.addEventListener("click", this.handleClear);
 		sendButton.addEventListener("click", this.handleSend);
 		this.stopButton.addEventListener("click", this.handleStop);
 
-		// Allow sending with Enter key (no changes needed here)
-		this.textInput.addEventListener("keydown", (event) => {
-			if (event.key === "Enter" && !event.shiftKey) {
-				event.preventDefault();
-				this.handleSend();
+		// Input Event Listeners
+		this.textInput.addEventListener("input", this.handleInputChange);
+		this.textInput.addEventListener("keydown", this.handleInputKeydown);
+		this.textInput.addEventListener("click", this.handleInputChange);
+		this.textInput.addEventListener("keyup", (e) => {
+			if (
+				[
+					"ArrowUp",
+					"ArrowDown",
+					"ArrowLeft",
+					"ArrowRight",
+					"Escape",
+				].includes(e.key)
+			) {
+				this.handleInputChange();
+			}
+		});
+		this.registerDomEvent(document, "click", (event) => {
+			if (
+				this.suggestionsContainer &&
+				!inputAreaContainer.contains(event.target as Node)
+			) {
+				this.setSuggestions([]);
 			}
 		});
 
-		// Drag and Drop Listeners (no changes needed here)
+		// Drag and Drop
 		this.registerDomEvent(
 			inputAreaContainer,
 			"dragover",
 			(event: DragEvent) => {
-				// Log the dataTransfer object and types during dragover
-				console.log(
-					"ProVibe: dragover - dataTransfer:",
-					event.dataTransfer
-				);
-				console.log(
-					"ProVibe: dragover - types:",
-					event.dataTransfer?.types
-				);
-
-				// Allow drop if any dataTransfer is happening
-				// The drop handler will verify if files are actually present.
 				if (event.dataTransfer) {
 					event.preventDefault();
 					inputAreaContainer.addClass("provibe-drag-over");
 				}
 			}
 		);
-
 		this.registerDomEvent(inputAreaContainer, "dragleave", () => {
 			inputAreaContainer.removeClass("provibe-drag-over");
 		});
-
 		this.registerDomEvent(inputAreaContainer, "drop", this.handleDrop);
 
-		// Add initial system message (styling will be handled by addMessageToChat)
 		this.addMessageToChat(
 			"system",
-			"ProVibe Agent ready. Type your prompt or drop files."
+			"ProVibe Agent ready. Type your prompt, drop files, or type / for commands."
 		);
-
-		// Render pills (in case files were attached by setState before onOpen)
-		console.log("ProVibe [onOpen]: Calling renderFilePills().");
 		this.renderFilePills();
 	}
 
 	// --- UI Update Methods ---
 
-	// Update addMessageToChat to add styling classes
+	// Update addMessageToChat to add styling classes and handle user slash command styling
 	private addMessageToChat(
 		role: "user" | "agent" | "system",
 		content: string | HTMLElement,
@@ -327,25 +309,26 @@ export class ProVibeView extends ItemView {
 			"max-w-[90%]",
 			"mb-2",
 			"select-text",
+			"break-words",
+			"whitespace-pre-wrap",
 		];
 
-		// Role-specific alignment and background
 		if (role === "user") {
 			messageClasses.push(
 				"ml-auto",
 				"bg-[var(--interactive-accent)]",
 				"text-[var(--text-on-accent)]"
-			); // Align right, accent background
+			);
 		} else if (role === "agent") {
-			messageClasses.push("mr-auto", "bg-[var(--background-secondary)]"); // Align left, secondary background
+			messageClasses.push("mr-auto", "bg-[var(--background-secondary)]");
 		} else {
-			// system
 			messageClasses.push(
 				"mx-auto",
 				"text-xs",
 				"text-[var(--text-muted)]",
-				"italic"
-			); // Center, small, muted, italic
+				"italic",
+				"text-center"
+			);
 		}
 
 		if (isError) {
@@ -357,13 +340,14 @@ export class ProVibeView extends ItemView {
 		}
 
 		const messageEl = this.chatContainer.createDiv({
-			cls: messageClasses.join(" "), // Join classes with space
+			cls: messageClasses.join(" "),
 		});
 
-		// Keep existing rendering logic
+		// --- Updated Rendering Logic ---
 		if (content instanceof HTMLElement) {
 			messageEl.appendChild(content);
-		} else if (role === "agent" && content) {
+		} else if (role === "agent") {
+			// Agent messages rendered as Markdown
 			try {
 				MarkdownRenderer.render(
 					this.plugin.app,
@@ -376,11 +360,65 @@ export class ProVibeView extends ItemView {
 				console.error("Markdown rendering error:", renderError);
 				messageEl.setText(`(Error rendering message) ${content}`);
 			}
+		} else if (role === "user") {
+			// User messages: scan for slash commands and style them
+			const registeredCommands = this.plugin
+				.getRegistryEntries()
+				.map((e) => e.slashCommandTrigger)
+				.filter((t): t is string => !!t); // Get list of valid triggers like ["/issue", "/test"]
+
+			if (registeredCommands.length > 0) {
+				// Create a regex that matches any of the registered commands
+				// Escape special regex characters in triggers
+				const escapedCommands = registeredCommands.map((cmd) =>
+					cmd.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&")
+				);
+				const commandRegex = new RegExp(
+					`(${escapedCommands.join("|")})(?=\\s|$)`, // Match command if followed by space or end of string
+					"g"
+				);
+
+				let lastIndex = 0;
+				let match;
+				const fragment = document.createDocumentFragment();
+
+				while ((match = commandRegex.exec(content)) !== null) {
+					// Add text before the match
+					if (match.index > lastIndex) {
+						fragment.appendChild(
+							document.createTextNode(
+								content.substring(lastIndex, match.index)
+							)
+						);
+					}
+					// Add the styled command
+					const strongEl = document.createElement("strong");
+					strongEl.addClass("provibe-slash-command-display"); // Add class for potential specific styling
+					strongEl.textContent = match[0]; // The matched command e.g., /issue
+					fragment.appendChild(strongEl);
+					lastIndex = commandRegex.lastIndex;
+				}
+
+				// Add any remaining text after the last match
+				if (lastIndex < content.length) {
+					fragment.appendChild(
+						document.createTextNode(content.substring(lastIndex))
+					);
+				}
+				messageEl.appendChild(fragment);
+			} else {
+				// No registered commands, just display plain text
+				messageEl.createSpan({ text: content });
+			}
 		} else {
+			// System messages as plain text
 			messageEl.createSpan({ text: content });
 		}
+		// --- End Updated Rendering Logic ---
 
-		this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+		requestAnimationFrame(() => {
+			this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+		});
 	}
 
 	private setLoadingState(loading: boolean) {
@@ -393,12 +431,9 @@ export class ProVibeView extends ItemView {
 			sendButton.textContent = loading ? "Sending..." : "Send";
 		}
 		this.textInput.disabled = loading;
-		// Add null check for stopButton
 		if (this.stopButton) {
-			this.stopButton.textContent = loading ? "Stop" : "Stop"; // Text might not need changing
-			// Show stop button only when loading, hide otherwise
 			this.stopButton.style.display = loading ? "inline-block" : "none";
-			this.stopButton.disabled = !loading; // Disable if not loading (redundant with display: none but safer)
+			this.stopButton.disabled = !loading;
 		}
 	}
 
@@ -406,14 +441,17 @@ export class ProVibeView extends ItemView {
 
 	private handleClear = () => {
 		this.textInput.value = "";
-		this.chatContainer.empty(); // Clear chat display
+		this.chatContainer.empty();
 		this.attachedFiles = [];
 		this.renderFilePills();
-		this.conversationId = null; // Reset conversation ID on clear
+		this.conversationId = null;
+		this.setSuggestions([]);
 		this.addMessageToChat(
 			"system",
 			"Chat cleared. New conversation started."
 		);
+		this.textInput.style.height = "auto";
+		this.textInput.dispatchEvent(new Event("input"));
 		this.textInput.focus();
 	};
 
@@ -429,7 +467,6 @@ export class ProVibeView extends ItemView {
 		if (!inputAreaContainer) return;
 		inputAreaContainer.classList.remove("provibe-drag-over");
 
-		// --- Attempt to get path from dataTransfer data ---
 		let pathData = "";
 		if (event.dataTransfer?.types.includes("text/uri-list")) {
 			pathData = event.dataTransfer.getData("text/uri-list");
@@ -450,8 +487,6 @@ export class ProVibeView extends ItemView {
 			return;
 		}
 
-		// --- Process the extracted path data ---
-		// Assuming pathData might contain one or more paths/URIs, potentially newline-separated
 		const potentialPaths = pathData
 			.split(/\r?\n/)
 			.map((p) => p.trim())
@@ -466,12 +501,10 @@ export class ProVibeView extends ItemView {
 			let foundVaultFile: TFile | null = null;
 			let normalizedPathForComparison: string | null = null;
 
-			// --- Resolve potentialPath to a normalized path for comparison ---
 			if (
 				potentialPath.startsWith("obsidian://open?vault=") ||
 				potentialPath.startsWith("obsidian://vault/")
 			) {
-				// Very basic URI parsing - needs improvement for robustness
 				try {
 					const url = new URL(potentialPath);
 					const filePathParam = url.searchParams.get("file");
@@ -481,7 +514,6 @@ export class ProVibeView extends ItemView {
 							`ProVibe: Extracted path from Obsidian URI: ${vaultPath}`
 						);
 					} else {
-						// Handle vault path URI style if needed (more complex)
 						console.warn(
 							`ProVibe: Could not extract 'file' param from Obsidian URI: ${potentialPath}`
 						);
@@ -494,13 +526,11 @@ export class ProVibeView extends ItemView {
 				}
 				if (vaultPath) {
 					normalizedPathForComparison = vaultPath;
-					vaultPath = null; // Reset vaultPath, we need to verify it exists
+					vaultPath = null;
 				}
 			} else if (potentialPath.startsWith("file://")) {
-				// Handle file URI - convert to OS path and then try to map to vault
 				try {
-					let osPath = decodeURIComponent(potentialPath.substring(7)); // Remove 'file://' and decode
-					// Remove leading slash on Windows if present (e.g., /C:/Users...)
+					let osPath = decodeURIComponent(potentialPath.substring(7));
 					if (/^\/[a-zA-Z]:/.test(osPath)) {
 						osPath = osPath.substring(1);
 					}
@@ -508,12 +538,9 @@ export class ProVibeView extends ItemView {
 					console.log(
 						`ProVibe: Decoded file URI to OS path: ${normalizedOsPath}`
 					);
-
-					// Find corresponding vault file (using existing logic)
 					let foundVaultFile: TFile | null = null;
 					const directMatch =
 						this.app.vault.getAbstractFileByPath(normalizedOsPath);
-					// Add instanceof check here too
 					if (directMatch instanceof TFile) {
 						foundVaultFile = directMatch;
 					}
@@ -538,7 +565,6 @@ export class ProVibeView extends ItemView {
 					);
 				}
 			} else {
-				// Assume direct path (vault or OS)
 				normalizedPathForComparison = potentialPath.replace(
 					/\\\\/g,
 					"/"
@@ -548,21 +574,16 @@ export class ProVibeView extends ItemView {
 				);
 			}
 
-			// --- Find the TFile using the normalized path ---
 			if (normalizedPathForComparison) {
-				// Strategy 1: Exact match using getAbstractFileByPath
 				const directMatch = this.app.vault.getAbstractFileByPath(
 					normalizedPathForComparison
 				);
-				// Check if it's specifically a TFile
 				if (directMatch instanceof TFile) {
 					foundVaultFile = directMatch;
 					console.log(
 						`ProVibe: Found vault file by exact path: ${foundVaultFile.path}`
 					);
 				}
-
-				// Strategy 2: Check if OS path ends with a vault file path (heuristic)
 				if (!foundVaultFile) {
 					foundVaultFile =
 						allVaultFiles.find((vf) =>
@@ -580,14 +601,11 @@ export class ProVibeView extends ItemView {
 						);
 					}
 				}
-
-				// Strategy 3: Check if vault path starts with normalized path + dot (missing extension heuristic)
 				if (!foundVaultFile) {
 					const possibleMatches = allVaultFiles.filter((vf) =>
 						vf.path.startsWith(normalizedPathForComparison + ".")
 					);
 					if (possibleMatches.length === 1) {
-						// Only use if unambiguous
 						foundVaultFile = possibleMatches[0];
 						console.log(
 							`ProVibe: Found vault file by missing extension heuristic: ${foundVaultFile.path}`
@@ -602,12 +620,10 @@ export class ProVibeView extends ItemView {
 				}
 			}
 
-			// If we found a vault file, use its path
 			if (foundVaultFile) {
 				vaultPath = foundVaultFile.path;
 			}
 
-			// If we resolved a vault path, add it
 			if (vaultPath) {
 				if (!this.attachedFiles.includes(vaultPath)) {
 					console.log(
@@ -626,7 +642,6 @@ export class ProVibeView extends ItemView {
 			}
 		});
 
-		// Update UI if files were added
 		if (filesAdded > 0) {
 			console.log(
 				"ProVibe: Files added, calling renderFilePills. Current attached files:",
@@ -656,24 +671,20 @@ export class ProVibeView extends ItemView {
 		this.attachedFiles.forEach((filePath) => {
 			console.log(`ProVibe: Creating pill for ${filePath}`);
 			const pill = this.filePillsContainer.createDiv({
-				// Force padding with !important - REVERTED padding change
 				cls: "provibe-file-pill flex items-center !px-1.5 !py-0 bg-[var(--background-modifier-border)] rounded-md text-xs text-[var(--text-muted)]",
 			});
 			const fileName = filePath.split("/").pop() || filePath;
 			pill.createSpan({
 				text: fileName,
-				cls: "provibe-pill-text leading-none", // Keep leading-none on text
+				cls: "provibe-pill-text leading-none",
 			});
 
 			const removeBtn = pill.createEl("button", {
 				text: "✕",
-				// Force reset with !important, add !appearance-none, REMOVED leading-none
 				cls: "provibe-pill-remove ml-1 !p-0 !border-none !bg-transparent !appearance-none text-[var(--text-muted)] hover:text-[var(--text-normal)] cursor-pointer text-xs",
 			});
-			// Force height override via inline style - KEEPING this
 			removeBtn.style.height = "auto";
 			removeBtn.style.minHeight = "unset";
-			// Remove box shadow
 			removeBtn.style.boxShadow = "none";
 			removeBtn.addEventListener("click", () =>
 				this.removeFilePill(filePath)
@@ -688,45 +699,95 @@ export class ProVibeView extends ItemView {
 		this.renderFilePills(); // Re-render after removal
 	}
 
+	// --- Modified handleSend for new slash command logic ---
 	private handleSend = async () => {
 		if (this.isLoading) return;
 
-		const messageContent = this.getTextContent().trim();
+		// --- Check if suggestions are active and select if Enter is pressed ---
+		if (
+			this.suggestions.length > 0 &&
+			this.activeSuggestionIndex !== -1 &&
+			this.suggestionsContainer?.style.display !== "none"
+		) {
+			this.handleSuggestionSelect(this.activeSuggestionIndex);
+			return;
+		}
+		// --- End Suggestion Check ---
 
+		const originalMessageContent = this.getTextContent().trim(); // Get raw text
+
+		// --- Transform message content for payload ---
+		let payloadContent = originalMessageContent;
+		const registeredEntries = this.plugin.getRegistryEntries();
+
+		if (registeredEntries.length > 0) {
+			// Create a map for quick lookup
+			const triggerMap = new Map<string, string>();
+			registeredEntries.forEach((entry) => {
+				if (entry.slashCommandTrigger) {
+					triggerMap.set(entry.slashCommandTrigger, entry.content);
+				}
+			});
+
+			if (triggerMap.size > 0) {
+				// Build regex to find all registered triggers
+				const escapedTriggers = Array.from(triggerMap.keys()).map(
+					(cmd) => cmd.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&")
+				);
+				const commandRegex = new RegExp(
+					`(${escapedTriggers.join("|")})(?=\\s|$)`,
+					"g"
+				);
+
+				payloadContent = originalMessageContent.replace(
+					commandRegex,
+					(match) => {
+						const commandName = match.substring(1); // Remove leading slash
+						const content = triggerMap.get(match) ?? ""; // Get content from map
+						return `${commandName}\n${content}`; // Substitute with command\ncontent
+					}
+				);
+			}
+		}
+		// --- End Transformation ---
+
+		// Prepare file content prefix
 		const attachedFilesContent = this.attachedFiles
 			.map((path) => `[File: ${path}]`)
 			.join("\n");
 
-		// Combine attached files and message content
-		let combinedContent = messageContent;
+		// Combine file prefix and transformed content
+		let combinedPayload = payloadContent;
 		if (attachedFilesContent) {
-			combinedContent =
+			combinedPayload =
 				attachedFilesContent +
-				(messageContent ? "\n\n" + messageContent : "");
+				(payloadContent ? "\n\n" + payloadContent : "");
 		}
 
-		if (!combinedContent) return; // Don't send if nothing is attached and message is empty
+		// Don't send if nothing is attached and original message was empty
+		if (!attachedFilesContent && !originalMessageContent) return;
 
-		// Add user message to UI (only the typed part)
-		// Decide if we should show the [File: ...] part in the user message bubble or just the typed text.
-		// Let's show just the typed text for now.
+		// Add *original* user message to UI for display
 		this.addMessageToChat(
 			"user",
-			messageContent || "(Sent with attached files)"
+			originalMessageContent || "(Sent with attached files)"
 		);
 
-		// Prepare payload - include conversationId if it exists
+		// Prepare payload for backend
 		const payload: any = {
-			message: combinedContent,
+			message: combinedPayload, // Send the transformed content
 		};
 		if (this.conversationId) {
 			payload.conversation_id = this.conversationId;
 		}
 
+		console.log("ProVibe: Sending payload:", payload); // Log the transformed payload
+
 		// Clear input and pills AFTER preparing the message
 		this.setTextContent("");
 		this.attachedFiles = [];
 		this.renderFilePills();
+		this.setSuggestions([]); // Clear suggestions on send
 		this.setLoadingState(true);
 
 		try {
@@ -738,10 +799,11 @@ export class ProVibeView extends ItemView {
 				`Error: ${error.message || "Failed to connect to backend"}`,
 				true
 			);
-			// No history to roll back here
 		} finally {
-			// setLoadingState(false) handled by callBackend
+			// setLoadingState handled by callBackend response/error
 			this.textInput.focus();
+			this.textInput.style.height = "auto";
+			this.textInput.dispatchEvent(new Event("input"));
 		}
 	};
 
@@ -752,13 +814,13 @@ export class ProVibeView extends ItemView {
 		console.log(
 			`ProVibe: Stop requested for conversation ${this.conversationId}`
 		);
-		this.stopButton.textContent = "Stopping..."; // Indicate stopping action
-		this.stopButton.disabled = true; // Prevent multiple clicks while stopping
+		this.stopButton.textContent = "Stopping...";
+		this.stopButton.disabled = true;
 
 		const backendUrl = this.plugin.settings.backendUrl;
 		if (!backendUrl) {
 			new Notice("Backend URL is not configured.");
-			this.stopButton.textContent = "Stop"; // Reset button on error
+			this.stopButton.textContent = "Stop";
 			this.stopButton.disabled = false;
 			return;
 		}
@@ -769,24 +831,12 @@ export class ProVibeView extends ItemView {
 			await requestUrl({
 				url: stopUrl,
 				method: "POST",
-				// No body needed for stop request
 			});
 			new Notice("Stop signal sent.");
-			// Don't immediately set isLoading to false here.
-			// The agent response (from the original /chat or /tool_result call)
-			// will eventually return, potentially with a "stopped" message.
-			// The setLoadingState(false) will happen in the finally block of callBackend
-			// or when the stopped message is received.
-
-			// Optionally, add a visual cue that stop was sent but generation might still finish
-			// this.addMessageToChat("system", "Stop request sent. Waiting for current step to finish...");
-			// Keep the button disabled until loading is fully false
 		} catch (error: any) {
 			console.error("Error sending stop signal:", error);
 			new Notice(`Failed to send stop signal: ${error.message}`);
-			// Re-enable the stop button if the stop request itself failed
 			if (this.isLoading && this.stopButton) {
-				// Only re-enable if still in loading state
 				this.stopButton.textContent = "Stop";
 				this.stopButton.disabled = false;
 			}
@@ -819,7 +869,6 @@ export class ProVibeView extends ItemView {
 
 			responseData = response.json;
 
-			// Add null/undefined check right after assignment
 			if (!responseData) {
 				throw new Error(
 					"Received empty or invalid JSON response from backend."
@@ -828,7 +877,6 @@ export class ProVibeView extends ItemView {
 
 			console.log("Backend Response:", responseData);
 
-			// --- Store/Update Conversation ID ---
 			if (responseData.conversation_id) {
 				this.conversationId = responseData.conversation_id;
 				console.log(
@@ -836,14 +884,11 @@ export class ProVibeView extends ItemView {
 					this.conversationId
 				);
 			} else {
-				// This shouldn't happen if backend always returns it
 				console.warn(
 					"ProVibe: Backend response missing conversation_id!"
 				);
 			}
 
-			// --- Response Handling ---
-			// Display agent message first, if present (even if tools are called)
 			if (responseData.agent_message?.content) {
 				this.addMessageToChat(
 					"agent",
@@ -852,7 +897,6 @@ export class ProVibeView extends ItemView {
 			}
 
 			if (responseData.tool_calls && responseData.tool_calls.length > 0) {
-				// Handle tool calls (might involve user interaction for edits)
 				const toolNames = responseData.tool_calls
 					.map((tc) => tc.tool)
 					.join(", ");
@@ -860,11 +904,8 @@ export class ProVibeView extends ItemView {
 					"system",
 					`Agent requests actions using: ${toolNames}`
 				);
-				// Process tools, potentially involving review
 				await this.processToolCalls(responseData.tool_calls);
-				// Don't return here; further actions happen in processToolCalls
 			} else if (!responseData.agent_message?.content) {
-				// Handle empty response only if no tool calls AND no agent message
 				this.addMessageToChat(
 					"system",
 					"Received an empty or unexpected response from the agent.",
@@ -877,11 +918,8 @@ export class ProVibeView extends ItemView {
 				? `Could not connect to backend at ${backendUrl}. Is it running?`
 				: error.message || `Request to ${endpoint} failed.`;
 			this.addMessageToChat("system", `Error: ${errorMsg}`, true);
-			this.setLoadingState(false); // Ensure loading state is reset on error
-			// Re-throw might not be needed if setLoadingState is handled here
+			this.setLoadingState(false);
 		} finally {
-			// Loading state is now managed within processToolCalls or after non-tool responses
-			// Only set loading false if no tools were called AND we are not in the tool result flow
 			if (
 				endpoint === "/chat" &&
 				(!responseData?.tool_calls ||
@@ -889,8 +927,6 @@ export class ProVibeView extends ItemView {
 			) {
 				this.setLoadingState(false);
 			}
-			// If endpoint is /tool_result, the final response from the backend (after tools)
-			// will not have tool_calls, so we reset loading state then.
 			if (
 				endpoint === "/tool_result" &&
 				(!responseData?.tool_calls ||
@@ -903,16 +939,14 @@ export class ProVibeView extends ItemView {
 
 	// --- Tool Handling ---
 
-	// New function to process incoming tool calls, separating edits for review
 	private async processToolCalls(toolCalls: BackendToolCall[]) {
-		this.setLoadingState(true); // Ensure loading state is active
+		this.setLoadingState(true);
 		console.log(`ProVibe: Processing ${toolCalls.length} tool calls.`);
 
 		const executedResults: ToolResult[] = [];
 		const pendingEdits: BackendToolCall[] = [];
 		let immediateExecutionError = false;
 
-		// Separate immediate tools from edits requiring review
 		for (const toolCall of toolCalls) {
 			if (toolCall.tool === "editFile") {
 				pendingEdits.push(toolCall);
@@ -921,7 +955,6 @@ export class ProVibeView extends ItemView {
 					`Agent proposes changes to ${toolCall.params.path}. Review required.`
 				);
 			} else {
-				// Execute immediate tools (e.g., readFile)
 				let result: any;
 				let errorOccurred = false;
 				this.addMessageToChat(
@@ -929,7 +962,7 @@ export class ProVibeView extends ItemView {
 					`Executing immediate tool: ${toolCall.tool}...`
 				);
 				try {
-					result = await this.executeSingleTool(toolCall); // Executes readFile, etc.
+					result = await this.executeSingleTool(toolCall);
 				} catch (error: any) {
 					console.error(
 						`Error executing immediate tool ${toolCall.tool} (ID: ${toolCall.id}):`,
@@ -941,7 +974,6 @@ export class ProVibeView extends ItemView {
 				}
 				executedResults.push({ id: toolCall.id, result: result });
 
-				// Display truncated result
 				const resultString =
 					typeof result === "string"
 						? result
@@ -958,28 +990,23 @@ export class ProVibeView extends ItemView {
 			}
 		}
 
-		// If there are edits requiring review, handle them
 		if (pendingEdits.length > 0) {
 			try {
-				// Process edits sequentially, awaiting user confirmation for each
 				const editResults = await this.reviewAndExecuteEdits(
 					pendingEdits
 				);
-				executedResults.push(...editResults); // Add results from edits
+				executedResults.push(...editResults);
 			} catch (reviewError: any) {
-				// Handle errors during the review process itself (e.g., failed file read for diff)
 				console.error("Error during edit review process:", reviewError);
 				this.addMessageToChat(
 					"system",
 					`Error processing proposed edits: ${reviewError.message}`,
 					true
 				);
-				// We might still want to send back results of successfully executed immediate tools
-				immediateExecutionError = true; // Mark overall error
+				immediateExecutionError = true;
 			}
 		}
 
-		// Send results back ONLY if there were executed tools or reviewed edits
 		if (executedResults.length > 0) {
 			console.log(
 				"ProVibe: Sending tool results back to backend:",
@@ -996,25 +1023,18 @@ export class ProVibeView extends ItemView {
 					conversation_id: this.conversationId,
 				});
 			} catch (error: any) {
-				// Error sending results is handled by callBackend
-				this.setLoadingState(false); // Ensure loading resets if sending fails
+				this.setLoadingState(false);
 			}
-			// Loading state will be reset by the *response* from /tool_result in callBackend
 		} else if (!immediateExecutionError && pendingEdits.length === 0) {
-			// If there were no tools to execute and no edits to review (shouldn't happen if tool_calls > 0)
 			console.warn(
 				"ProVibe: processToolCalls finished with no results to send."
 			);
 			this.setLoadingState(false);
 		} else if (immediateExecutionError) {
-			// If an immediate tool failed, we might have already sent its error result. Reset loading.
-			// Or if review process failed.
 			this.setLoadingState(false);
 		}
-		// If only pending edits existed and were cancelled, setLoadingState(false) happens in callBackend response.
 	}
 
-	// New function to handle review and execution of pending edits
 	private async reviewAndExecuteEdits(
 		pendingEdits: BackendToolCall[]
 	): Promise<ToolResult[]> {
@@ -1118,29 +1138,13 @@ export class ProVibeView extends ItemView {
 		});
 	}
 
-	// Executes a single tool call (for tools not requiring review, e.g., readFile)
 	private async executeSingleTool(toolCall: BackendToolCall): Promise<any> {
 		let result: any;
 		switch (toolCall.tool) {
 			case "readFile":
 				result = await this.toolReadFile(toolCall.params.path);
 				break;
-			// editFile is now handled by reviewAndExecuteEdits -> displayDiffModalForReview -> toolEditFile
-			// case "editFile":
-			// 	result = await this.toolEditFile(
-			// 		toolCall.params.path,
-			// 		toolCall.params.code_edit,
-			// 		toolCall.params.instructions
-			// 	);
-			// 	break;
 			default:
-				// Throw error for unknown immediate tool
-				console.warn(
-					`Encountered potentially unknown immediate tool: ${toolCall.tool}. Trying to execute...`
-				);
-				// Attempt to execute anyway, maybe more tools exist?
-				// This is risky, better to have explicit cases or a check.
-				// For now, let's throw an error for safety.
 				throw new Error(
 					`Unknown immediate tool '${toolCall.tool}' requested.`
 				);
@@ -1148,10 +1152,9 @@ export class ProVibeView extends ItemView {
 		return result;
 	}
 
-	// --- Tool Implementations using Obsidian API ---
+	// --- Tool Implementations ---
 
 	private async toolReadFile(path: string): Promise<string> {
-		// Strip leading './' if present
 		const normalizedPath = path.startsWith("./") ? path.substring(2) : path;
 		console.log(`Tool: Reading file ${normalizedPath} (Original: ${path})`);
 		const file = this.app.vault.getAbstractFileByPath(normalizedPath);
@@ -1164,13 +1167,11 @@ export class ProVibeView extends ItemView {
 		return await this.app.vault.read(file);
 	}
 
-	// toolEditFile now takes the final reconstructed content
 	private async toolEditFile(
 		path: string,
 		final_content: string,
 		instructions: string
 	): Promise<string> {
-		// Strip leading './' if present
 		const normalizedPath = path.startsWith("./") ? path.substring(2) : path;
 		console.log(
 			`Tool: Applying final content to ${normalizedPath} (Instructions: ${instructions})`
@@ -1203,24 +1204,197 @@ export class ProVibeView extends ItemView {
 		}
 	}
 
-	// --- Obsidian View Lifecycle Methods ---
+	// --- Lifecycle Methods ---
 
-	async onClose() {
-		// Clean up any event listeners or resources when the view is closed
-		// (Listeners added with this.registerDomEvent are handled automatically)
-	}
+	async onClose() {}
 
 	// --- Helper Methods ---
 
-	// Method to get the text content from the input
 	getTextContent(): string {
 		return this.textInput?.value || "";
 	}
 
-	// Method to set the text content of the input
 	setTextContent(text: string): void {
 		if (this.textInput) {
 			this.textInput.value = text;
+			this.textInput.dispatchEvent(new Event("input", { bubbles: true }));
 		}
 	}
+
+	// --- Slash Command Methods ---
+
+	private setSuggestions(newSuggestions: RegistryEntry[]) {
+		this.suggestions = newSuggestions;
+		this.activeSuggestionIndex = -1;
+		this.renderSuggestions();
+	}
+
+	private renderSuggestions() {
+		if (!this.suggestionsContainer) return;
+
+		this.suggestionsContainer.empty();
+
+		if (this.suggestions.length === 0) {
+			this.suggestionsContainer.style.display = "none";
+			this.currentTrigger = null;
+			this.triggerStartIndex = -1;
+			return;
+		}
+
+		this.suggestionsContainer.style.display = "block";
+
+		this.suggestions.forEach((entry, index) => {
+			const itemEl = this.suggestionsContainer.createDiv({
+				cls: "provibe-suggestion-item p-1.5 cursor-pointer hover:bg-[var(--background-modifier-hover)] rounded-sm text-sm",
+			});
+			itemEl.id = `provibe-suggestion-${index}`;
+
+			if (index === this.activeSuggestionIndex) {
+				itemEl.addClass("bg-[var(--background-modifier-hover)]");
+			}
+
+			const triggerEl = itemEl.createEl("strong");
+			triggerEl.textContent = entry.slashCommandTrigger ?? "";
+			itemEl.createSpan({
+				text: `: ${entry.description}`,
+				cls: "text-[var(--text-muted)]",
+			});
+
+			itemEl.addEventListener("click", () => {
+				this.handleSuggestionSelect(index);
+			});
+		});
+
+		if (this.activeSuggestionIndex !== -1) {
+			const activeEl = this.suggestionsContainer.querySelector(
+				`#provibe-suggestion-${this.activeSuggestionIndex}`
+			);
+			activeEl?.scrollIntoView({ block: "nearest" });
+		}
+	}
+
+	// --- Modified handleSuggestionSelect ---
+	private handleSuggestionSelect(index: number) {
+		if (
+			index < 0 ||
+			index >= this.suggestions.length ||
+			!this.currentTrigger || // Need the trigger text that was being typed
+			this.triggerStartIndex === -1
+		) {
+			this.setSuggestions([]);
+			return;
+		}
+
+		const selectedEntry = this.suggestions[index];
+		if (!selectedEntry?.slashCommandTrigger) return; // Need the command trigger itself
+
+		const currentValue = this.textInput.value;
+		const triggerEndIndex =
+			this.triggerStartIndex + this.currentTrigger.length;
+
+		// Replace the partially typed trigger with the full trigger text and a space
+		const newValue =
+			currentValue.substring(0, this.triggerStartIndex) +
+			selectedEntry.slashCommandTrigger + // Insert the full trigger text
+			" " + // Add a space after it
+			currentValue.substring(triggerEndIndex); // Text after the original partial trigger
+
+		this.textInput.value = newValue;
+		this.setSuggestions([]); // Hide suggestions
+
+		// Move cursor to the end of the inserted trigger + space
+		const newCursorPos =
+			this.triggerStartIndex +
+			selectedEntry.slashCommandTrigger.length +
+			1;
+		this.textInput.focus();
+		setTimeout(() => {
+			this.textInput.setSelectionRange(newCursorPos, newCursorPos);
+		}, 0);
+
+		this.textInput.dispatchEvent(new Event("input", { bubbles: true }));
+	}
+	// --- End Modified handleSuggestionSelect ---
+
+	private handleInputChange = () => {
+		const value = this.textInput.value;
+		const cursorPos = this.textInput.selectionStart;
+		const textBeforeCursor = value.substring(0, cursorPos);
+
+		const match = textBeforeCursor.match(/(?:\s|^)(\/([a-zA-Z0-9_-]*))$/);
+
+		if (match) {
+			const trigger = match[1];
+			const triggerStart =
+				match.index !== undefined
+					? match.index + (match[0].startsWith("/") ? 0 : 1)
+					: -1;
+
+			const allEntries = this.plugin.getRegistryEntries();
+			const matchingEntries = allEntries.filter(
+				(entry) =>
+					entry.slashCommandTrigger?.startsWith(trigger) &&
+					entry.slashCommandTrigger !== "/"
+			);
+
+			if (matchingEntries.length > 0 && triggerStart !== -1) {
+				this.currentTrigger = trigger; // Store the *typed* trigger (e.g., "/iss")
+				this.triggerStartIndex = triggerStart;
+				this.setSuggestions(matchingEntries);
+			} else {
+				this.setSuggestions([]);
+			}
+		} else {
+			this.setSuggestions([]);
+		}
+	};
+
+	private handleInputKeydown = (event: KeyboardEvent) => {
+		if (
+			this.suggestions.length > 0 &&
+			this.suggestionsContainer?.style.display !== "none"
+		) {
+			switch (event.key) {
+				case "ArrowUp":
+					event.preventDefault();
+					this.activeSuggestionIndex =
+						(this.activeSuggestionIndex -
+							1 +
+							this.suggestions.length) %
+						this.suggestions.length;
+					this.renderSuggestions();
+					break;
+				case "ArrowDown":
+					event.preventDefault();
+					this.activeSuggestionIndex =
+						(this.activeSuggestionIndex + 1) %
+						this.suggestions.length;
+					this.renderSuggestions();
+					break;
+				case "Enter":
+				case "Tab":
+					if (this.activeSuggestionIndex !== -1) {
+						event.preventDefault();
+						this.handleSuggestionSelect(this.activeSuggestionIndex);
+					} else {
+						this.setSuggestions([]);
+						if (event.key === "Enter" && !event.shiftKey) {
+							// Prevent default Enter if suggestions were visible but none selected
+							event.preventDefault();
+							this.handleSend();
+						}
+					}
+					break;
+				case "Escape":
+					event.preventDefault();
+					this.setSuggestions([]);
+					break;
+				default:
+					break;
+			}
+		} else if (event.key === "Enter" && !event.shiftKey) {
+			event.preventDefault();
+			this.handleSend();
+		}
+	};
 }
