@@ -291,21 +291,86 @@ export const handleSend = async (view: ProVibeView): Promise<void> => {
 	);
 	// --- End Step 2 ---
 
-	// --- Step 3: Construct final payload ---
+	// --- Step 3: Read and Inject Attached File Contents ---
+	let fileContentsToSend = "";
 	const currentAttachedFiles = [...view.attachedFiles];
-	const attachedFilesContent = currentAttachedFiles
-		.map((path) => `[File: ${path}]`)
-		.join("\n");
+	const currentConvoId = view.conversationId; // Can be null on first turn
 
-	let combinedPayload = payloadContent;
-	if (attachedFilesContent) {
-		combinedPayload =
-			attachedFilesContent +
-			(payloadContent ? "\n\n" + payloadContent : "");
+	for (const filePath of currentAttachedFiles) {
+		let shouldSendContent = false;
+		const registryKey = currentConvoId
+			? `${currentConvoId}:${filePath}`
+			: null;
+
+		if (!currentConvoId) {
+			// First turn of a conversation
+			shouldSendContent = true;
+		} else if (
+			registryKey &&
+			!view.sentFileContentRegistry.has(registryKey)
+		) {
+			// Subsequent turn, not sent yet for this convo
+			shouldSendContent = true;
+		}
+
+		if (shouldSendContent) {
+			console.log(
+				`[handleSend] Reading content for ${filePath} (Convo: ${
+					currentConvoId || "NEW"
+				})`
+			);
+			try {
+				const file = view.app.vault.getAbstractFileByPath(filePath);
+				if (file instanceof TFile) {
+					const content = await view.app.vault.read(file);
+					fileContentsToSend += `\n\n--- File Content: ${filePath} ---\n${content}\n--- End File Content ---`;
+					// Add to registry ONLY if we have a convo ID (won't have one on the very first send)
+					if (registryKey) {
+						view.sentFileContentRegistry.add(registryKey);
+						console.log(
+							`[handleSend] Added ${registryKey} to sent registry.`
+						);
+					}
+				} else {
+					console.warn(
+						`[handleSend] Attached path is not a TFile: ${filePath}`
+					);
+				}
+			} catch (error) {
+				console.error(
+					`[handleSend] Error reading attached file ${filePath}:`,
+					error
+				);
+				// Optionally add an error marker to the payload?
+				// fileContentsToSend += `\n\n--- Error Reading File: ${filePath} ---`;
+			}
+		}
 	}
-	console.log("[handleSend] Final combinedPayload:", combinedPayload);
+	// --- End Step 3 ---
 
-	if (!attachedFilesContent && !originalMessageContent) return;
+	// --- Step 4: Construct final payload --- // Renumbered step
+	// Start with the user message + replaced selections/commands
+	let combinedPayload = payloadContent;
+	// Append the content of newly included files (if any)
+	combinedPayload += fileContentsToSend;
+
+	// Remove the old [File: path] indicators as content is now inline
+	// const attachedFilesContent = currentAttachedFiles
+	// 	.map((path) => `[File: ${path}]`)
+	// 	.join("\n");
+	// if (attachedFilesContent) {
+	// 	combinedPayload =
+	// 		attachedFilesContent +
+	// 		(combinedPayload ? "\n\n" + combinedPayload : "");
+	// }
+
+	console.log(
+		"[handleSend] Final combinedPayload (length):",
+		combinedPayload.length
+	);
+	// console.log("[handleSend] Final combinedPayload (snippet):", combinedPayload.substring(0, 500)); // Log snippet
+
+	if (currentAttachedFiles.length === 0 && !originalMessageContent) return; // Check if *anything* is being sent
 
 	addMessageToChat(
 		view,

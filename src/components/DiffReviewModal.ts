@@ -199,7 +199,14 @@ export class DiffReviewModal extends Modal {
 
 			hunk.lines.forEach((line) => {
 				const lineEl = linesContainer.createDiv({
-					cls: `diff-line diff-line-${line.type}`,
+					// Combine existing classes with new Tailwind classes
+					cls: `diff-line diff-line-${line.type} ${
+						line.type === "addition"
+							? "bg-green-100 dark:bg-green-900/50" // Faint green for light/dark modes
+							: line.type === "deletion"
+							? "bg-red-100 dark:bg-red-900/50" // Faint red for light/dark modes
+							: "" // No background for context lines
+					}`,
 				});
 				let prefix = " ";
 				if (line.type === "addition") prefix = "+";

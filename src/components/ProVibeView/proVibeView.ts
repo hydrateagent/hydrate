@@ -100,6 +100,10 @@ export class ProVibeView extends ItemView {
 	capturedSelection: string | null = null; // <<< RE-ADDED
 	// --- End Captured Selection State ---
 
+	// --- State for Tracking Sent File Content ---
+	sentFileContentRegistry: Set<string> = new Set(); // Stores "conversationId:filePath"
+	// --- End State for Tracking Sent File Content ---
+
 	constructor(leaf: WorkspaceLeaf, plugin: ProVibePlugin) {
 		super(leaf);
 		this.plugin = plugin;
