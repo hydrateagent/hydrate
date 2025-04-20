@@ -207,14 +207,18 @@ export default class ProVibePlugin extends Plugin {
 				const proVibeView = leaves[0].view as ProVibeView;
 
 				// 3. Store selection and update input
-				proVibeView.capturedSelection = selection;
-				// Append " /select " to the current text
+				proVibeView.capturedSelections.push(selection); // Push to array
+				const index = proVibeView.capturedSelections.length; // Get the new length (which is the index+1)
+				const formattedIndex = index.toString().padStart(2, "0"); // Zero-pad
+				const token = `/select${formattedIndex}`; // Create token like /select01
+
+				// Append the token to the current text
 				const currentText = proVibeView.textInput.value;
 				const separator =
 					currentText.length > 0 && !currentText.endsWith(" ")
 						? " "
 						: ""; // Add space if needed
-				proVibeView.textInput.value += `${separator}/select `;
+				proVibeView.textInput.value += `${separator}${token} `;
 
 				// Trigger input event for potential UI updates (like textarea resize)
 				proVibeView.textInput.dispatchEvent(

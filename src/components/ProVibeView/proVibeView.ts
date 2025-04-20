@@ -97,7 +97,8 @@ export class ProVibeView extends ItemView {
 	// --- End Slash Command State ---
 
 	// --- Captured Selection State ---
-	capturedSelection: string | null = null; // <<< RE-ADDED
+	// capturedSelection: string | null = null; // <<< REMOVED
+	capturedSelections: string[] = []; // <<< CHANGED to array
 	// --- End Captured Selection State ---
 
 	// --- State for Tracking Sent File Content ---

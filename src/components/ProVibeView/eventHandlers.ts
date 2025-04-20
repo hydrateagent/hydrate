@@ -20,9 +20,10 @@ export const handleClear = (view: ProVibeView): void => {
 	view.attachedFiles = [];
 	view.initialFilePathFromState = null;
 	view.wasInitiallyAttached = false;
-	view.capturedSelection = null;
+	view.capturedSelections = [];
 	renderDomFilePills(view);
 	view.conversationId = null;
+	view.sentFileContentRegistry.clear();
 	setDomSuggestions(view, []);
 	addMessageToChat(view, "system", "Chat cleared. New conversation started.");
 	view.textInput.style.height = "auto";
@@ -216,45 +217,36 @@ export const handleSend = async (view: ProVibeView): Promise<void> => {
 	let payloadContent = originalMessageContent;
 	console.log("[handleSend] Initial payloadContent:", payloadContent);
 
-	// --- Step 1: Handle /select command ---
-	const selectCommand = "/select";
-	if (payloadContent.includes(selectCommand)) {
-		console.log("[handleSend] /select command detected.");
-		// Use the continuously captured selection
-		const selectedText = view.capturedSelection; // Get from state
+	// --- Step 1: Handle /selectNN commands ---
+	const capturedSelections = [...view.capturedSelections]; // Copy array
+	if (capturedSelections.length > 0) {
 		console.log(
-			"[handleSend] Using captured selection:",
-			`'${selectedText}'`
+			`[handleSend] Found ${capturedSelections.length} captured selection(s).`
 		);
+		for (let i = 0; i < capturedSelections.length; i++) {
+			const index = i + 1; // 1-based index for token
+			const formattedIndex = index.toString().padStart(2, "0");
+			const token = `/select${formattedIndex}`;
+			const selectionText = capturedSelections[i];
 
-		if (selectedText) {
-			// Check if captured selection exists
-			payloadContent = payloadContent.replace(
-				selectCommand,
-				`\n\n--- Selected Text ---\n${selectedText}\n--- End Selected Text ---`
-			);
-			console.log(
-				"ProVibe: Replaced /select with captured selected text."
-			);
-		} else {
-			// Remove the command entirely if no text was captured
-			payloadContent = payloadContent.replace(selectCommand, "").trim();
-			addMessageToChat(
-				view,
-				"system",
-				"No text selection was captured while '/select' was present. Command ignored."
-			);
-			console.log(
-				"ProVibe: /select command found but no captured selection available, removing command."
-			);
+			if (payloadContent.includes(token)) {
+				const replacement = `\n\n--- Selected Text ${index} ---\n${selectionText}\n--- End Selected Text ${index} ---\n`;
+				// Use replaceAll in case the same token was somehow added multiple times (though command logic prevents this)
+				payloadContent = payloadContent.replaceAll(token, replacement);
+				console.log(
+					`[handleSend] Replaced ${token} with Selected Text ${index}.`
+				);
+			} else {
+				console.warn(
+					`[handleSend] Token ${token} not found in payloadContent, but selection ${index} was captured.`
+				);
+				// Optionally add a note about the unused selection?
+			}
 		}
-		// Clear the captured selection state *after* using it
-		view.capturedSelection = null;
+		// Clear the selections array in the view state AFTER processing
+		view.capturedSelections = [];
+		console.log("[handleSend] Cleared captured selections array.");
 	}
-	console.log(
-		"[handleSend] payloadContent after /select processing:",
-		payloadContent
-	);
 	// --- End Step 1 ---
 
 	// --- Step 2: Handle registered slash commands ---
@@ -406,7 +398,7 @@ export const handleSend = async (view: ProVibeView): Promise<void> => {
 		view.textInput.style.height = "auto";
 		view.textInput.dispatchEvent(new Event("input"));
 		// Ensure captured selection is cleared even on error
-		view.capturedSelection = null;
+		view.capturedSelections = [];
 	}
 };
 
