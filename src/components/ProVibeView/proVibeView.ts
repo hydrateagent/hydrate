@@ -14,7 +14,11 @@ import ProVibePlugin from "../../main"; // Corrected path to be relative to curr
 import { DiffReviewModal, DiffReviewResult } from "../DiffReviewModal"; // Corrected path (assuming same dir as view)
 import { ReactViewHost } from "../../ReactViewHost"; // Corrected path
 import { RegistryEntry } from "../../types"; // Corrected path
-import { toolReadFile, toolEditFile } from "./toolImplementations"; // Corrected path
+import {
+	toolReadFile,
+	toolEditFile,
+	toolReplaceSelectionInFile,
+} from "./toolImplementations"; // Corrected path
 import {
 	addMessageToChat,
 	renderFilePills as renderDomFilePills, // Alias dom utils
@@ -91,6 +95,10 @@ export class ProVibeView extends ItemView {
 	currentTrigger: string | null = null;
 	triggerStartIndex: number = -1;
 	// --- End Slash Command State ---
+
+	// --- Captured Selection State ---
+	capturedSelection: string | null = null; // <<< RE-ADDED
+	// --- End Captured Selection State ---
 
 	constructor(leaf: WorkspaceLeaf, plugin: ProVibePlugin) {
 		super(leaf);
@@ -635,9 +643,29 @@ export class ProVibeView extends ItemView {
 		switch (toolCall.tool) {
 			case "readFile": // Match tool name from backend
 				return await toolReadFile(this.app, toolCall.params.path);
+			case "replaceSelectionInFile": // <<< ADDED CASE
+				// This tool modifies directly, bypassing the review modal used for editFile
+				// Ensure the agent provides path, original_selection, and new_content
+				if (
+					!toolCall.params.path ||
+					!toolCall.params.original_selection ||
+					toolCall.params.new_content === undefined // Check for undefined, as empty string is valid
+				) {
+					throw new Error(
+						"Missing required parameters (path, original_selection, new_content) for replaceSelectionInFile"
+					);
+				}
+				return await toolReplaceSelectionInFile(
+					this.app,
+					toolCall.params.path,
+					toolCall.params.original_selection,
+					toolCall.params.new_content
+				);
+			// Note: We are NOT handling 'editFile' here because it requires the review modal process
+			// The reviewAndExecuteEdits function handles 'editFile' calls specifically.
 			default:
 				throw new Error(
-					`Unknown or unsupported tool: ${toolCall.tool}`
+					`Unknown or unsupported tool for direct execution: ${toolCall.tool}`
 				);
 		}
 	}

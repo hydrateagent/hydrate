@@ -203,6 +203,9 @@
   .relative {
     position: relative;
   }
+  .static {
+    position: static;
+  }
   .inset-x-0 {
     inset-inline: calc(var(--spacing) * 0);
   }

@@ -1,5 +1,6 @@
-import { Notice, TFile, requestUrl } from "obsidian";
-import type { ProVibeView } from "./proVibeView"; // Corrected type import
+import { Notice, TFile, requestUrl, MarkdownView } from "obsidian";
+import type { ProVibeView } from "./proVibeView";
+import { RegistryEntry } from "../../types"; // Added import
 import {
 	addMessageToChat,
 	renderFilePills as renderDomFilePills,
@@ -19,6 +20,7 @@ export const handleClear = (view: ProVibeView): void => {
 	view.attachedFiles = [];
 	view.initialFilePathFromState = null;
 	view.wasInitiallyAttached = false;
+	view.capturedSelection = null;
 	renderDomFilePills(view);
 	view.conversationId = null;
 	setDomSuggestions(view, []);
@@ -212,11 +214,55 @@ export const handleSend = async (view: ProVibeView): Promise<void> => {
 
 	const originalMessageContent = view.textInput.value.trim();
 	let payloadContent = originalMessageContent;
-	const registeredEntries = view.plugin.getRegistryEntries();
+	console.log("[handleSend] Initial payloadContent:", payloadContent);
 
+	// --- Step 1: Handle /select command ---
+	const selectCommand = "/select";
+	if (payloadContent.includes(selectCommand)) {
+		console.log("[handleSend] /select command detected.");
+		// Use the continuously captured selection
+		const selectedText = view.capturedSelection; // Get from state
+		console.log(
+			"[handleSend] Using captured selection:",
+			`'${selectedText}'`
+		);
+
+		if (selectedText) {
+			// Check if captured selection exists
+			payloadContent = payloadContent.replace(
+				selectCommand,
+				`\n\n--- Selected Text ---\n${selectedText}\n--- End Selected Text ---`
+			);
+			console.log(
+				"ProVibe: Replaced /select with captured selected text."
+			);
+		} else {
+			// Remove the command entirely if no text was captured
+			payloadContent = payloadContent.replace(selectCommand, "").trim();
+			addMessageToChat(
+				view,
+				"system",
+				"No text selection was captured while '/select' was present. Command ignored."
+			);
+			console.log(
+				"ProVibe: /select command found but no captured selection available, removing command."
+			);
+		}
+		// Clear the captured selection state *after* using it
+		view.capturedSelection = null;
+	}
+	console.log(
+		"[handleSend] payloadContent after /select processing:",
+		payloadContent
+	);
+	// --- End Step 1 ---
+
+	// --- Step 2: Handle registered slash commands ---
+	const registeredEntries = view.plugin.getRegistryEntries();
 	if (registeredEntries.length > 0) {
 		const triggerMap = new Map<string, string>();
-		registeredEntries.forEach((entry: any) => {
+		registeredEntries.forEach((entry: RegistryEntry) => {
+			// Use RegistryEntry type
 			if (entry.slashCommandTrigger) {
 				triggerMap.set(entry.slashCommandTrigger, entry.content);
 			}
@@ -226,21 +272,26 @@ export const handleSend = async (view: ProVibeView): Promise<void> => {
 			const escapedTriggers = Array.from(triggerMap.keys()).map((cmd) =>
 				cmd.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&")
 			);
+			// Regex to find registered commands *only*
 			const commandRegex = new RegExp(
-				`(${escapedTriggers.join("|")})(?=\\s|$)`,
+				`(?<!\\S)(${escapedTriggers.join("|")})(?=\\s|$)`, // Added negative lookbehind for start of word
 				"g"
 			);
-			payloadContent = originalMessageContent.replace(
-				commandRegex,
-				(match) => {
-					const commandName = match.substring(1);
-					const content = triggerMap.get(match) ?? "";
-					return `${commandName}\n${content}`;
-				}
-			);
+
+			// Perform replacement directly on payloadContent
+			payloadContent = payloadContent.replace(commandRegex, (match) => {
+				// Replace the trigger entirely with its mapped content
+				return triggerMap.get(match) ?? ""; // Return empty string if no content
+			});
 		}
 	}
+	console.log(
+		"[handleSend] payloadContent after registered command processing:",
+		payloadContent
+	);
+	// --- End Step 2 ---
 
+	// --- Step 3: Construct final payload ---
 	const currentAttachedFiles = [...view.attachedFiles];
 	const attachedFilesContent = currentAttachedFiles
 		.map((path) => `[File: ${path}]`)
@@ -252,6 +303,7 @@ export const handleSend = async (view: ProVibeView): Promise<void> => {
 			attachedFilesContent +
 			(payloadContent ? "\n\n" + payloadContent : "");
 	}
+	console.log("[handleSend] Final combinedPayload:", combinedPayload);
 
 	if (!attachedFilesContent && !originalMessageContent) return;
 
@@ -288,6 +340,8 @@ export const handleSend = async (view: ProVibeView): Promise<void> => {
 		view.textInput.focus();
 		view.textInput.style.height = "auto";
 		view.textInput.dispatchEvent(new Event("input"));
+		// Ensure captured selection is cleared even on error
+		view.capturedSelection = null;
 	}
 };
 
@@ -371,6 +425,7 @@ export const handleSuggestionSelect = (
 export const handleInputChange = (view: ProVibeView): void => {
 	const value = view.textInput.value;
 	const cursorPos = view.textInput.selectionStart;
+
 	if (cursorPos === null) {
 		setDomSuggestions(view, []);
 		return;
@@ -388,7 +443,7 @@ export const handleInputChange = (view: ProVibeView): void => {
 
 		if (triggerStart !== -1) {
 			const allEntries = view.plugin.getRegistryEntries();
-			const matchingEntries = allEntries.filter(
+			let matchingEntries = allEntries.filter(
 				(entry: any) =>
 					entry.slashCommandTrigger?.startsWith(trigger) &&
 					entry.slashCommandTrigger !== "/"

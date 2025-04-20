@@ -173,6 +173,63 @@ export default class ProVibePlugin extends Plugin {
 			);
 			return new ReactViewHost(leaf, this);
 		});
+
+		// --- Add Selection Command ---
+		this.addCommand({
+			id: "add-selection-to-provibe",
+			name: "ProVibe: Add selection to context",
+			callback: () => {
+				// 1. Get active editor and selection
+				const activeMdView =
+					this.app.workspace.getActiveViewOfType(MarkdownView);
+				if (!activeMdView || !activeMdView.editor) {
+					new Notice("No active Markdown editor found.");
+					return;
+				}
+				const selection = activeMdView.editor.getSelection();
+				if (!selection) {
+					new Notice("No text selected.");
+					return;
+				}
+
+				// 2. Find the ProVibe view instance
+				const leaves =
+					this.app.workspace.getLeavesOfType(PROVIBE_VIEW_TYPE);
+				if (
+					leaves.length === 0 ||
+					!(leaves[0].view instanceof ProVibeView)
+				) {
+					new Notice("ProVibe pane not found or is not active.");
+					// Optionally, activate the view here if desired?
+					// this.activateView(); // Consider if this makes sense
+					return;
+				}
+				const proVibeView = leaves[0].view as ProVibeView;
+
+				// 3. Store selection and update input
+				proVibeView.capturedSelection = selection;
+				// Append " /select " to the current text
+				const currentText = proVibeView.textInput.value;
+				const separator =
+					currentText.length > 0 && !currentText.endsWith(" ")
+						? " "
+						: ""; // Add space if needed
+				proVibeView.textInput.value += `${separator}/select `;
+
+				// Trigger input event for potential UI updates (like textarea resize)
+				proVibeView.textInput.dispatchEvent(
+					new Event("input", { bubbles: true })
+				);
+
+				// Focus the input area
+				proVibeView.textInput.focus();
+
+				new Notice(
+					"Selected text captured and /select added to ProVibe."
+				);
+			},
+		});
+		// --- End Add Selection Command ---
 	}
 
 	// --- Helper to Toggle Pane ---

@@ -80,8 +80,11 @@ export function addMessageToChat(
 			.map((e: RegistryEntry) => e.slashCommandTrigger)
 			.filter((t: string | undefined): t is string => !!t);
 
-		if (registeredCommands.length > 0) {
-			const escapedCommands = registeredCommands.map((cmd: string) =>
+		// Add the built-in /select command to the list of commands to highlight
+		const allCommandsToHighlight = [...registeredCommands, "/select"];
+
+		if (allCommandsToHighlight.length > 0) {
+			const escapedCommands = allCommandsToHighlight.map((cmd: string) =>
 				cmd.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&")
 			);
 			const commandRegex = new RegExp(
