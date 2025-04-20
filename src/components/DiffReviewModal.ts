@@ -1,6 +1,6 @@
 import { App, Modal, ButtonComponent } from "obsidian";
 import { diff_match_patch, Diff, patch_obj } from "diff-match-patch";
-import ProVibePlugin from "./main"; // May need plugin/app access later
+import ProVibePlugin from "../main"; // May need plugin/app access later
 
 // Define the structure for a diff hunk
 interface DiffHunk {

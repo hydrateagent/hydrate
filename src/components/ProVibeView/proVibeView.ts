@@ -10,14 +10,11 @@ import {
 	ViewStateResult,
 	sanitizeHTMLToDom,
 } from "obsidian";
-import ProVibePlugin from "./main"; // Corrected path to be relative to current dir
-import { DiffReviewModal, DiffReviewResult } from "./DiffReviewModal"; // Corrected path (assuming same dir as view)
-import { ReactViewHost } from "./src/ReactViewHost"; // Corrected path
-import { RegistryEntry } from "./src/types"; // Corrected path
-import {
-	toolReadFile,
-	toolEditFile,
-} from "./src/components/ProVibeView/toolImplementations"; // Corrected path
+import ProVibePlugin from "../../main"; // Corrected path to be relative to current dir
+import { DiffReviewModal, DiffReviewResult } from "../DiffReviewModal"; // Corrected path (assuming same dir as view)
+import { ReactViewHost } from "../../ReactViewHost"; // Corrected path
+import { RegistryEntry } from "../../types"; // Corrected path
+import { toolReadFile, toolEditFile } from "./toolImplementations"; // Corrected path
 import {
 	addMessageToChat,
 	renderFilePills as renderDomFilePills, // Alias dom utils
@@ -25,7 +22,7 @@ import {
 	setLoadingState as setDomLoadingState, // Alias dom utils
 	setSuggestions as setDomSuggestions, // Alias dom utils
 	setTextContent,
-} from "./src/components/ProVibeView/domUtils"; // Corrected path
+} from "./domUtils"; // Corrected path
 import {
 	handleClear,
 	handleDrop,
@@ -35,7 +32,7 @@ import {
 	handleInputChange,
 	handleInputKeydown,
 	removeFilePill as removeEventHandlerFilePill, // Alias event handler
-} from "./src/components/ProVibeView/eventHandlers"; // Corrected path
+} from "./eventHandlers"; // Corrected path
 
 export const PROVIBE_VIEW_TYPE = "provibe-view";
 

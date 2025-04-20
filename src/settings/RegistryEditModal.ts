@@ -7,7 +7,7 @@ import {
 	DropdownComponent,
 	TextAreaComponent,
 } from "obsidian";
-import ProVibePlugin from "../../main"; // Adjust path as needed
+import ProVibePlugin from "../main"; // Corrected path
 import { RegistryEntry, RegistryEntryContentType } from "../types";
 
 // --- Modal for Editing/Adding Registry Entries ---

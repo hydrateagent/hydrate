@@ -1,4 +1,4 @@
-import ProVibePlugin from "../../main"; // Adjust path if needed
+import ProVibePlugin from "../main"; // Corrected path
 
 export function injectSettingsStyles(plugin: ProVibePlugin) {
 	// Consolidate all CSS rules here, removing duplicates

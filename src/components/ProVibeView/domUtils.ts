@@ -1,6 +1,6 @@
 import { MarkdownRenderer } from "obsidian";
-import { ProVibeView } from "../../../proVibeView"; // Adjust path relative to this file
-import { RegistryEntry } from "../../../src/types"; // Adjust path relative to this file
+import { ProVibeView } from "./proVibeView"; // Corrected path
+import { RegistryEntry } from "../../types"; // Corrected path (up two levels from components/ProVibeView)
 import {
 	removeFilePill as removeEventHandlerFilePill,
 	handleSuggestionSelect,

@@ -19,18 +19,21 @@ import {
 	DropdownComponent, // Keep for potential direct use
 } from "obsidian";
 
-import { ProVibeView, PROVIBE_VIEW_TYPE } from "./proVibeView";
+import {
+	ProVibeView,
+	PROVIBE_VIEW_TYPE,
+} from "./components/ProVibeView/proVibeView";
 import * as React from "react"; // Added
 import { Root, createRoot } from "react-dom/client"; // Added
 import {
 	ReactViewProps,
 	RegistryEntry,
 	RegistryEntryContentType, // Keep this as it's used in settings default
-} from "./src/types"; // Added Registry types
-import { ReactViewHost } from "./src/ReactViewHost"; // Added
-import PlaceholderView from "./src/components/PlaceholderView"; // ADD THIS IMPORT
-import IssueBoardView from "./src/components/IssueBoardView"; // <<< ADD THIS IMPORT
-import { ProVibeSettingTab } from "./src/settings/ProVibeSettingTab"; // <<< IMPORT SETTING TAB FROM NEW LOCATION
+} from "./types"; // Corrected path
+import { ReactViewHost } from "./ReactViewHost"; // Corrected path
+import PlaceholderView from "./components/PlaceholderView"; // Corrected path
+import IssueBoardView from "./components/IssueBoardView"; // Corrected path
+import { ProVibeSettingTab } from "./settings/ProVibeSettingTab"; // Corrected path
 
 // Remember to rename these classes and interfaces!
 

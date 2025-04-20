@@ -1,5 +1,5 @@
 import { Notice, TFile, requestUrl } from "obsidian";
-import type { ProVibeView } from "../../../proVibeView"; // Corrected type import
+import type { ProVibeView } from "./proVibeView"; // Corrected type import
 import {
 	addMessageToChat,
 	renderFilePills as renderDomFilePills,

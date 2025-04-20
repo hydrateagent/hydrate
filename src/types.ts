@@ -1,6 +1,6 @@
 // src/types.ts
 import { App } from "obsidian";
-import ProVibePlugin from "../main"; // Adjust path if needed
+import ProVibePlugin from "./main"; // Corrected path
 
 export interface ReactViewProps {
 	app: App;

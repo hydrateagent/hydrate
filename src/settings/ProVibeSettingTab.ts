@@ -1,5 +1,5 @@
 import { App, PluginSettingTab, Setting, Notice } from "obsidian";
-import ProVibePlugin from "../../main"; // Adjust path as needed
+import ProVibePlugin from "../main"; // Corrected path
 import { RegistryEditModal } from "./RegistryEditModal";
 import { injectSettingsStyles } from "../styles/settingsStyles"; // <<< CORRECTED IMPORT PATH
 

@@ -13,7 +13,7 @@ import { Root, createRoot } from "react-dom/client";
 import ProVibePlugin, {
 	getReactViewComponent,
 	REACT_HOST_VIEW_TYPE,
-} from "../main"; // Adjust path if needed
+} from "./main"; // Adjust path if needed
 import { ReactViewProps } from "./types";
 
 export class ReactViewHost extends ItemView {
