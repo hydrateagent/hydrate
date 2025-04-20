@@ -1,7 +1,10 @@
 import { MarkdownRenderer } from "obsidian";
 import { ProVibeView } from "../../../proVibeView"; // Adjust path relative to this file
 import { RegistryEntry } from "../../../src/types"; // Adjust path relative to this file
-import { removeFilePill as removeEventHandlerFilePill } from "./eventHandlers"; // Import the handler
+import {
+	removeFilePill as removeEventHandlerFilePill,
+	handleSuggestionSelect,
+} from "./eventHandlers"; // Import the handler
 
 /**
  * Adds a message to the chat container with appropriate styling.
@@ -212,9 +215,6 @@ export function renderSuggestions(view: ProVibeView): void {
 		.suggestionsContainer as HTMLDivElement | null;
 	const suggestions = (view as any).suggestions as RegistryEntry[];
 	const activeSuggestionIndex = (view as any).activeSuggestionIndex as number;
-	const handleSuggestionSelect = (view as any).handleSuggestionSelect.bind(
-		view
-	); // Bind context
 
 	if (!suggestionsContainer) {
 		console.error("ProVibe DOM Utils: suggestionsContainer is null!");
@@ -252,7 +252,7 @@ export function renderSuggestions(view: ProVibeView): void {
 
 		itemEl.addEventListener("click", (e) => {
 			e.stopPropagation();
-			handleSuggestionSelect(index);
+			handleSuggestionSelect(view, index);
 		});
 	});
 
