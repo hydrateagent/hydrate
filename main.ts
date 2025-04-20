@@ -426,7 +426,13 @@ export default class ProVibePlugin extends Plugin {
 		if (currentView instanceof MarkdownView && currentView.file) {
 			const file = currentView.file;
 			const fileCache = this.app.metadataCache.getFileCache(file);
-			const frontmatter = fileCache?.frontmatter;
+			if (!fileCache) {
+				console.log(
+					"ProVibe [layout-change]: File cache not ready, skipping check."
+				);
+				return;
+			}
+			const frontmatter = fileCache.frontmatter;
 			const triggerKey = "provibe-plugin";
 			const viewKey = frontmatter?.[triggerKey] as string | undefined;
 			const ReactComponent = viewKey
@@ -435,11 +441,14 @@ export default class ProVibePlugin extends Plugin {
 
 			if (ReactComponent && viewKey) {
 				// It should be a React view, but it's currently Markdown.
+				const currentMode = currentView.getMode();
+				const currentState = currentView.getState();
+				const isSourceMode = currentState.source === true; // Explicitly check source state
 
-				// *** ADDED CHECK: Only switch if NOT in source mode ***
-				if (currentView.getMode() !== "source") {
+				// Switch if in Reading ("preview") or Live Preview (mode=="source" AND state.source==false)
+				if (currentMode === "preview" || !isSourceMode) {
 					console.log(
-						`ProVibe [layout-change]: Active view is Markdown (non-source mode) for ${file.path}, but should be React (${viewKey}). Switching...`
+						`ProVibe [layout-change]: Active view is Markdown (mode: ${currentMode}, sourceState: ${currentState.source}) for ${file.path}, but should be React (${viewKey}). Switching...`
 					);
 					try {
 						await leaf.setViewState({
@@ -454,8 +463,9 @@ export default class ProVibePlugin extends Plugin {
 						);
 					}
 				} else {
+					// This condition implies mode=="source" AND state.source==true (True Source Mode)
 					console.log(
-						`ProVibe [layout-change]: Active view is Markdown for ${file.path} (IN SOURCE MODE). File should be React, but respecting source mode. NO SWITCH.`
+						`ProVibe [layout-change]: Active view is Markdown for ${file.path} (IN TRUE SOURCE MODE). File should be React, but respecting source mode. NO SWITCH.`
 					);
 				}
 			} else {
@@ -469,9 +479,8 @@ export default class ProVibePlugin extends Plugin {
 				console.log(
 					"ProVibe [layout-change]: Active view is ReactHost, but has no file path. Switching to Markdown."
 				);
-				// Need to be careful not to cause loops if switchToMarkdownView itself triggers layout-change before flag is reset
-				await currentView.switchToMarkdownView(); // Flag is set inside this method
-				return; // Exit early after switching
+				await currentView.switchToMarkdownView();
+				return;
 			}
 
 			const file = this.app.vault.getAbstractFileByPath(filePath);
@@ -484,7 +493,13 @@ export default class ProVibePlugin extends Plugin {
 			}
 
 			const fileCache = this.app.metadataCache.getFileCache(file);
-			const frontmatter = fileCache?.frontmatter;
+			if (!fileCache) {
+				console.log(
+					"ProVibe [layout-change]: File cache not ready for ReactHost file, skipping check."
+				);
+				return;
+			}
+			const frontmatter = fileCache.frontmatter;
 			const triggerKey = "provibe-plugin";
 			const viewKey = frontmatter?.[triggerKey] as string | undefined;
 			const ReactComponent = viewKey
@@ -492,12 +507,10 @@ export default class ProVibePlugin extends Plugin {
 				: undefined;
 
 			if (!ReactComponent || !viewKey) {
-				// It should be Markdown, but it's currently React.
 				console.log(
 					`ProVibe [layout-change]: Active view is React for ${filePath}, but should be Markdown (key missing or invalid). Switching back...`
 				);
 				await currentView.switchToMarkdownView();
-				// Flag is set inside switchToMarkdownView, which prevents immediate re-checking in this handler
 			} else {
 				// console.log("ProVibe [layout-change]: Active view is React, and it should be. No switch needed.");
 			}
