@@ -1,6 +1,7 @@
 import { MarkdownRenderer } from "obsidian";
 import { ProVibeView } from "../../../proVibeView"; // Adjust path relative to this file
 import { RegistryEntry } from "../../../src/types"; // Adjust path relative to this file
+import { removeFilePill as removeEventHandlerFilePill } from "./eventHandlers"; // Import the handler
 
 /**
  * Adds a message to the chat container with appropriate styling.
@@ -153,14 +154,10 @@ export function setLoadingState(view: ProVibeView, loading: boolean): void {
  * Renders the file pills for attached files.
  */
 export function renderFilePills(view: ProVibeView): void {
-	const filePillsContainer = (view as any)
-		.filePillsContainer as HTMLDivElement;
+	const filePillsContainer = view.filePillsContainer;
 	const attachedFiles = view.attachedFiles; // Public member
-	const initialFilePathFromState = (view as any).initialFilePathFromState as
-		| string
-		| null;
-	const wasInitiallyAttached = (view as any).wasInitiallyAttached as boolean;
-	const removeFilePill = (view as any).removeFilePill.bind(view); // Bind context
+	const initialFilePathFromState = view.initialFilePathFromState;
+	const wasInitiallyAttached = view.wasInitiallyAttached;
 
 	if (!filePillsContainer) {
 		console.error("ProVibe DOM Utils: filePillsContainer is null!");
@@ -201,7 +198,9 @@ export function renderFilePills(view: ProVibeView): void {
 		removeBtn.style.height = "auto";
 		removeBtn.style.minHeight = "unset";
 		removeBtn.style.boxShadow = "none";
-		removeBtn.addEventListener("click", () => removeFilePill(filePath));
+		removeBtn.addEventListener("click", () =>
+			removeEventHandlerFilePill(view, filePath)
+		);
 	});
 }
 
