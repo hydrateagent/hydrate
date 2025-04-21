@@ -481,10 +481,16 @@ export class ProVibeView extends ItemView {
 		toolCalls: BackendToolCall[]
 	): Promise<void> {
 		const results: ToolResult[] = [];
-		const editToolCalls = toolCalls.filter(
-			(tc) => tc.tool === "editFile" // Match the tool name from backend
+		// Identify all tools that require review (edits or replacements)
+		const reviewToolCalls = toolCalls.filter(
+			(tc) =>
+				tc.tool === "editFile" || tc.tool === "replaceSelectionInFile"
 		);
-		const otherToolCalls = toolCalls.filter((tc) => tc.tool !== "editFile");
+		// Identify other tools that run directly
+		const otherToolCalls = toolCalls.filter(
+			(tc) =>
+				tc.tool !== "editFile" && tc.tool !== "replaceSelectionInFile"
+		);
 
 		addMessageToChat(
 			this,
@@ -520,24 +526,24 @@ export class ProVibeView extends ItemView {
 			}
 		}
 
-		// Handle edit tools with review
-		if (editToolCalls.length > 0) {
+		// Handle tools requiring review
+		if (reviewToolCalls.length > 0) {
 			try {
 				addMessageToChat(
 					this,
 					"system",
-					`Review required for changes to ${editToolCalls
+					`Review required for changes to ${reviewToolCalls
 						.map((tc) => tc.params.path)
 						.join(", ")}`
 				);
 				const editResults = await this.reviewAndExecuteEdits(
-					editToolCalls
+					reviewToolCalls
 				);
 				results.push(...editResults);
 			} catch (error) {
 				console.error("Error processing file edits:", error);
 				const errorMsg = `Failed to process edits: ${error.message}`;
-				editToolCalls.forEach((tc) => {
+				reviewToolCalls.forEach((tc) => {
 					results.push({
 						id: tc.id,
 						result: { error: errorMsg },
@@ -562,8 +568,6 @@ export class ProVibeView extends ItemView {
 	): Promise<ToolResult[]> {
 		const results: ToolResult[] = [];
 		for (const toolCall of pendingEdits) {
-			if (toolCall.tool !== "editFile") continue;
-
 			try {
 				const reviewResult = await this.displayDiffModalForReview(
 					toolCall
@@ -571,30 +575,55 @@ export class ProVibeView extends ItemView {
 
 				// Check the 'applied' property from DiffReviewResult
 				if (reviewResult.applied) {
-					// Use the 'finalContent' property if available
-					if (reviewResult.finalContent !== undefined) {
+					let executionResult: any;
+					if (toolCall.tool === "editFile") {
+						// Use the 'finalContent' property if available for editFile
+						if (reviewResult.finalContent !== undefined) {
+							addMessageToChat(
+								this,
+								"system",
+								`Applying changes to ${toolCall.params.path}... (editFile)`
+							);
+							executionResult = await toolEditFile(
+								this.app,
+								toolCall.params.path,
+								reviewResult.finalContent,
+								toolCall.params.instructions
+							);
+						} else {
+							throw new Error(
+								"Edit applied but final content was missing."
+							);
+						}
+					} else if (toolCall.tool === "replaceSelectionInFile") {
 						addMessageToChat(
 							this,
 							"system",
-							`Applying changes to ${toolCall.params.path}...`
+							`Applying changes to ${toolCall.params.path}... (replaceSelectionInFile)`
 						);
-						const executionResult = await toolEditFile(
+						// For replaceSelection, call the specific tool with its required params
+						// It handles finding the selection and replacing internally
+						executionResult = await toolReplaceSelectionInFile(
 							this.app,
-							toolCall.params.path, // Use path from params
-							reviewResult.finalContent, // Use approved content
-							toolCall.params.instructions // Pass instructions
+							toolCall.params.path,
+							toolCall.params.original_selection,
+							toolCall.params.new_content
 						);
-						results.push({
-							id: toolCall.id,
-							result: executionResult,
-						});
-						new Notice(`File ${toolCall.params.path} updated.`);
 					} else {
-						// Should not happen if applied is true, but handle defensively
+						// Should not happen if filtering in processToolCalls is correct
 						throw new Error(
-							"Edit applied but final content was missing."
+							`Unhandled tool type in reviewAndExecuteEdits: ${toolCall.tool}`
 						);
 					}
+
+					// Common result handling
+					results.push({
+						id: toolCall.id,
+						result: executionResult,
+					});
+					new Notice(
+						`File ${toolCall.params.path} updated via ${toolCall.tool}.`
+					);
 				} else {
 					results.push({
 						id: toolCall.id,
@@ -624,32 +653,76 @@ export class ProVibeView extends ItemView {
 		toolCall: BackendToolCall
 	): Promise<DiffReviewResult> {
 		return new Promise(async (resolve) => {
-			const { path, code_edit, instructions } = toolCall.params;
+			// Extract common parameters
+			const { path, instructions } = toolCall.params;
 			const targetPath = path.startsWith("./") ? path.substring(2) : path;
-			const proposedContent = code_edit; // Assuming code_edit holds the full proposed content
+			let proposedContent = "";
 			let originalContent = "";
 			const file = this.app.vault.getAbstractFileByPath(targetPath);
 
-			if (file instanceof TFile) {
-				originalContent = await this.app.vault.read(file);
-			} else {
-				originalContent = ""; // Treat as new file creation
-			}
-
-			// Call constructor with all 8 arguments
-			new DiffReviewModal(
-				this.app,
-				this.plugin, // Pass plugin instance
-				targetPath,
-				originalContent,
-				proposedContent,
-				instructions,
-				toolCall.id,
-				(result: DiffReviewResult) => {
-					// Add type to result
-					resolve(result);
+			try {
+				// Wrap file reading and content generation in try-catch
+				if (file instanceof TFile) {
+					originalContent = await this.app.vault.read(file);
+				} else {
+					originalContent = ""; // Treat as new file creation
 				}
-			).open();
+
+				// Determine proposed content based on the tool type
+				if (toolCall.tool === "editFile") {
+					proposedContent = toolCall.params.code_edit || ""; // Assuming code_edit holds the full proposed content
+				} else if (toolCall.tool === "replaceSelectionInFile") {
+					const { original_selection, new_content } = toolCall.params;
+					if (!originalContent.includes(original_selection)) {
+						// If original selection isn't found, maybe show modal with error or just the new content?
+						// For now, let's show the diff against the original, highlighting the intended change might fail.
+						console.warn(
+							`Original selection for replaceSelectionInFile not found in ${targetPath}. Diff may be inaccurate.`
+						);
+						// Fallback: show the new content as the proposed change for review, although tool execution might fail later.
+						// Alternatively, we could reject here? Let's show the diff for now.
+						proposedContent = originalContent.replace(
+							original_selection,
+							new_content
+						);
+					} else {
+						proposedContent = originalContent.replace(
+							original_selection,
+							new_content
+						);
+					}
+				} else {
+					// Handle unexpected tool types if necessary, though filtering should prevent this
+					proposedContent = `Error: Unexpected tool type '${toolCall.tool}' for diff review.`;
+				}
+
+				// Call constructor with all 8 arguments
+				new DiffReviewModal(
+					this.app,
+					this.plugin, // Pass plugin instance
+					targetPath,
+					originalContent,
+					proposedContent, // Use the determined proposed content
+					instructions,
+					toolCall.id,
+					(result: DiffReviewResult) => {
+						// Add type to result
+						resolve(result);
+					}
+				).open();
+			} catch (error) {
+				console.error(
+					`Error preparing data for DiffReviewModal for ${targetPath}:`,
+					error
+				);
+				// Resolve the promise with a rejected state if we can't even show the modal
+				resolve({
+					applied: false,
+					message: `Error preparing diff review: ${error.message}`,
+					finalContent: originalContent, // Return original content on error
+					toolCallId: toolCall.id,
+				});
+			}
 		});
 	}
 
