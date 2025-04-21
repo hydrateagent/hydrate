@@ -1,13 +1,20 @@
 // <reference types="@testing-library/jest-dom" />
 import * as React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import {
+	render,
+	screen,
+	fireEvent,
+	waitFor,
+	within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest"; // Import from vitest
 import IssueBoardView from "./IssueBoardView";
 import { ReactViewProps } from "../types";
 
 // Mock the updateMarkdownContent prop
-const mockUpdateMarkdownContent = vi.fn();
+// Make it return a resolved promise to allow .catch() in the component
+const mockUpdateMarkdownContent = vi.fn().mockResolvedValue(undefined);
 const mockSwitchToMarkdownView = vi.fn(); // Mock for switchToMarkdownView
 
 const defaultProps: ReactViewProps = {
@@ -84,46 +91,78 @@ describe("IssueBoardView", () => {
 		expect(screen.getByLabelText("Status 1.1")).toBeInTheDocument();
 	});
 
-	it('shows "No Issue Groups or Cards Found" message for frontmatter-only content', () => {
+	it('shows "No Issue Groups or Cards Found" message for frontmatter-only content', async () => {
 		renderBoard(frontmatterOnly);
 		// Wait for the initial parse effect to complete
-		// Using findByText which includes waitFor
-		waitFor(() => {
-			expect(
-				screen.getByText(/No Issue Groups or Cards Found/i)
-			).toBeInTheDocument();
-		});
+		await screen.findByText(/No Issue Groups or Cards Found/i);
 	});
 
 	it("renders groups and cards correctly", () => {
 		renderBoard(basicValidMarkdown);
 		// Check Groups
-		expect(
-			screen.getByRole("heading", { level: 1, name: "Group 1" })
-		).toBeInTheDocument();
-		expect(
-			screen.getByRole("heading", { level: 1, name: "Group 2" })
-		).toBeInTheDocument();
+		const group1Heading = screen.getByRole("heading", {
+			level: 1,
+			name: "Group 1",
+		});
+		const group2Heading = screen.getByRole("heading", {
+			level: 1,
+			name: "Group 2",
+		});
+		expect(group1Heading).toBeInTheDocument();
+		expect(group2Heading).toBeInTheDocument();
 
 		// Check Cards within Group 1
-		const group1 = screen
-			.getByRole("heading", { level: 1, name: "Group 1" })
-			.closest("div");
-		expect(group1).toHaveTextContent("Card One");
-		expect(group1).toHaveTextContent("Card Two");
-		expect(group1).not.toHaveTextContent("Card Three"); // Ensure card is in the right group
+		const group1Container = group1Heading.closest("div[class*='mb-4']"); // Find the outer group container
+		expect(group1Container).toBeInTheDocument();
+		// Use within to query inside the specific group container
+		expect(
+			within(group1Container! as HTMLElement).getByRole("heading", {
+				level: 2,
+				name: "Card One",
+			})
+		).toBeInTheDocument();
+		expect(
+			within(group1Container! as HTMLElement).getByRole("heading", {
+				level: 2,
+				name: "Card Two",
+			})
+		).toBeInTheDocument();
+		expect(
+			within(group1Container! as HTMLElement).queryByRole("heading", {
+				level: 2,
+				name: "Card Three",
+			})
+		).not.toBeInTheDocument();
 
 		// Check Cards within Group 2
-		const group2 = screen
-			.getByRole("heading", { level: 1, name: "Group 2" })
-			.closest("div");
-		expect(group2).toHaveTextContent("Card Three");
-		expect(group2).not.toHaveTextContent("Card One");
+		const group2Container = group2Heading.closest("div[class*='mb-4']");
+		expect(group2Container).toBeInTheDocument();
+		expect(
+			within(group2Container! as HTMLElement).getByRole("heading", {
+				level: 2,
+				name: "Card Three",
+			})
+		).toBeInTheDocument();
+		expect(
+			within(group2Container! as HTMLElement).queryByRole("heading", {
+				level: 2,
+				name: "Card One",
+			})
+		).not.toBeInTheDocument();
 
-		// Check specific item and status in Card One
-		expect(screen.getByText("Item 1.1")).toBeInTheDocument();
-		expect(screen.getByLabelText("Status 1.1")).not.toBeChecked();
-		expect(screen.getByLabelText("Status 1.2")).toBeChecked();
+		// Check specific item and status in Card One (can remain the same or use within)
+		const cardOne = within(group1Container! as HTMLElement)
+			.getByRole("heading", { level: 2, name: "Card One" })
+			.closest("div[class*='mb-2']");
+		expect(
+			within(cardOne! as HTMLElement).getByText("Item 1.1")
+		).toBeInTheDocument();
+		expect(
+			within(cardOne! as HTMLElement).getByLabelText("Status 1.1")
+		).not.toBeChecked();
+		expect(
+			within(cardOne! as HTMLElement).getByLabelText("Status 1.2")
+		).toBeChecked();
 	});
 
 	it("displays parsing errors when parser returns them", () => {

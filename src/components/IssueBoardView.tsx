@@ -398,27 +398,24 @@ const serializeIssuesToMarkdown = (groups: Group[]): string => {
 			if (issue.number) {
 				lines.push(`- ${issue.number}`);
 			}
+
+			// Always add Items header
+			lines.push("### Items");
 			if (issue.items.length > 0) {
-				lines.push("### Items");
 				issue.items.forEach((item) => {
 					lines.push(`- ${item.text}`);
 				});
-			} else {
-				// Optionally add placeholder if needed for consistency?
-				// lines.push("### Items");
-				// lines.push("- (No items)");
 			}
+
+			// Always add Status header
+			lines.push("### Status");
 			if (issue.status.length > 0) {
-				lines.push("### Status");
 				issue.status.forEach((item) => {
 					const check = item.checked ? "x" : " ";
 					lines.push(`- [${check}] ${item.text}`);
 				});
-			} else {
-				// Optionally add placeholder if needed for consistency?
-				// lines.push("### Status");
-				// lines.push("- [ ] (No status items)");
 			}
+
 			// Add spacing between issues within a group
 			if (issueIndex < group.issues.length - 1) {
 				lines.push("");
@@ -477,35 +474,40 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 		setError(null);
 		setParsingErrors([]);
 		try {
-			// <<<< PARSER CALL CHANGED >>>>
 			const { groups: parsedGroups, parsingErrors: pErrors } =
 				parseIssueMarkdown(markdownContent);
-			setGroups(parsedGroups); // <<<< SET GROUPS >>>>
+			setGroups(parsedGroups);
 			setParsingErrors(pErrors);
 
-			// Initialize expansion state for groups and cards
-			if (parsedGroups.length > 0 && !isInitialParseDone.current) {
-				const initialGroupExpansionState: {
-					[groupId: string]: boolean;
-				} = {};
-				const initialCardExpansionState: {
-					[issueId: string]: boolean;
-				} = {};
+			// Initialize or reset expansion state
+			if (parsedGroups.length > 0) {
+				// Only initialize expansion state once if groups are found
+				if (!isInitialParseDone.current) {
+					const initialGroupExpansionState: {
+						[groupId: string]: boolean;
+					} = {};
+					const initialCardExpansionState: {
+						[issueId: string]: boolean;
+					} = {};
 
-				parsedGroups.forEach((group) => {
-					// Default groups to expanded, cards to collapsed
-					initialGroupExpansionState[group.id] = true; // << Default groups expanded
-					group.issues.forEach((issue) => {
-						initialCardExpansionState[issue.id] = false; // Default cards collapsed
+					parsedGroups.forEach((group) => {
+						initialGroupExpansionState[group.id] = true;
+						group.issues.forEach((issue) => {
+							initialCardExpansionState[issue.id] = false;
+						});
 					});
-				});
-				setIsGroupExpanded(initialGroupExpansionState);
-				setIsCardExpanded(initialCardExpansionState);
-				isInitialParseDone.current = true;
-			} else if (parsedGroups.length === 0) {
+					setIsGroupExpanded(initialGroupExpansionState);
+					setIsCardExpanded(initialCardExpansionState);
+				}
+			} else {
 				// Reset expansion state if no groups are found after an update
 				setIsGroupExpanded({});
 				setIsCardExpanded({});
+			}
+
+			// Set initial parse flag *after* first attempt, regardless of result
+			if (!isInitialParseDone.current) {
+				isInitialParseDone.current = true;
 			}
 		} catch (e) {
 			console.error("IssueBoardView: Critical error during parsing:", e);
@@ -840,10 +842,8 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 
 	// Check for no groups AFTER initial loading attempt
 	if (
-		groups.length === 0 &&
-		parsingErrors.length === 0 &&
-		markdownContent.trim().length > 0 && // Ensure content isn't just whitespace/frontmatter
-		isInitialParseDone.current // Only show after the first parse attempt
+		isInitialParseDone.current && // Check only after first parse
+		groups.length === 0
 	) {
 		return (
 			<div className="p-4 h-full overflow-y-auto">
