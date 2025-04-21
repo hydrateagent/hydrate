@@ -26,6 +26,7 @@ export const handleClear = (view: ProVibeView): void => {
 	view.sentFileContentRegistry.clear();
 	view.appliedRuleIds.clear();
 	setDomSuggestions(view, []);
+	view.chatContainer.innerHTML = "";
 	addMessageToChat(view, "system", "Chat cleared. New conversation started.");
 	view.textInput.style.height = "auto";
 	view.textInput.dispatchEvent(new Event("input"));

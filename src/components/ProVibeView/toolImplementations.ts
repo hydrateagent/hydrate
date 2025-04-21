@@ -37,33 +37,48 @@ export async function toolEditFile(
 ): Promise<string> {
 	const normalizedPath = path.startsWith("./") ? path.substring(2) : path;
 	console.log(
-		`Tool: Applying final content to ${normalizedPath} (Instructions: ${instructions})`
+		`Tool: Applying content to ${normalizedPath} (Instructions: ${instructions})`
 	);
 	const file = app.vault.getAbstractFileByPath(normalizedPath);
-	if (!file) {
-		throw new Error(
-			`File not found during edit application: ${normalizedPath}`
-		);
-	}
-	if (!(file instanceof TFile)) {
-		throw new Error(
-			`Path is not a file during edit application: ${normalizedPath}`
-		);
-	}
 
-	try {
-		await app.vault.modify(file, final_content);
-		const successMsg = `Successfully applied changes to ${normalizedPath}`;
-		new Notice(successMsg);
-		return successMsg;
-	} catch (error: any) {
-		console.error(
-			`Error during vault.modify for ${normalizedPath}:`,
-			error
-		);
-		throw new Error(
-			`Failed to write changes to ${normalizedPath}: ${error.message}`
-		);
+	// Check if file exists before deciding create vs modify
+	if (!file) {
+		// File does not exist, create it
+		console.log(`Tool: File ${normalizedPath} not found. Creating...`);
+		try {
+			await app.vault.create(normalizedPath, final_content);
+			const successMsg = `Successfully created file ${normalizedPath}`;
+			new Notice(successMsg);
+			return successMsg;
+		} catch (error: any) {
+			console.error(
+				`Error during vault.create for ${normalizedPath}:`,
+				error
+			);
+			throw new Error(
+				`Failed to create file ${normalizedPath}: ${error.message}`
+			);
+		}
+	} else if (file instanceof TFile) {
+		// File exists, modify it
+		console.log(`Tool: File ${normalizedPath} exists. Modifying...`);
+		try {
+			await app.vault.modify(file, final_content);
+			const successMsg = `Successfully applied changes to ${normalizedPath}`;
+			new Notice(successMsg);
+			return successMsg;
+		} catch (error: any) {
+			console.error(
+				`Error during vault.modify for ${normalizedPath}:`,
+				error
+			);
+			throw new Error(
+				`Failed to write changes to ${normalizedPath}: ${error.message}`
+			);
+		}
+	} else {
+		// Path exists but is not a file (e.g., a folder)
+		throw new Error(`Path exists but is not a file: ${normalizedPath}`);
 	}
 }
 
