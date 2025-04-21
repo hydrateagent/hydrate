@@ -31,7 +31,6 @@ import {
 	RegistryEntryContentType, // Keep this as it's used in settings default
 } from "./types"; // Corrected path
 import { ReactViewHost } from "./ReactViewHost"; // Corrected path
-import PlaceholderView from "./components/PlaceholderView"; // Corrected path
 import IssueBoardView from "./components/IssueBoardView"; // Corrected path
 import { ProVibeSettingTab } from "./settings/ProVibeSettingTab"; // Corrected path
 
@@ -110,9 +109,6 @@ export default class ProVibePlugin extends Plugin {
 		});
 
 		// Register example component (we'll create this later)
-		// Placeholder - create src/components/PlaceholderView.tsx later
-		// import PlaceholderView from './src/components/PlaceholderView'; // Import will be needed
-		registerReactView("placeholder", PlaceholderView); // Example registration
 		registerReactView("issue-board", IssueBoardView); // <<< ADD THIS REGISTRATION
 
 		// --- Event Listener for File Open (Re-enabled for file attachment logic) ---

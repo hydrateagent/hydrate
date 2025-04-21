@@ -302,13 +302,13 @@ export class ProVibeView extends ItemView {
 			attr: {
 				placeholder:
 					"Enter your prompt, drop files, or type / for commands...",
-				rows: "1", // Start with 1 row, auto-resize will handle it
+				rows: "3", // Start with 3 rows
 			},
 		});
 
 		// Auto-Resizing Logic
 		const adjustTextareaHeight = () => {
-			const minRows = 1;
+			const minRows = 3; // Minimum 3 rows
 			const maxRows = 15;
 			const inputEl = this.textInput;
 			inputEl.style.height = "auto";
@@ -404,6 +404,11 @@ export class ProVibeView extends ItemView {
 		// Initial UI setup using imported functions
 		addMessageToChat(this, "system", "Agent Ready"); // Pass view instance now
 		renderDomFilePills(this); // Use aliased function
+
+		// Focus the text input after the next frame renders
+		requestAnimationFrame(() => {
+			this.textInput.focus();
+		});
 	}
 
 	// --- Event Handlers (REMOVED - now in eventHandlers.ts) ---
