@@ -24,6 +24,7 @@ export const handleClear = (view: ProVibeView): void => {
 	renderDomFilePills(view);
 	view.conversationId = null;
 	view.sentFileContentRegistry.clear();
+	view.appliedRuleIds.clear();
 	setDomSuggestions(view, []);
 	addMessageToChat(view, "system", "Chat cleared. New conversation started.");
 	view.textInput.style.height = "auto";
@@ -288,6 +289,54 @@ export const handleSend = async (view: ProVibeView): Promise<void> => {
 	const currentAttachedFiles = [...view.attachedFiles];
 	const currentConvoId = view.conversationId; // Can be null on first turn
 
+	// --- NEW: Step 3: Inject Rules Based on Frontmatter ---
+	let rulesContextToSend = "";
+	// const rulesToApplyThisTurn: RuleEntry[] = []; // Optional: For logging/debugging
+
+	for (const filePath of currentAttachedFiles) {
+		try {
+			const file = view.app.vault.getAbstractFileByPath(filePath);
+			if (file instanceof TFile) {
+				const fileCache = view.app.metadataCache.getFileCache(file);
+				const ruleTags = fileCache?.frontmatter?.["provibe-rules"];
+
+				let currentFileRuleIds: string[] = [];
+				if (typeof ruleTags === "string") {
+					currentFileRuleIds = [ruleTags.trim()];
+				} else if (Array.isArray(ruleTags)) {
+					currentFileRuleIds = ruleTags
+						.filter((tag): tag is string => typeof tag === "string")
+						.map((tag) => tag.trim());
+				}
+
+				for (const ruleId of currentFileRuleIds) {
+					if (ruleId && !view.appliedRuleIds.has(ruleId)) {
+						const rule = view.plugin.getRuleById(ruleId);
+						if (rule) {
+							view.appliedRuleIds.add(ruleId);
+							// rulesToApplyThisTurn.push(rule); // Optional
+							rulesContextToSend += `\n\n--- Begin Applied Rule: ${rule.id} ---\n${rule.ruleText}\n--- End Applied Rule: ${rule.id} ---\n`;
+							console.log(
+								`[handleSend] Applying rule '${ruleId}' for the first time this conversation.`
+							);
+						}
+					}
+				}
+			} else {
+				console.warn(
+					`[handleSend] Could not find TFile for rule check: ${filePath}`
+				);
+			}
+		} catch (error) {
+			console.error(
+				`[handleSend] Error processing rules for file ${filePath}:`,
+				error
+			);
+		}
+	}
+	// --- End NEW Step 3 ---
+
+	// --- Step 4: Read and Inject Attached File Contents ---
 	for (const filePath of currentAttachedFiles) {
 		let shouldSendContent = false;
 		const registryKey = currentConvoId
@@ -333,28 +382,22 @@ export const handleSend = async (view: ProVibeView): Promise<void> => {
 					`[handleSend] Error reading attached file ${filePath}:`,
 					error
 				);
-				// Optionally add an error marker to the payload?
-				// fileContentsToSend += `\n\n--- Error Reading File: ${filePath} ---`;
 			}
 		}
 	}
-	// --- End Step 3 ---
+	// --- End Step 4 ---
 
-	// --- Step 4: Construct final payload --- // Renumbered step
-	// Start with the user message + replaced selections/commands
+	// --- Step 5: Construct final payload ---
 	let combinedPayload = payloadContent;
+
+	// Prepend newly applied rules (if any)
+	if (rulesContextToSend) {
+		combinedPayload = rulesContextToSend + combinedPayload;
+		// console.log(`[handleSend] Prepended ${rulesToApplyThisTurn.length} new rule(s) to context.`); // Optional log
+	}
+
 	// Append the content of newly included files (if any)
 	combinedPayload += fileContentsToSend;
-
-	// Remove the old [File: path] indicators as content is now inline
-	// const attachedFilesContent = currentAttachedFiles
-	// 	.map((path) => `[File: ${path}]`)
-	// 	.join("\n");
-	// if (attachedFilesContent) {
-	// 	combinedPayload =
-	// 		attachedFilesContent +
-	// 		(combinedPayload ? "\n\n" + combinedPayload : "");
-	// }
 
 	console.log(
 		"[handleSend] Final combinedPayload (length):",

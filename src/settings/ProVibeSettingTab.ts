@@ -1,7 +1,9 @@
 import { App, PluginSettingTab, Setting, Notice } from "obsidian";
 import ProVibePlugin from "../main"; // Corrected path
 import { RegistryEditModal } from "./RegistryEditModal";
-import { injectSettingsStyles } from "../styles/settingsStyles"; // <<< CORRECTED IMPORT PATH
+import { RuleEditModal } from "./RuleEditModal"; // <<< IMPORT NEW MODAL
+import { injectSettingsStyles } from "../styles/settingsStyles";
+import { RuleEntry } from "../types"; // <<< IMPORT RuleEntry
 
 export class ProVibeSettingTab extends PluginSettingTab {
 	plugin: ProVibePlugin;
@@ -91,19 +93,19 @@ export class ProVibeSettingTab extends PluginSettingTab {
 			);
 
 		// --- Format & Context Registry Section ---
-		const registrySection = containerEl.createDiv(
+		const formatRegistrySection = containerEl.createDiv(
 			"provibe-settings-section"
 		);
-		const headingEl = registrySection.createEl("div", {
+		const formatHeadingEl = formatRegistrySection.createEl("div", {
 			cls: "provibe-settings-heading",
 		});
-		headingEl.createEl("h3", { text: "Format & Context Registry" });
-		const addButtonContainer = headingEl.createDiv({
+		formatHeadingEl.createEl("h3", { text: "Format & Context Registry" });
+		const formatAddButtonContainer = formatHeadingEl.createDiv({
 			cls: "provibe-heading-actions",
 		}); // Container for button
 
 		// Add New Entry Button (aligned with heading)
-		addButtonContainer
+		formatAddButtonContainer
 			.createEl("button", { text: "Add New Entry", cls: "mod-cta" })
 			.addEventListener("click", () => {
 				const modal = new RegistryEditModal(
@@ -117,9 +119,9 @@ export class ProVibeSettingTab extends PluginSettingTab {
 							newEntry,
 						];
 						this.plugin.saveSettings();
-						this.renderRegistryList(registryListEl); // Re-render the list below
+						this.renderFormatRegistryList(formatRegistryListEl); // Use specific renderer
 						new Notice(
-							`Added registry entry: ${
+							`Added format entry: ${
 								newEntry.description || newEntry.id
 							}`
 						);
@@ -128,30 +130,72 @@ export class ProVibeSettingTab extends PluginSettingTab {
 				modal.open();
 			});
 
-		registrySection.createEl("p", {
+		formatRegistrySection.createEl("p", {
 			text: "Manage reusable templates, schemas, or context snippets accessible via slash commands in the ProVibe pane.",
 			cls: "setting-item-description", // Use Obsidian's class
 		});
 
-		const registryListEl = registrySection.createDiv(
+		const formatRegistryListEl = formatRegistrySection.createDiv(
 			"provibe-registry-list"
 		); // Container for the list items
 
-		this.renderRegistryList(registryListEl); // Call helper to render the list items
+		this.renderFormatRegistryList(formatRegistryListEl); // Call helper to render the list items
+
+		// --- Rules Registry Section ---
+		const rulesRegistrySection = containerEl.createDiv(
+			"provibe-settings-section"
+		);
+		const rulesHeadingEl = rulesRegistrySection.createEl("div", {
+			cls: "provibe-settings-heading",
+		});
+		rulesHeadingEl.createEl("h3", { text: "Rules Registry" });
+		const rulesAddButtonContainer = rulesHeadingEl.createDiv({
+			cls: "provibe-heading-actions",
+		});
+		rulesAddButtonContainer
+			.createEl("button", { text: "Add New Rule", cls: "mod-cta" })
+			.addEventListener("click", () => {
+				const modal = new RuleEditModal( // Use new modal
+					this.app,
+					this.plugin,
+					null, // Creating a new rule
+					(newRule) => {
+						// Add the new rule to settings
+						this.plugin.settings.rulesRegistryEntries = [
+							...this.plugin.getRulesRegistryEntries(), // Use rules getter
+							newRule,
+						];
+						this.plugin.saveSettings();
+						this.renderRulesRegistryList(rulesRegistryListEl); // Re-render the rules list
+						new Notice(
+							`Added rule: ${newRule.description || newRule.id}`
+						);
+					}
+				);
+				modal.open();
+			});
+		rulesRegistrySection.createEl("p", {
+			text: "Manage rules applied to agent context based on `provibe-rule` tags in file frontmatter.",
+			cls: "setting-item-description",
+		});
+		const rulesRegistryListEl = rulesRegistrySection.createDiv(
+			"provibe-registry-list"
+		);
+		this.renderRulesRegistryList(rulesRegistryListEl); // Call rules list renderer
 
 		// --- Inject CSS --- <<< CALL INJECTOR FUNCTION
 		injectSettingsStyles(this.plugin);
 	}
 
-	// --- Helper to Render the Registry List ---
-	renderRegistryList(containerEl: HTMLElement) {
+	// --- Helper to Render the Format Registry List ---
+	renderFormatRegistryList(containerEl: HTMLElement) {
 		containerEl.empty(); // Clear previous list
 
 		const entries = this.plugin.getRegistryEntries(); // Use getter
 
 		if (entries.length === 0) {
 			containerEl.createEl("p", {
-				text: "No registry entries defined yet. Click 'Add New Entry' above to create one.",
+				text: "No format entries defined yet. Click 'Add New Entry' above to create one.",
 				cls: "provibe-empty-list-message", // Custom class for styling
 			});
 			return;
@@ -176,7 +220,7 @@ export class ProVibeSettingTab extends PluginSettingTab {
 				.addButton((button) =>
 					button
 						.setIcon("pencil") // Use Obsidian's pencil icon
-						.setTooltip("Edit Entry")
+						.setTooltip("Edit Format Entry") // Updated tooltip
 						.onClick(() => {
 							const modal = new RegistryEditModal(
 								this.app,
@@ -193,9 +237,9 @@ export class ProVibeSettingTab extends PluginSettingTab {
 													: e
 											);
 									this.plugin.saveSettings();
-									this.renderRegistryList(containerEl); // Re-render the list
+									this.renderFormatRegistryList(containerEl); // Use specific renderer
 									new Notice(
-										`Updated entry: ${
+										`Updated format entry: ${
 											updatedEntry.description ||
 											updatedEntry.id
 										}`
@@ -209,7 +253,7 @@ export class ProVibeSettingTab extends PluginSettingTab {
 				.addButton((button) =>
 					button
 						.setIcon("trash") // Use Obsidian's trash icon
-						.setTooltip("Delete Entry")
+						.setTooltip("Delete Format Entry") // Updated tooltip
 						.setClass("mod-warning") // Use Obsidian's warning style for delete
 						.onClick(async () => {
 							// Simple confirmation using window.confirm (consider a custom modal for better UX)
@@ -225,10 +269,99 @@ export class ProVibeSettingTab extends PluginSettingTab {
 										.getRegistryEntries()
 										.filter((e) => e.id !== entry.id); // Filter out the entry
 								await this.plugin.saveSettings();
-								this.renderRegistryList(containerEl); // Re-render the list
+								this.renderFormatRegistryList(containerEl); // Use specific renderer
 								new Notice(
-									`Deleted entry: ${
+									`Deleted format entry: ${
 										entry.description || entry.id
+									}`
+								);
+							}
+						})
+				);
+		});
+	}
+
+	// --- Helper to Render the Rules Registry List ---
+	renderRulesRegistryList(containerEl: HTMLElement) {
+		containerEl.empty(); // Clear previous list
+
+		const rules = this.plugin.getRulesRegistryEntries(); // Use rules getter
+
+		if (rules.length === 0) {
+			containerEl.createEl("p", {
+				text: "No rules defined yet. Click 'Add New Rule' above to create one.",
+				cls: "provibe-empty-list-message",
+			});
+			return;
+		}
+
+		// Sort alphabetically by description or ID for consistent order
+		rules.sort((a, b) =>
+			(a.description || a.id).localeCompare(b.description || b.id)
+		);
+
+		rules.forEach((rule) => {
+			const settingItem = new Setting(containerEl)
+				.setName(rule.description || `(ID: ${rule.id})`) // Show ID if no description
+				.setDesc(`Tag: ${rule.id} | v${rule.version}`)
+				.setClass("provibe-registry-item") // Reuse existing class
+
+				// Edit Button
+				.addButton((button) =>
+					button
+						.setIcon("pencil")
+						.setTooltip("Edit Rule")
+						.onClick(() => {
+							const modal = new RuleEditModal(
+								this.app,
+								this.plugin,
+								rule, // Pass the existing rule
+								(updatedRule) => {
+									// Update the rule in the settings array
+									this.plugin.settings.rulesRegistryEntries =
+										this.plugin
+											.getRulesRegistryEntries()
+											.map((r) =>
+												r.id === updatedRule.id
+													? updatedRule
+													: r
+											);
+									this.plugin.saveSettings();
+									this.renderRulesRegistryList(containerEl); // Re-render this list
+									new Notice(
+										`Updated rule: ${
+											updatedRule.description ||
+											updatedRule.id
+										}`
+									);
+								}
+							);
+							modal.open();
+						})
+				)
+				// Delete Button
+				.addButton((button) =>
+					button
+						.setIcon("trash")
+						.setTooltip("Delete Rule")
+						.setClass("mod-warning")
+						.onClick(async () => {
+							if (
+								confirm(
+									`Are you sure you want to delete the rule "${
+										rule.description || rule.id
+									}"?`
+								)
+							) {
+								this.plugin.settings.rulesRegistryEntries =
+									this.plugin
+										.getRulesRegistryEntries()
+										.filter((r) => r.id !== rule.id); // Filter out the rule
+								await this.plugin.saveSettings();
+								this.renderRulesRegistryList(containerEl); // Re-render this list
+								new Notice(
+									`Deleted rule: ${
+										rule.description || rule.id
 									}`
 								);
 							}

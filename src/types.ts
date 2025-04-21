@@ -26,3 +26,15 @@ export interface RegistryEntry {
 	slashCommandTrigger?: string; // Optional trigger (e.g., "/issue") - must start with '/' if defined
 }
 // --- END NEW ---
+
+// --- Rules Registry Types ---
+
+/** Represents a single rule in the Rules Registry. */
+export interface RuleEntry {
+	id: string; // Unique identifier, corresponds to a `provibe-rule` tag value
+	description: string; // User-friendly description of the rule
+	ruleText: string; // The actual rule text to inject into the agent context
+	version: number; // Simple version number, incremented on update
+}
+
+// --- END Rules Registry Types ---

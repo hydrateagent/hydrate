@@ -105,6 +105,10 @@ export class ProVibeView extends ItemView {
 	sentFileContentRegistry: Set<string> = new Set(); // Stores "conversationId:filePath"
 	// --- End State for Tracking Sent File Content ---
 
+	// --- State for Tracking Applied Rules ---
+	appliedRuleIds: Set<string> = new Set(); // Stores rule IDs applied in this conversation
+	// --- End State for Tracking Applied Rules ---
+
 	constructor(leaf: WorkspaceLeaf, plugin: ProVibePlugin) {
 		super(leaf);
 		this.plugin = plugin;

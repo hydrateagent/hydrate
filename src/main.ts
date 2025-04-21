@@ -29,6 +29,7 @@ import {
 	ReactViewProps,
 	RegistryEntry,
 	RegistryEntryContentType, // Keep this as it's used in settings default
+	RuleEntry, // <<< ADDED IMPORT
 } from "./types"; // Corrected path
 import { ReactViewHost } from "./ReactViewHost"; // Corrected path
 import IssueBoardView from "./components/IssueBoardView"; // Corrected path
@@ -65,7 +66,8 @@ interface ProVibePluginSettings {
 	developmentPath: string;
 	backendUrl: string;
 	paneOrientation: "Bottom" | "Right";
-	registryEntries: RegistryEntry[]; // <<< ADDED registry entries
+	registryEntries: RegistryEntry[]; // Existing registry
+	rulesRegistryEntries: RuleEntry[]; // <<< ADDED rules registry
 }
 
 // Default content for the /issue command
@@ -86,7 +88,8 @@ const DEFAULT_SETTINGS: ProVibePluginSettings = {
 	developmentPath: ".obsidian/plugins/provibe",
 	backendUrl: "http://localhost:8000",
 	paneOrientation: "Bottom",
-	registryEntries: [], // <<< Initialized as empty
+	registryEntries: [], // Existing initialization
+	rulesRegistryEntries: [], // <<< Initialized as empty
 };
 
 export const REACT_HOST_VIEW_TYPE = "provibe-react-host"; // Define type for React host
@@ -594,13 +597,13 @@ export default class ProVibePlugin extends Plugin {
 			await this.loadData()
 		);
 
-		// --- Initialize Default Registry Entry ---
+		// --- Initialize Default Registry Entry (Slash Command) ---  // Added clarification
 		if (
 			!this.settings.registryEntries ||
 			this.settings.registryEntries.length === 0
 		) {
 			console.log(
-				"ProVibe: Registry is empty, adding default '/issue' command."
+				"ProVibe: Format Registry is empty, adding default '/issue' command."
 			);
 			this.settings.registryEntries = [
 				{
@@ -613,11 +616,7 @@ export default class ProVibePlugin extends Plugin {
 					slashCommandTrigger: "/issue",
 				},
 			];
-			// No need to save here, will be saved if settings are modified later
-			// or can add await this.saveSettings(); if immediate save is desired.
 		} else {
-			// Optional: Check if the default /issue exists and add it if missing,
-			// maybe based on ID 'default-issue-board'.
 			const defaultIssueExists = this.settings.registryEntries.some(
 				(entry) =>
 					entry.id === "default-issue-board" ||
@@ -639,6 +638,13 @@ export default class ProVibePlugin extends Plugin {
 			}
 		}
 		// --- End Initialize Default Registry Entry ---
+
+		// --- Initialize Rules Registry (Ensure it's an array) --- <<< ADDED
+		if (!Array.isArray(this.settings.rulesRegistryEntries)) {
+			console.log("ProVibe: Initializing empty Rules Registry.");
+			this.settings.rulesRegistryEntries = [];
+		}
+		// --- End Initialize Rules Registry ---
 	}
 
 	async saveSettings() {
@@ -663,6 +669,20 @@ export default class ProVibePlugin extends Plugin {
 		return this.settings.registryEntries?.find((entry) => entry.id === id);
 	}
 	// --- End Helper functions ---
+
+	// --- Helper functions for Rules Registry --- <<< ADDED
+	getRulesRegistryEntries(): RuleEntry[] {
+		// Ensure array exists, return empty array if not
+		return this.settings.rulesRegistryEntries || [];
+	}
+
+	getRuleById(id: string): RuleEntry | undefined {
+		// Ensure array exists before searching
+		return this.settings.rulesRegistryEntries?.find(
+			(entry) => entry.id === id
+		);
+	}
+	// --- End Rules Registry Helper functions ---
 }
 
 // --- REMOVED RegistryEditModal class definition (moved to src/settings/RegistryEditModal.ts) ---
