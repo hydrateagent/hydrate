@@ -417,10 +417,9 @@ export const handleSend = async (view: ProVibeView): Promise<void> => {
 
 	const payload: any = {
 		message: combinedPayload,
+		conversation_id: view.conversationId,
+		model: view.plugin.getSelectedModel(),
 	};
-	if (view.conversationId) {
-		payload.conversation_id = view.conversationId;
-	}
 
 	setDomTextContent(view, "");
 	setDomSuggestions(view, []);

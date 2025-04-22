@@ -1,5 +1,5 @@
 import { App, PluginSettingTab, Setting, Notice } from "obsidian";
-import ProVibePlugin from "../main"; // Corrected path
+import ProVibePlugin, { ALLOWED_MODELS, ModelName } from "../main"; // Corrected path & ADDED IMPORTS
 import { RegistryEditModal } from "./RegistryEditModal";
 import { RuleEditModal } from "./RuleEditModal"; // <<< IMPORT NEW MODAL
 import { injectSettingsStyles } from "../styles/settingsStyles";
@@ -33,6 +33,26 @@ export class ProVibeSettingTab extends PluginSettingTab {
 					.onChange(async (value: "Bottom" | "Right") => {
 						this.plugin.settings.paneOrientation = value;
 						await this.plugin.saveSettings();
+					});
+			});
+
+		new Setting(containerEl)
+			.setName("Default LLM Model")
+			.setDesc(
+				"Select the language model to use for the agent. Ensure you have the corresponding API key set in the backend environment (e.g., .env file with OPENAI_API_KEY, ANTHROPIC_API_KEY, or GOOGLE_API_KEY)."
+			)
+			.addDropdown((dropdown) => {
+				// Add options dynamically from the allowed list
+				ALLOWED_MODELS.forEach((modelName) => {
+					dropdown.addOption(modelName, modelName);
+				});
+
+				dropdown
+					.setValue(this.plugin.getSelectedModel()) // Use getter to ensure valid value
+					.onChange(async (value: ModelName) => {
+						this.plugin.settings.selectedModel = value;
+						await this.plugin.saveSettings();
+						new Notice(`Default model set to: ${value}`);
 					});
 			});
 

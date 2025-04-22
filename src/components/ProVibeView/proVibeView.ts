@@ -109,6 +109,10 @@ export class ProVibeView extends ItemView {
 	appliedRuleIds: Set<string> = new Set(); // Stores rule IDs applied in this conversation
 	// --- End State for Tracking Applied Rules ---
 
+	// --- Current API Request Controller ---
+	abortController: AbortController | null = null; // For cancelling requests
+	// --- End Current API Request Controller ---
+
 	constructor(leaf: WorkspaceLeaf, plugin: ProVibePlugin) {
 		super(leaf);
 		this.plugin = plugin;
@@ -419,14 +423,26 @@ export class ProVibeView extends ItemView {
 
 	// --- Backend Communication (Remains in the class, simplified) ---
 	async callBackend(endpoint: string, payload: any) {
+		console.log(`ProVibe: Calling ${endpoint} with payload:`, payload);
 		setDomLoadingState(this, true); // Use aliased function
 		try {
+			// If there's an existing request, abort it
+			if (this.abortController) {
+				console.log("ProVibe: Aborting previous request...");
+				this.abortController.abort();
+			}
+
+			// Create a new AbortController for this request
+			this.abortController = new AbortController();
+			const signal = this.abortController.signal;
+
 			const response = await requestUrl({
 				url: `${this.plugin.settings.backendUrl}${endpoint}`,
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(payload),
 				throw: false,
+				// signal, // <<< REMOVED - requestUrl doesn't support AbortSignal directly
 			});
 
 			if (response.status >= 400) {
@@ -438,43 +454,64 @@ export class ProVibeView extends ItemView {
 			const responseData: BackendResponse = response.json;
 			this.conversationId = responseData.conversation_id;
 
+			// --- Handle Agent Message --- //
 			if (responseData.agent_message) {
-				addMessageToChat(
-					this,
-					"agent",
-					responseData.agent_message.content
-				);
+				const agentContent = responseData.agent_message.content;
+				const hasToolCalls =
+					responseData.tool_calls_prepared &&
+					responseData.tool_calls_prepared.length > 0;
+
+				if (agentContent && agentContent.trim() !== "") {
+					// Display content if it's not empty
+					addMessageToChat(this, "agent", agentContent);
+				} else if (hasToolCalls) {
+					// If content is empty but there are tools, show a placeholder
+					addMessageToChat(
+						this,
+						"agent",
+						"_(Performing requested action(s)...)_"
+					);
+				}
+				// If content is empty and no tools, nothing is displayed for the agent turn
 			}
 
-			if (responseData.tool_calls && responseData.tool_calls.length > 0) {
-				await this.processToolCalls(responseData.tool_calls);
+			// --- Handle Tool Calls --- //
+			if (
+				responseData.tool_calls_prepared &&
+				responseData.tool_calls_prepared.length > 0
+			) {
+				await this.processToolCalls(responseData.tool_calls_prepared);
 			} else {
 				setDomLoadingState(this, false); // Stop loading if no tools to process
 			}
-		} catch (error) {
-			console.error(`Error calling ${endpoint}:`, error);
-			addMessageToChat(this, "system", `Error: ${error.message}`, true);
+		} catch (error: any) {
+			if (error.name === "AbortError") {
+				console.log("ProVibe: Request aborted by user.");
+				// No notice needed, as it was user-initiated
+				addMessageToChat(this, "agent", "Generation stopped.");
+			} else {
+				console.error(`Error calling ${endpoint}:`, error);
+				addMessageToChat(
+					this,
+					"system",
+					`Error: ${error.message}`,
+					true
+				);
+			}
 			setDomLoadingState(this, false); // Use aliased function
 		}
 	}
 
 	private async sendToolResults(results: ToolResult[]) {
-		if (!this.conversationId) {
-			console.error(
-				"Cannot send tool results without a conversation ID."
-			);
-			addMessageToChat(
-				this,
-				"system",
-				"Error: Missing conversation ID for tool results.",
-				true
-			);
-			return;
-		}
-		await this.callBackend("/tool_result", {
+		// Construct payload for /tool_result
+		const payload: any = {
 			tool_results: results,
 			conversation_id: this.conversationId,
-		});
+			// Model is determined by the ongoing conversation state on the backend,
+			// no need to send it again here unless we want to support overriding mid-turn.
+		};
+
+		await this.callBackend("tool_result", payload);
 	}
 
 	private async processToolCalls(

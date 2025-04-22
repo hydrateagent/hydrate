@@ -61,6 +61,18 @@ export function getReactViewComponent(
 }
 // --- End React View Registry ---
 
+// Define allowed model names (matches backend agent.py ModelName Literal)
+export const ALLOWED_MODELS = [
+	"gpt-4.1-mini", // Default
+	"gpt-4.1",
+	"claude-3-7-sonnet-latest",
+	"claude-3-5-haiku-latest",
+	"gemini-2.5-flash-preview-04-17",
+	"gemini-2.5-pro-exp-03-25",
+] as const; // Use const assertion for stricter typing
+
+export type ModelName = (typeof ALLOWED_MODELS)[number]; // Create type from array values
+
 interface ProVibePluginSettings {
 	mySetting: string;
 	developmentPath: string;
@@ -68,6 +80,7 @@ interface ProVibePluginSettings {
 	paneOrientation: "Bottom" | "Right";
 	registryEntries: RegistryEntry[]; // Existing registry
 	rulesRegistryEntries: RuleEntry[]; // <<< ADDED rules registry
+	selectedModel: ModelName; // Add setting for selected LLM
 }
 
 // Default content for the /issue command
@@ -90,6 +103,7 @@ const DEFAULT_SETTINGS: ProVibePluginSettings = {
 	paneOrientation: "Bottom",
 	registryEntries: [], // Existing initialization
 	rulesRegistryEntries: [], // <<< Initialized as empty
+	selectedModel: "gpt-4.1-mini", // Set default model
 };
 
 export const REACT_HOST_VIEW_TYPE = "provibe-react-host"; // Define type for React host
@@ -683,6 +697,15 @@ export default class ProVibePlugin extends Plugin {
 		);
 	}
 	// --- End Rules Registry Helper functions ---
+
+	// --- Helper function to get selected model --- // <<< ADDED
+	getSelectedModel(): ModelName {
+		// Ensure the stored value is valid, otherwise return default
+		return ALLOWED_MODELS.includes(this.settings.selectedModel)
+			? this.settings.selectedModel
+			: "gpt-4.1-mini";
+	}
+	// --- End Helper function --- // <<< ADDED
 }
 
 // --- REMOVED RegistryEditModal class definition (moved to src/settings/RegistryEditModal.ts) ---
