@@ -63,8 +63,8 @@ interface BackendToolCall {
 
 interface BackendResponse {
 	agent_message?: HistoryMessage; // Now receives the full agent message
-	// Can now receive multiple tool calls
-	tool_calls?: BackendToolCall[];
+	// Update field name to match backend
+	tool_calls_prepared?: BackendToolCall[]; // <<< CHANGED from tool_calls
 	conversation_id: string; // ID is always returned
 }
 
