@@ -511,7 +511,7 @@ export class ProVibeView extends ItemView {
 			// no need to send it again here unless we want to support overriding mid-turn.
 		};
 
-		await this.callBackend("tool_result", payload);
+		await this.callBackend("/tool_result", payload);
 	}
 
 	private async processToolCalls(
