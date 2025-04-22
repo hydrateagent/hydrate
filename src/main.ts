@@ -34,6 +34,8 @@ import {
 import { ReactViewHost } from "./ReactViewHost"; // Corrected path
 import IssueBoardView from "./components/IssueBoardView"; // Corrected path
 import { ProVibeSettingTab } from "./settings/ProVibeSettingTab"; // Corrected path
+import { injectSettingsStyles } from "./styles/settingsStyles"; // Corrected path
+import { injectPaneStyles } from "./styles/paneStyles"; // <<< ADDED IMPORT
 
 // Remember to rename these classes and interfaces!
 
@@ -115,6 +117,10 @@ export default class ProVibePlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
+
+		// Inject custom styles
+		injectSettingsStyles(this);
+		injectPaneStyles(this); // <<< CALL NEW FUNCTION
 
 		// Custom styles will be loaded automatically from styles.css
 
