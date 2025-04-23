@@ -38,3 +38,14 @@ export interface RuleEntry {
 }
 
 // --- END Rules Registry Types ---
+
+// --- Patch Type for applyPatchesToFile Tool ---
+
+export interface Patch {
+	before?: string; // Optional context before the edit
+	after?: string; // Optional context after the edit
+	old: string; // Text to be replaced (can be empty for insertions)
+	new: string; // Replacement text (can be empty for deletions)
+}
+
+// --- END Patch Type ---

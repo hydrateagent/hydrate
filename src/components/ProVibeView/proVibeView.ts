@@ -13,11 +13,12 @@ import {
 import ProVibePlugin from "../../main"; // Corrected path to be relative to current dir
 import { DiffReviewModal, DiffReviewResult } from "../DiffReviewModal"; // Corrected path (assuming same dir as view)
 import { ReactViewHost } from "../../ReactViewHost"; // Corrected path
-import { RegistryEntry } from "../../types"; // Corrected path
+import { RegistryEntry, Patch } from "../../types"; // Corrected path
 import {
 	toolReadFile,
 	toolEditFile,
 	toolReplaceSelectionInFile,
+	applyPatchesToFile as toolApplyPatchesToFile, // Corrected alias
 } from "./toolImplementations"; // Corrected path
 import {
 	addMessageToChat,
@@ -521,12 +522,16 @@ export class ProVibeView extends ItemView {
 		// Identify all tools that require review (edits or replacements)
 		const reviewToolCalls = toolCalls.filter(
 			(tc) =>
-				tc.tool === "editFile" || tc.tool === "replaceSelectionInFile"
+				tc.tool === "editFile" ||
+				tc.tool === "replaceSelectionInFile" ||
+				tc.tool === "applyPatchesToFile"
 		);
 		// Identify other tools that run directly
 		const otherToolCalls = toolCalls.filter(
 			(tc) =>
-				tc.tool !== "editFile" && tc.tool !== "replaceSelectionInFile"
+				tc.tool !== "editFile" &&
+				tc.tool !== "replaceSelectionInFile" &&
+				tc.tool !== "applyPatchesToFile"
 		);
 
 		addMessageToChat(
@@ -646,6 +651,48 @@ export class ProVibeView extends ItemView {
 							toolCall.params.original_selection,
 							toolCall.params.new_content
 						);
+					} else if (toolCall.tool === "applyPatchesToFile") {
+						// If approved, apply the finalContent generated during the successful simulation
+						if (reviewResult.finalContent !== undefined) {
+							addMessageToChat(
+								this,
+								"system",
+								`Applying changes to ${toolCall.params.path}... (applyPatchesToFile)`
+							);
+							const file = this.app.vault.getAbstractFileByPath(
+								toolCall.params.path
+							);
+							if (file instanceof TFile) {
+								try {
+									await this.app.vault.modify(
+										file,
+										reviewResult.finalContent
+									);
+									executionResult = `Successfully applied patches to ${toolCall.params.path}`;
+									new Notice(executionResult);
+								} catch (e) {
+									console.error(
+										"Error applying simulated patch content:",
+										e
+									);
+									executionResult = {
+										error: `Failed to write patched file: ${e.message}`,
+									};
+								}
+							} else {
+								executionResult = {
+									error: `Target file not found or invalid: ${toolCall.params.path}`,
+								};
+							}
+						} else {
+							// This shouldn't happen if simulation succeeded, but handle defensively
+							executionResult = {
+								error: "Edit applied but final patch content was missing.",
+							};
+							console.error(
+								"Patch review approved, but finalContent missing from reviewResult."
+							);
+						}
 					} else {
 						// Should not happen if filtering in processToolCalls is correct
 						throw new Error(
@@ -696,6 +743,7 @@ export class ProVibeView extends ItemView {
 			let proposedContent = "";
 			let originalContent = "";
 			const file = this.app.vault.getAbstractFileByPath(targetPath);
+			let simulationErrors: string[] = []; // Store simulation errors
 
 			try {
 				// Wrap file reading and content generation in try-catch
@@ -728,9 +776,87 @@ export class ProVibeView extends ItemView {
 							new_content
 						);
 					}
+				} else if (toolCall.tool === "applyPatchesToFile") {
+					const patches = toolCall.params.patches as Patch[];
+					if (!Array.isArray(patches)) {
+						throw new Error(
+							"Invalid patches data for applyPatchesToFile."
+						);
+					}
+					// Simulate applying patches to get proposed content
+					let simulatedContent = originalContent;
+					for (const patch of patches) {
+						const before = patch.before ?? "";
+						const oldText = patch.old;
+						const after = patch.after ?? "";
+						const newText = patch.new;
+						const contextString = before + oldText + after;
+						if (!contextString) continue; // Skip empty context
+						const contextIndex =
+							simulatedContent.indexOf(contextString);
+						if (contextIndex === -1) {
+							console.error(
+								`Context not found during simulation. Searching for:\n${JSON.stringify(
+									contextString
+								)}\nin content:\n${JSON.stringify(
+									simulatedContent
+								)}`
+							);
+							console.warn(
+								`Context for patch not found during simulation: ${JSON.stringify(
+									patch
+								)}`
+							);
+							simulationErrors.push(
+								"Context not found for patch."
+							); // Record error
+							continue;
+						}
+						// Simple ambiguity check for simulation
+						if (
+							simulatedContent.indexOf(
+								contextString,
+								contextIndex + 1
+							) !== -1
+						) {
+							console.warn(
+								`Ambiguous context for patch found during simulation: ${JSON.stringify(
+									patch
+								)}`
+							);
+							simulationErrors.push(
+								"Ambiguous context for patch."
+							); // Record error
+							continue;
+						}
+						const startIndex = contextIndex + before.length;
+						const endIndex = startIndex + oldText.length;
+						simulatedContent =
+							simulatedContent.substring(0, startIndex) +
+							newText +
+							simulatedContent.substring(endIndex);
+					}
+					proposedContent = simulatedContent;
 				} else {
 					// Handle unexpected tool types if necessary, though filtering should prevent this
 					proposedContent = `Error: Unexpected tool type '${toolCall.tool}' for diff review.`;
+				}
+
+				// Check for simulation errors before opening modal
+				if (simulationErrors.length > 0) {
+					console.error(
+						"Simulation failed, cannot show diff modal reliably.",
+						simulationErrors
+					);
+					resolve({
+						applied: false,
+						message: `Could not apply patches due to context errors: ${simulationErrors.join(
+							", "
+						)}`,
+						finalContent: originalContent, // Return original content
+						toolCallId: toolCall.id,
+					});
+					return; // Stop before opening modal
 				}
 
 				// Call constructor with all 8 arguments
@@ -752,6 +878,15 @@ export class ProVibeView extends ItemView {
 					`Error preparing data for DiffReviewModal for ${targetPath}:`,
 					error
 				);
+				// Log the original content and tool call on error for debugging
+				console.log(
+					"Original Content during error:",
+					JSON.stringify(originalContent)
+				);
+				console.log(
+					"Tool Call during error:",
+					JSON.stringify(toolCall)
+				);
 				// Resolve the promise with a rejected state if we can't even show the modal
 				resolve({
 					applied: false,
@@ -767,26 +902,19 @@ export class ProVibeView extends ItemView {
 		switch (toolCall.tool) {
 			case "readFile": // Match tool name from backend
 				return await toolReadFile(this.app, toolCall.params.path);
-			case "replaceSelectionInFile": // <<< ADDED CASE
-				// This tool modifies directly, bypassing the review modal used for editFile
-				// Ensure the agent provides path, original_selection, and new_content
-				if (
-					!toolCall.params.path ||
-					!toolCall.params.original_selection ||
-					toolCall.params.new_content === undefined // Check for undefined, as empty string is valid
-				) {
-					throw new Error(
-						"Missing required parameters (path, original_selection, new_content) for replaceSelectionInFile"
-					);
-				}
+			case "replaceSelectionInFile": // <<< KEPT CASE (but now also goes through review)
+				// This case should ideally not be hit directly anymore if filtering is correct,
+				// but kept for safety. Review logic handles execution.
+				console.warn(
+					"executeSingleTool called for replaceSelectionInFile - should go through review."
+				);
+				// Fallback to direct execution if somehow called directly (not ideal)
 				return await toolReplaceSelectionInFile(
 					this.app,
 					toolCall.params.path,
 					toolCall.params.original_selection,
 					toolCall.params.new_content
 				);
-			// Note: We are NOT handling 'editFile' here because it requires the review modal process
-			// The reviewAndExecuteEdits function handles 'editFile' calls specifically.
 			default:
 				throw new Error(
 					`Unknown or unsupported tool for direct execution: ${toolCall.tool}`

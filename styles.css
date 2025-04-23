@@ -352,6 +352,9 @@
   .flex-grow-\[3\] {
     flex-grow: 3;
   }
+  .grow {
+    flex-grow: 1;
+  }
   .animate-pulse {
     animation: var(--animate-pulse);
   }

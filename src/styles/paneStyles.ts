@@ -4,12 +4,15 @@ export function injectPaneStyles(plugin: ProVibePlugin) {
 	const css = `
         /* --- ProVibe Pane Width Adjustment --- */
 
-        /* Target the workspace-tabs container within a vertical split *if* it contains the provibe-view */
+        /* Default grow for tabs when ProVibe pane is open (targets the sibling pane) */
+        .workspace-split.mod-vertical:has(.workspace-leaf-content[data-type='provibe-view']) > .workspace-tabs {
+            flex-grow: 0.65; /* Default grow for the other pane(s) */
+        }
+
+        /* Specific grow for the ProVibe pane */
         .workspace-split.mod-vertical > .workspace-tabs:has(.workspace-leaf-content[data-type='provibe-view']) {
-            /* Set the basis to 35% and prevent growing/shrinking disproportionately */
-            flex-basis: 35% !important;
-            flex-grow: 0 !important; /* Prevent growing beyond basis */
-            /* width: 35% !important; /* Alternative if flex-basis fails */
+            flex-grow: 0.35; /* Override default, aim for ~35% width */
+            /* flex-basis removed as grow handles initial sizing */
         }
     `;
 
