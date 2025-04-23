@@ -214,6 +214,12 @@
   .right-0 {
     right: calc(var(--spacing) * 0);
   }
+  .right-1 {
+    right: calc(var(--spacing) * 1);
+  }
+  .bottom-1 {
+    bottom: calc(var(--spacing) * 1);
+  }
   .bottom-full {
     bottom: 100%;
   }

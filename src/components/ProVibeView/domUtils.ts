@@ -1,4 +1,4 @@
-import { MarkdownRenderer } from "obsidian";
+import { MarkdownRenderer, Notice, setIcon } from "obsidian";
 import { ProVibeView } from "./proVibeView"; // Corrected path
 import { RegistryEntry } from "../../types"; // Corrected path (up two levels from components/ProVibeView)
 import {
@@ -65,11 +65,53 @@ export function addMessageToChat(
 		cls: messageClasses.join(" "),
 	});
 
+	// Make agent messages relative for absolute positioning of the copy button
+	if (role === "agent") {
+		messageEl.style.position = "relative";
+		// Add some padding to the bottom to avoid overlap with the button
+		messageEl.style.paddingBottom = "24px"; // Adjust as needed
+	}
+
 	if (content instanceof HTMLElement) {
 		messageEl.appendChild(content);
 	} else if (role === "agent") {
+		const originalContentString = content; // Store original string for copying
 		try {
+			// Render markdown first
 			MarkdownRenderer.render(plugin.app, content, messageEl, "", plugin);
+
+			// Create and add the copy button AFTER rendering
+			const copyButton = messageEl.createEl("button", {
+				cls: "provibe-copy-button absolute bottom-1 right-1 p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-normal)] hover:bg-[var(--background-modifier-hover)] transition-colors duration-150",
+				attr: { "aria-label": "Copy message" },
+			});
+
+			// Use Obsidian's setIcon helper
+			setIcon(copyButton, "copy"); // Use Lucide icon name
+			// Adjust icon size if needed (optional)
+			copyButton.children[0]?.setAttribute("width", "14");
+			copyButton.children[0]?.setAttribute("height", "14");
+
+			copyButton.addEventListener("click", async (e) => {
+				e.stopPropagation(); // Prevent event bubbling
+				try {
+					await navigator.clipboard.writeText(originalContentString);
+					// Show success feedback by changing the icon
+					setIcon(copyButton, "check");
+					copyButton.children[0]?.setAttribute("width", "14");
+					copyButton.children[0]?.setAttribute("height", "14");
+
+					setTimeout(() => {
+						// Revert back to copy icon
+						setIcon(copyButton, "copy");
+						copyButton.children[0]?.setAttribute("width", "14");
+						copyButton.children[0]?.setAttribute("height", "14");
+					}, 1500); // Revert after 1.5 seconds
+				} catch (err) {
+					console.error("Failed to copy text: ", err);
+					new Notice("Failed to copy message.");
+				}
+			});
 		} catch (renderError) {
 			console.error("Markdown rendering error:", renderError);
 			messageEl.setText(`(Error rendering message) ${content}`);
