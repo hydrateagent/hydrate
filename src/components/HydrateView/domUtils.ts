@@ -1,6 +1,6 @@
 import { MarkdownRenderer, Notice, setIcon } from "obsidian";
-import { ProVibeView } from "./proVibeView"; // Corrected path
-import { RegistryEntry } from "../../types"; // Corrected path (up two levels from components/ProVibeView)
+import { HydrateView } from "./hydrateView"; // Corrected path
+import { RegistryEntry } from "../../types"; // Corrected path (up two levels from components/HydrateView)
 import {
 	removeFilePill as removeEventHandlerFilePill,
 	handleSuggestionSelect,
@@ -10,22 +10,22 @@ import {
  * Adds a message to the chat container with appropriate styling.
  */
 export function addMessageToChat(
-	view: ProVibeView,
+	view: HydrateView,
 	role: "user" | "agent" | "system",
 	content: string | HTMLElement,
-	isError: boolean = false
+	isError: boolean = false,
 ): void {
 	const chatContainer = (view as any).chatContainer as HTMLDivElement; // Access private member
 	const plugin = (view as any).plugin; // Access private member
 
 	if (!chatContainer) {
-		console.error("ProVibe DOM Utils: chatContainer is null!");
+		console.error("Hydrate DOM Utils: chatContainer is null!");
 		return;
 	}
 
 	const messageClasses = [
-		"provibe-message",
-		`provibe-${role}-message`,
+		"hydrate-message",
+		`hydrate-${role}-message`,
 		"p-2",
 		"rounded-md",
 		"max-w-[90%]",
@@ -39,7 +39,7 @@ export function addMessageToChat(
 		messageClasses.push(
 			"ml-auto",
 			"bg-[var(--interactive-accent)]",
-			"text-[var(--text-on-accent)]"
+			"text-[var(--text-on-accent)]",
 		);
 	} else if (role === "agent") {
 		messageClasses.push("mr-auto", "bg-[var(--background-secondary)]");
@@ -49,15 +49,15 @@ export function addMessageToChat(
 			"text-xs",
 			"text-[var(--text-muted)]",
 			"italic",
-			"text-center"
+			"text-center",
 		);
 	}
 
 	if (isError) {
 		messageClasses.push(
-			"provibe-error-message",
+			"hydrate-error-message",
 			"bg-[var(--background-modifier-error)]",
-			"text-[var(--text-error)]"
+			"text-[var(--text-error)]",
 		);
 	}
 
@@ -82,7 +82,7 @@ export function addMessageToChat(
 
 			// Create and add the copy button AFTER rendering
 			const copyButton = messageEl.createEl("button", {
-				cls: "provibe-copy-button absolute bottom-1 right-1 p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-normal)] hover:bg-[var(--background-modifier-hover)] transition-colors duration-150",
+				cls: "hydrate-copy-button absolute bottom-1 right-1 p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-normal)] hover:bg-[var(--background-modifier-hover)] transition-colors duration-150",
 				attr: { "aria-label": "Copy message" },
 			});
 
@@ -127,11 +127,11 @@ export function addMessageToChat(
 
 		if (allCommandsToHighlight.length > 0) {
 			const escapedCommands = allCommandsToHighlight.map((cmd: string) =>
-				cmd.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&")
+				cmd.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&"),
 			);
 			const commandRegex = new RegExp(
 				`(${escapedCommands.join("|")})(?=\\s|$)`,
-				"g"
+				"g",
 			);
 
 			let lastIndex = 0;
@@ -142,12 +142,12 @@ export function addMessageToChat(
 				if (match.index > lastIndex) {
 					fragment.appendChild(
 						document.createTextNode(
-							content.substring(lastIndex, match.index)
-						)
+							content.substring(lastIndex, match.index),
+						),
 					);
 				}
 				const strongEl = document.createElement("strong");
-				strongEl.addClass("provibe-slash-command-display");
+				strongEl.addClass("hydrate-slash-command-display");
 				strongEl.textContent = match[0];
 				fragment.appendChild(strongEl);
 				lastIndex = commandRegex.lastIndex;
@@ -155,7 +155,7 @@ export function addMessageToChat(
 
 			if (lastIndex < content.length) {
 				fragment.appendChild(
-					document.createTextNode(content.substring(lastIndex))
+					document.createTextNode(content.substring(lastIndex)),
 				);
 			}
 			messageEl.appendChild(fragment);
@@ -174,7 +174,7 @@ export function addMessageToChat(
 /**
  * Sets the loading state of the UI elements (buttons, input).
  */
-export function setLoadingState(view: ProVibeView, loading: boolean): void {
+export function setLoadingState(view: HydrateView, loading: boolean): void {
 	// Access private members via 'any' cast or make them accessible
 	(view as any).isLoading = loading;
 	const textInput = (view as any).textInput as HTMLTextAreaElement;
@@ -182,7 +182,7 @@ export function setLoadingState(view: ProVibeView, loading: boolean): void {
 	const containerEl = view.containerEl; // Public member
 
 	const sendButton = containerEl.querySelector(
-		".provibe-send-button"
+		".hydrate-send-button",
 	) as HTMLButtonElement;
 
 	if (sendButton) {
@@ -201,24 +201,24 @@ export function setLoadingState(view: ProVibeView, loading: boolean): void {
 /**
  * Renders the file pills for attached files.
  */
-export function renderFilePills(view: ProVibeView): void {
+export function renderFilePills(view: HydrateView): void {
 	const filePillsContainer = view.filePillsContainer;
 	const attachedFiles = view.attachedFiles; // Public member
 	const initialFilePathFromState = view.initialFilePathFromState;
 	const wasInitiallyAttached = view.wasInitiallyAttached;
 
 	if (!filePillsContainer) {
-		console.error("ProVibe DOM Utils: filePillsContainer is null!");
+		console.error("Hydrate DOM Utils: filePillsContainer is null!");
 		return;
 	}
 
 	console.log(
-		"ProVibe DOM Utils: renderFilePills called. Attached files:",
+		"Hydrate DOM Utils: renderFilePills called. Attached files:",
 		attachedFiles,
 		"wasInitiallyAttached:",
 		wasInitiallyAttached,
 		"initialFilePath:",
-		initialFilePathFromState
+		initialFilePathFromState,
 	);
 
 	filePillsContainer.empty();
@@ -231,23 +231,23 @@ export function renderFilePills(view: ProVibeView): void {
 
 	attachedFiles.forEach((filePath) => {
 		const pill = filePillsContainer.createDiv({
-			cls: "provibe-file-pill flex items-center !px-1.5 !py-0 bg-[var(--background-modifier-border)] rounded-md text-xs text-[var(--text-muted)]",
+			cls: "hydrate-file-pill flex items-center !px-1.5 !py-0 bg-[var(--background-modifier-border)] rounded-md text-xs text-[var(--text-muted)]",
 		});
 		const fileName = filePath.split("/").pop() || filePath;
 		pill.createSpan({
 			text: fileName,
-			cls: "provibe-pill-text leading-none",
+			cls: "hydrate-pill-text leading-none",
 		});
 
 		const removeBtn = pill.createEl("button", {
 			text: "✕",
-			cls: "provibe-pill-remove ml-1 !p-0 !border-none !bg-transparent !appearance-none text-[var(--text-muted)] hover:text-[var(--text-normal)] cursor-pointer text-xs",
+			cls: "hydrate-pill-remove ml-1 !p-0 !border-none !bg-transparent !appearance-none text-[var(--text-muted)] hover:text-[var(--text-normal)] cursor-pointer text-xs",
 		});
 		removeBtn.style.height = "auto";
 		removeBtn.style.minHeight = "unset";
 		removeBtn.style.boxShadow = "none";
 		removeBtn.addEventListener("click", () =>
-			removeEventHandlerFilePill(view, filePath)
+			removeEventHandlerFilePill(view, filePath),
 		);
 	});
 }
@@ -255,14 +255,14 @@ export function renderFilePills(view: ProVibeView): void {
 /**
  * Renders the slash command suggestions.
  */
-export function renderSuggestions(view: ProVibeView): void {
+export function renderSuggestions(view: HydrateView): void {
 	const suggestionsContainer = (view as any)
 		.suggestionsContainer as HTMLDivElement | null;
 	const suggestions = (view as any).suggestions as RegistryEntry[];
 	const activeSuggestionIndex = (view as any).activeSuggestionIndex as number;
 
 	if (!suggestionsContainer) {
-		console.error("ProVibe DOM Utils: suggestionsContainer is null!");
+		console.error("Hydrate DOM Utils: suggestionsContainer is null!");
 		return;
 	}
 
@@ -278,10 +278,10 @@ export function renderSuggestions(view: ProVibeView): void {
 
 	suggestions.forEach((entry: RegistryEntry, index: number) => {
 		const itemEl = suggestionsContainer.createDiv({
-			cls: "provibe-suggestion-item p-1.5 cursor-pointer hover:bg-[var(--background-modifier-hover)] rounded-sm text-sm",
+			cls: "hydrate-suggestion-item p-1.5 cursor-pointer hover:bg-[var(--background-modifier-hover)] rounded-sm text-sm",
 		});
 
-		itemEl.id = `provibe-suggestion-${index}`;
+		itemEl.id = `hydrate-suggestion-${index}`;
 
 		if (index === activeSuggestionIndex) {
 			itemEl.addClass("is-selected");
@@ -303,7 +303,7 @@ export function renderSuggestions(view: ProVibeView): void {
 
 	if (activeSuggestionIndex !== -1) {
 		const activeEl = suggestionsContainer.querySelector(
-			`#provibe-suggestion-${activeSuggestionIndex}`
+			`#hydrate-suggestion-${activeSuggestionIndex}`,
 		);
 		activeEl?.scrollIntoView({ block: "nearest" });
 	}
@@ -313,8 +313,8 @@ export function renderSuggestions(view: ProVibeView): void {
  * Updates the suggestions state and re-renders the suggestions UI.
  */
 export function setSuggestions(
-	view: ProVibeView,
-	newSuggestions: RegistryEntry[]
+	view: HydrateView,
+	newSuggestions: RegistryEntry[],
 ): void {
 	(view as any).suggestions = newSuggestions;
 	(view as any).activeSuggestionIndex = -1;
@@ -324,7 +324,7 @@ export function setSuggestions(
 /**
  * Sets the text content of the input text area and dispatches an input event.
  */
-export function setTextContent(view: ProVibeView, text: string): void {
+export function setTextContent(view: HydrateView, text: string): void {
 	const textInput = (view as any).textInput as HTMLTextAreaElement;
 	if (textInput) {
 		textInput.value = text;

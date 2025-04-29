@@ -1,6 +1,6 @@
 {
-	"id": "provibe",
-	"name": "Provibe",
+	"id": "hydrate",
+	"name": "Hydrate",
 	"version": "0.1.0",
 	"minAppVersion": "0.15.0",
 	"description": "AI powered software project documentation and team management plugin.",

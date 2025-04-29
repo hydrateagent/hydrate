@@ -9,7 +9,7 @@ import {
 	ViewStateResult, // Added
 	MetadataCache, // Added
 	FrontMatterCache, // Added
-	PluginSettingTab, // Keep this for ProVibePlugin base class if needed, but SettingTab itself is moved
+	PluginSettingTab, // Keep this for HydratePlugin base class if needed, but SettingTab itself is moved
 	Setting, // Keep for potential direct use, though unlikely now
 	WorkspaceLeaf,
 	ItemView,
@@ -20,9 +20,9 @@ import {
 } from "obsidian";
 
 import {
-	ProVibeView,
-	PROVIBE_VIEW_TYPE,
-} from "./components/ProVibeView/proVibeView";
+	HydrateView,
+	HYDRATE_VIEW_TYPE,
+} from "./components/HydrateView/hydrateView";
 import * as React from "react"; // Added
 import { Root, createRoot } from "react-dom/client"; // Added
 import {
@@ -33,7 +33,7 @@ import {
 } from "./types"; // Corrected path
 import { ReactViewHost } from "./ReactViewHost"; // Corrected path
 import IssueBoardView from "./components/IssueBoardView"; // Corrected path
-import { ProVibeSettingTab } from "./settings/ProVibeSettingTab"; // Corrected path
+import { HydrateSettingTab } from "./settings/HydrateSettingTab"; // Corrected path
 import { injectSettingsStyles } from "./styles/settingsStyles"; // Corrected path
 import { injectPaneStyles } from "./styles/paneStyles"; // <<< ADDED IMPORT
 
@@ -47,17 +47,17 @@ const reactViewRegistry = new Map<
 
 export function registerReactView(
 	key: string,
-	component: React.ComponentType<ReactViewProps>
+	component: React.ComponentType<ReactViewProps>,
 ): void {
 	if (reactViewRegistry.has(key)) {
-		console.warn(`ProVibe: Overwriting React view for key "${key}"`);
+		console.warn(`Hydrate: Overwriting React view for key "${key}"`);
 	}
 	reactViewRegistry.set(key, component);
-	console.log(`ProVibe: Registered React view for key "${key}"`);
+	console.log(`Hydrate: Registered React view for key "${key}"`);
 }
 
 export function getReactViewComponent(
-	key: string
+	key: string,
 ): React.ComponentType<ReactViewProps> | undefined {
 	return reactViewRegistry.get(key);
 }
@@ -75,7 +75,7 @@ export const ALLOWED_MODELS = [
 
 export type ModelName = (typeof ALLOWED_MODELS)[number]; // Create type from array values
 
-interface ProVibePluginSettings {
+interface HydratePluginSettings {
 	mySetting: string;
 	developmentPath: string;
 	backendUrl: string;
@@ -98,9 +98,9 @@ const DEFAULT_ISSUE_COMMAND_CONTENT = `# Uncategorized
 - [ ] status 2
 `;
 
-const DEFAULT_SETTINGS: ProVibePluginSettings = {
+const DEFAULT_SETTINGS: HydratePluginSettings = {
 	mySetting: "default",
-	developmentPath: ".obsidian/plugins/provibe",
+	developmentPath: ".obsidian/plugins/hydrate",
 	backendUrl: "http://localhost:8000",
 	paneOrientation: "Bottom",
 	registryEntries: [], // Existing initialization
@@ -108,12 +108,12 @@ const DEFAULT_SETTINGS: ProVibePluginSettings = {
 	selectedModel: "gpt-4.1-mini", // Set default model
 };
 
-export const REACT_HOST_VIEW_TYPE = "provibe-react-host"; // Define type for React host
+export const REACT_HOST_VIEW_TYPE = "hydrate-react-host"; // Define type for React host
 
-export default class ProVibePlugin extends Plugin {
-	settings: ProVibePluginSettings;
+export default class HydratePlugin extends Plugin {
+	settings: HydratePluginSettings;
 	isSwitchingToMarkdown: boolean = false;
-	view: ProVibeView | null = null; // Keep reference to the view instance
+	view: HydrateView | null = null; // Keep reference to the view instance
 
 	async onload() {
 		await this.loadSettings();
@@ -125,9 +125,9 @@ export default class ProVibePlugin extends Plugin {
 		// Custom styles will be loaded automatically from styles.css
 
 		// Register the custom view
-		this.registerView(PROVIBE_VIEW_TYPE, (leaf: WorkspaceLeaf) => {
+		this.registerView(HYDRATE_VIEW_TYPE, (leaf: WorkspaceLeaf) => {
 			// Store the view instance when created
-			this.view = new ProVibeView(leaf, this);
+			this.view = new HydrateView(leaf, this);
 			return this.view;
 		});
 
@@ -136,48 +136,48 @@ export default class ProVibePlugin extends Plugin {
 
 		// --- Event Listener for File Open (Re-enabled for file attachment logic) ---
 		this.registerEvent(
-			this.app.workspace.on("file-open", this.handleFileOpen)
+			this.app.workspace.on("file-open", this.handleFileOpen),
 		);
 
 		// --- Toggle Command ---
 		this.addCommand({
-			id: "toggle-provibe-react-view",
-			name: "Toggle Markdown/ProVibe React View",
+			id: "toggle-hydrate-react-view",
+			name: "Toggle Markdown/Hydrate React View",
 			checkCallback: this.checkToggleReactView,
 		});
 
 		// --- Add Layout Change Handler ---
 		this.registerEvent(
-			this.app.workspace.on("layout-change", this.handleLayoutChange)
+			this.app.workspace.on("layout-change", this.handleLayoutChange),
 		);
 
-		// This creates an icon in the left ribbon to toggle the ProVibe pane
+		// This creates an icon in the left ribbon to toggle the Hydrate pane
 		const ribbonIconEl = this.addRibbonIcon(
 			"text-cursor-input", // Changed icon for better representation
-			"Toggle ProVibe Pane",
+			"Toggle Hydrate Pane",
 			async (evt: MouseEvent) => {
 				// Toggle the pane when the icon is clicked
 				await this.togglePane(); // Use helper function
-			}
+			},
 		);
 		// Perform additional things with the ribbon
-		ribbonIconEl.addClass("provibe-ribbon-class");
+		ribbonIconEl.addClass("hydrate-ribbon-class");
 
 		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
 		// const statusBarItemEl = this.addStatusBarItem();
-		// statusBarItemEl.setText("ProVibe Ready"); // Example status
+		// statusBarItemEl.setText("Hydrate Ready"); // Example status
 
-		// This adds a command to toggle the ProVibe pane
+		// This adds a command to toggle the Hydrate pane
 		this.addCommand({
-			id: "toggle-provibe-pane",
-			name: "Toggle ProVibe pane",
+			id: "toggle-hydrate-pane",
+			name: "Toggle Hydrate pane",
 			callback: async () => {
 				await this.togglePane(); // Use helper function
 			},
 		});
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new ProVibeSettingTab(this.app, this)); // <<< USE IMPORTED SETTING TAB
+		this.addSettingTab(new HydrateSettingTab(this.app, this)); // <<< USE IMPORTED SETTING TAB
 
 		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
 		// this.registerInterval(
@@ -185,18 +185,18 @@ export default class ProVibePlugin extends Plugin {
 		// );
 
 		// --- React View Host Registration ---
-		console.log(`ProVibe: Registering view type: ${REACT_HOST_VIEW_TYPE}`);
+		console.log(`Hydrate: Registering view type: ${REACT_HOST_VIEW_TYPE}`);
 		this.registerView(REACT_HOST_VIEW_TYPE, (leaf: WorkspaceLeaf) => {
 			console.log(
-				`ProVibe: Factory function called for view type: ${REACT_HOST_VIEW_TYPE}`
+				`Hydrate: Factory function called for view type: ${REACT_HOST_VIEW_TYPE}`,
 			);
 			return new ReactViewHost(leaf, this);
 		});
 
 		// --- Add Selection Command ---
 		this.addCommand({
-			id: "add-selection-to-provibe",
-			name: "ProVibe: Add selection to context",
+			id: "add-selection-to-hydrate",
+			name: "Hydrate: Add selection to context",
 			callback: () => {
 				// 1. Get active editor and selection
 				const activeMdView =
@@ -211,44 +211,44 @@ export default class ProVibePlugin extends Plugin {
 					return;
 				}
 
-				// 2. Find the ProVibe view instance
+				// 2. Find the Hydrate view instance
 				const leaves =
-					this.app.workspace.getLeavesOfType(PROVIBE_VIEW_TYPE);
+					this.app.workspace.getLeavesOfType(HYDRATE_VIEW_TYPE);
 				if (
 					leaves.length === 0 ||
-					!(leaves[0].view instanceof ProVibeView)
+					!(leaves[0].view instanceof HydrateView)
 				) {
-					new Notice("ProVibe pane not found or is not active.");
+					new Notice("Hydrate pane not found or is not active.");
 					// Optionally, activate the view here if desired?
 					// this.activateView(); // Consider if this makes sense
 					return;
 				}
-				const proVibeView = leaves[0].view as ProVibeView;
+				const hydrateView = leaves[0].view as HydrateView;
 
 				// 3. Store selection and update input
-				proVibeView.capturedSelections.push(selection); // Push to array
-				const index = proVibeView.capturedSelections.length; // Get the new length (which is the index+1)
+				hydrateView.capturedSelections.push(selection); // Push to array
+				const index = hydrateView.capturedSelections.length; // Get the new length (which is the index+1)
 				const formattedIndex = index.toString().padStart(2, "0"); // Zero-pad
 				const token = `/select${formattedIndex}`; // Create token like /select01
 
 				// Append the token to the current text
-				const currentText = proVibeView.textInput.value;
+				const currentText = hydrateView.textInput.value;
 				const separator =
 					currentText.length > 0 && !currentText.endsWith(" ")
 						? " "
 						: ""; // Add space if needed
-				proVibeView.textInput.value += `${separator}${token} `;
+				hydrateView.textInput.value += `${separator}${token} `;
 
 				// Trigger input event for potential UI updates (like textarea resize)
-				proVibeView.textInput.dispatchEvent(
-					new Event("input", { bubbles: true })
+				hydrateView.textInput.dispatchEvent(
+					new Event("input", { bubbles: true }),
 				);
 
 				// Focus the input area
-				proVibeView.textInput.focus();
+				hydrateView.textInput.focus();
 
 				new Notice(
-					"Selected text captured and /select added to ProVibe."
+					"Selected text captured and /select added to Hydrate.",
 				);
 			},
 		});
@@ -257,7 +257,7 @@ export default class ProVibePlugin extends Plugin {
 
 	// --- Helper to Toggle Pane ---
 	async togglePane() {
-		const leaves = this.app.workspace.getLeavesOfType(PROVIBE_VIEW_TYPE);
+		const leaves = this.app.workspace.getLeavesOfType(HYDRATE_VIEW_TYPE);
 		if (leaves.length > 0) {
 			await this.deactivateView();
 		} else {
@@ -270,7 +270,7 @@ export default class ProVibePlugin extends Plugin {
 		const { workspace } = this.app;
 		let sourceFilePath: string | null = null;
 
-		// Get active file path BEFORE activating ProVibe view
+		// Get active file path BEFORE activating Hydrate view
 		const currentActiveLeaf = workspace.activeLeaf;
 		if (currentActiveLeaf) {
 			const currentView = currentActiveLeaf.view;
@@ -278,7 +278,7 @@ export default class ProVibePlugin extends Plugin {
 			if (currentView instanceof MarkdownView && currentView.file) {
 				sourceFilePath = currentView.file.path;
 				console.log(
-					`ProVibe activateView: Found source file from MarkdownView: ${sourceFilePath}`
+					`Hydrate activateView: Found source file from MarkdownView: ${sourceFilePath}`,
 				);
 			} else if (
 				currentView instanceof ReactViewHost &&
@@ -286,54 +286,54 @@ export default class ProVibePlugin extends Plugin {
 			) {
 				sourceFilePath = currentView.currentFilePath;
 				console.log(
-					`ProVibe activateView: Found source file from ReactViewHost: ${sourceFilePath}`
+					`Hydrate activateView: Found source file from ReactViewHost: ${sourceFilePath}`,
 				);
 			} else if (
 				currentView instanceof ItemView &&
-				currentView.getViewType() !== PROVIBE_VIEW_TYPE
+				currentView.getViewType() !== HYDRATE_VIEW_TYPE
 			) {
 				// Try to get file from generic ItemView if possible (might not always work)
 				const state = currentView.getState();
 				if (state?.file) {
 					const file = this.app.vault.getAbstractFileByPath(
-						state.file
+						state.file,
 					);
 					if (file instanceof TFile) {
 						sourceFilePath = file.path;
 						console.log(
-							`ProVibe activateView: Found source file from generic ItemView state: ${sourceFilePath}`
+							`Hydrate activateView: Found source file from generic ItemView state: ${sourceFilePath}`,
 						);
 					}
 				}
 			} else {
 				console.log(
-					`ProVibe activateView: Active view is not Markdown or ReactViewHost or did not yield a file path.`
+					`Hydrate activateView: Active view is not Markdown or ReactViewHost or did not yield a file path.`,
 				);
 			}
 		} else {
-			console.log(`ProVibe activateView: No active leaf found.`);
+			console.log(`Hydrate activateView: No active leaf found.`);
 		}
 
 		// If view is already open in a leaf, reveal that leaf
-		const existingLeaves = workspace.getLeavesOfType(PROVIBE_VIEW_TYPE);
+		const existingLeaves = workspace.getLeavesOfType(HYDRATE_VIEW_TYPE);
 		if (existingLeaves.length > 0) {
 			const existingLeaf = existingLeaves[0];
 			workspace.revealLeaf(existingLeaf);
 			// If a source file was found *now*, and the existing view has no files attached, attach it.
 			if (
 				sourceFilePath &&
-				existingLeaf.view instanceof ProVibeView &&
+				existingLeaf.view instanceof HydrateView &&
 				existingLeaf.view.attachedFiles.length === 0
 			) {
 				console.log(
-					`ProVibe activateView: Existing view revealed. Attaching current file: ${sourceFilePath}`
+					`Hydrate activateView: Existing view revealed. Attaching current file: ${sourceFilePath}`,
 				);
-				(existingLeaf.view as ProVibeView).attachInitialFile(
-					sourceFilePath
+				(existingLeaf.view as HydrateView).attachInitialFile(
+					sourceFilePath,
 				);
 			} else {
 				console.log(
-					`ProVibe activateView: Existing view revealed. Source file: ${sourceFilePath}. View state not modified.`
+					`Hydrate activateView: Existing view revealed. Source file: ${sourceFilePath}. View state not modified.`,
 				);
 			}
 			return;
@@ -351,7 +351,7 @@ export default class ProVibePlugin extends Plugin {
 		// Pass the source file path in the state when opening the view
 		const viewStateToSet: any = {
 			// Use 'any' temporarily if strict type causes issues
-			type: PROVIBE_VIEW_TYPE,
+			type: HYDRATE_VIEW_TYPE,
 			active: true,
 			state: {}, // Initialize empty state object
 		};
@@ -360,13 +360,13 @@ export default class ProVibePlugin extends Plugin {
 		}
 
 		console.log(
-			`ProVibe activateView: Setting state for new leaf:`,
-			JSON.stringify(viewStateToSet)
+			`Hydrate activateView: Setting state for new leaf:`,
+			JSON.stringify(viewStateToSet),
 		);
 		await leaf.setViewState(viewStateToSet);
 
 		// 'this.view' will be set by the view factory function registered earlier
-		if (leaf.view instanceof ProVibeView) {
+		if (leaf.view instanceof HydrateView) {
 			this.view = leaf.view; // Ensure our reference is correct
 		}
 		workspace.revealLeaf(leaf); // Reveal after setting state
@@ -374,7 +374,7 @@ export default class ProVibePlugin extends Plugin {
 
 	async deactivateView() {
 		const { workspace } = this.app;
-		const leaves = workspace.getLeavesOfType(PROVIBE_VIEW_TYPE);
+		const leaves = workspace.getLeavesOfType(HYDRATE_VIEW_TYPE);
 		leaves.forEach((leaf) => leaf.detach());
 		this.view = null; // Clear the reference
 	}
@@ -382,19 +382,19 @@ export default class ProVibePlugin extends Plugin {
 	// --- File Open Handler (Simplified for File Attachment Logic) ---
 	handleFileOpen = async (file: TFile | null) => {
 		console.log(
-			`ProVibe [file-open]: File changed to: ${file?.path ?? "null"}`
+			`Hydrate [file-open]: File changed to: ${file?.path ?? "null"}`,
 		);
 
-		// --- Part 1: Notify the ProVibe Pane (Keep this logic) ---
+		// --- Part 1: Notify the Hydrate Pane (Keep this logic) ---
 		if (this.view && this.view.containerEl.isShown()) {
 			console.log(
-				`ProVibe [file-open]: ProVibe view is open, notifying it of file change.`
+				`Hydrate [file-open]: Hydrate view is open, notifying it of file change.`,
 			);
 			// Pass the new file path (or null) to the view instance
 			this.view.handleActiveFileChange(file?.path ?? null);
 		} else {
 			console.log(
-				`ProVibe [file-open]: ProVibe view is not open or not visible, ignoring file change.`
+				`Hydrate [file-open]: Hydrate view is not open or not visible, ignoring file change.`,
 			);
 		}
 
@@ -402,7 +402,7 @@ export default class ProVibePlugin extends Plugin {
 		const leaf = this.app.workspace.getActiveViewOfType(ItemView)?.leaf; // Get active leaf first
 		if (!leaf) {
 			console.log(
-				"ProVibe [file-open]: No active leaf found. Cannot switch view."
+				"Hydrate [file-open]: No active leaf found. Cannot switch view.",
 			);
 			return; // Exit if no active leaf
 		}
@@ -413,7 +413,7 @@ export default class ProVibePlugin extends Plugin {
 		if (!file) {
 			if (currentView instanceof ReactViewHost) {
 				console.log(
-					"ProVibe [file-open]: File is null, switching React Host back to Markdown."
+					"Hydrate [file-open]: File is null, switching React Host back to Markdown.",
 				);
 				// Check if ReactViewHost expects a file path; might need adjustment if it crashes on null
 				// Assuming switchToMarkdownView handles the transition gracefully
@@ -421,12 +421,12 @@ export default class ProVibePlugin extends Plugin {
 					currentView.switchToMarkdownView();
 				} else {
 					console.log(
-						"ProVibe [file-open]: Already switching to markdown, skipping."
+						"Hydrate [file-open]: Already switching to markdown, skipping.",
 					);
 				}
 			} else {
 				console.log(
-					"ProVibe [file-open]: File is null, current view is not React Host. No action needed."
+					"Hydrate [file-open]: File is null, current view is not React Host. No action needed.",
 				);
 			}
 			return; // Stop processing if file is null
@@ -437,7 +437,7 @@ export default class ProVibePlugin extends Plugin {
 		// ---- VIEW SWITCHING LOGIC REMOVED ----
 		// The handleLayoutChange listener is now responsible for enforcing the correct view type.
 		// Attempting to switch views directly within file-open proved unreliable.
-		// We keep the file-open listener primarily to notify the separate ProVibe pane if needed.
+		// We keep the file-open listener primarily to notify the separate Hydrate pane if needed.
 	};
 	// --- End File Open Handler ---
 
@@ -459,7 +459,7 @@ export default class ProVibePlugin extends Plugin {
 			const file = currentView.file;
 			const fileCache = this.app.metadataCache.getFileCache(file);
 			const frontmatter = fileCache?.frontmatter;
-			const triggerKey = "provibe-plugin"; // Consistent key
+			const triggerKey = "hydrate-plugin"; // Consistent key
 			const viewKey = frontmatter?.[triggerKey] as string | undefined;
 			const ReactComponent = viewKey
 				? getReactViewComponent(viewKey)
@@ -486,12 +486,12 @@ export default class ProVibePlugin extends Plugin {
 
 	// --- Layout Change Handler (Re-enabled and Refined) ---
 	handleLayoutChange = async () => {
-		console.log("ProVibe [layout-change]: Layout change detected.");
+		console.log("Hydrate [layout-change]: Layout change detected.");
 
 		// Check if we are intentionally switching back to markdown
 		if (this.isSwitchingToMarkdown) {
 			console.log(
-				"ProVibe [layout-change]: Intentional switch to markdown detected, skipping checks and resetting flag."
+				"Hydrate [layout-change]: Intentional switch to markdown detected, skipping checks and resetting flag.",
 			);
 			this.isSwitchingToMarkdown = false; // Reset the flag *after* skipping the check
 			return;
@@ -499,7 +499,7 @@ export default class ProVibePlugin extends Plugin {
 
 		const leaf = this.app.workspace.activeLeaf;
 		if (!leaf) {
-			console.log("ProVibe [layout-change]: No active leaf.");
+			console.log("Hydrate [layout-change]: No active leaf.");
 			return;
 		}
 
@@ -511,12 +511,12 @@ export default class ProVibePlugin extends Plugin {
 			const fileCache = this.app.metadataCache.getFileCache(file);
 			if (!fileCache) {
 				console.log(
-					"ProVibe [layout-change]: File cache not ready, skipping check."
+					"Hydrate [layout-change]: File cache not ready, skipping check.",
 				);
 				return;
 			}
 			const frontmatter = fileCache.frontmatter;
-			const triggerKey = "provibe-plugin";
+			const triggerKey = "hydrate-plugin";
 			const viewKey = frontmatter?.[triggerKey] as string | undefined;
 			const ReactComponent = viewKey
 				? getReactViewComponent(viewKey)
@@ -531,7 +531,7 @@ export default class ProVibePlugin extends Plugin {
 				// Switch if in Reading ("preview") or Live Preview (mode=="source" AND state.source==false)
 				if (currentMode === "preview" || !isSourceMode) {
 					console.log(
-						`ProVibe [layout-change]: Active view is Markdown (mode: ${currentMode}, sourceState: ${currentState.source}) for ${file.path}, but should be React (${viewKey}). Switching...`
+						`Hydrate [layout-change]: Active view is Markdown (mode: ${currentMode}, sourceState: ${currentState.source}) for ${file.path}, but should be React (${viewKey}). Switching...`,
 					);
 					try {
 						await leaf.setViewState({
@@ -541,18 +541,18 @@ export default class ProVibePlugin extends Plugin {
 						});
 					} catch (error) {
 						console.error(
-							"ProVibe [layout-change]: Error switching Markdown to React:",
-							error
+							"Hydrate [layout-change]: Error switching Markdown to React:",
+							error,
 						);
 					}
 				} else {
 					// This condition implies mode=="source" AND state.source==true (True Source Mode)
 					console.log(
-						`ProVibe [layout-change]: Active view is Markdown for ${file.path} (IN TRUE SOURCE MODE). File should be React, but respecting source mode. NO SWITCH.`
+						`Hydrate [layout-change]: Active view is Markdown for ${file.path} (IN TRUE SOURCE MODE). File should be React, but respecting source mode. NO SWITCH.`,
 					);
 				}
 			} else {
-				// console.log("ProVibe [layout-change]: Active view is Markdown, and it should be (no valid provibe-plugin key). No switch needed.");
+				// console.log("Hydrate [layout-change]: Active view is Markdown, and it should be (no valid hydrate-plugin key). No switch needed.");
 			}
 		}
 		// Scenario 2: Active view is React, but should it be Markdown?
@@ -560,7 +560,7 @@ export default class ProVibePlugin extends Plugin {
 			const filePath = currentView.currentFilePath;
 			if (!filePath) {
 				console.log(
-					"ProVibe [layout-change]: Active view is ReactHost, but has no file path. Switching to Markdown."
+					"Hydrate [layout-change]: Active view is ReactHost, but has no file path. Switching to Markdown.",
 				);
 				await currentView.switchToMarkdownView();
 				return;
@@ -569,7 +569,7 @@ export default class ProVibePlugin extends Plugin {
 			const file = this.app.vault.getAbstractFileByPath(filePath);
 			if (!(file instanceof TFile)) {
 				console.warn(
-					`ProVibe [layout-change]: ReactHost has path ${filePath}, but it's not a valid file. Switching to Markdown.`
+					`Hydrate [layout-change]: ReactHost has path ${filePath}, but it's not a valid file. Switching to Markdown.`,
 				);
 				await currentView.switchToMarkdownView();
 				return;
@@ -578,12 +578,12 @@ export default class ProVibePlugin extends Plugin {
 			const fileCache = this.app.metadataCache.getFileCache(file);
 			if (!fileCache) {
 				console.log(
-					"ProVibe [layout-change]: File cache not ready for ReactHost file, skipping check."
+					"Hydrate [layout-change]: File cache not ready for ReactHost file, skipping check.",
 				);
 				return;
 			}
 			const frontmatter = fileCache.frontmatter;
-			const triggerKey = "provibe-plugin";
+			const triggerKey = "hydrate-plugin";
 			const viewKey = frontmatter?.[triggerKey] as string | undefined;
 			const ReactComponent = viewKey
 				? getReactViewComponent(viewKey)
@@ -591,14 +591,14 @@ export default class ProVibePlugin extends Plugin {
 
 			if (!ReactComponent || !viewKey) {
 				console.log(
-					`ProVibe [layout-change]: Active view is React for ${filePath}, but should be Markdown (key missing or invalid). Switching back...`
+					`Hydrate [layout-change]: Active view is React for ${filePath}, but should be Markdown (key missing or invalid). Switching back...`,
 				);
 				await currentView.switchToMarkdownView();
 			} else {
-				// console.log("ProVibe [layout-change]: Active view is React, and it should be. No switch needed.");
+				// console.log("Hydrate [layout-change]: Active view is React, and it should be. No switch needed.");
 			}
 		} else {
-			// console.log("ProVibe [layout-change]: Active view is neither Markdown nor ReactHost, no action needed.");
+			// console.log("Hydrate [layout-change]: Active view is neither Markdown nor ReactHost, no action needed.");
 		}
 	};
 	// --- End Layout Change Handler ---
@@ -607,14 +607,14 @@ export default class ProVibePlugin extends Plugin {
 		// Clean up when the plugin is disabled
 		this.deactivateView(); // This will also detach leaves
 		this.view = null; // Ensure reference is cleared
-		console.log("ProVibe Plugin Unloaded");
+		console.log("Hydrate Plugin Unloaded");
 	}
 
 	async loadSettings() {
 		this.settings = Object.assign(
 			{},
 			DEFAULT_SETTINGS,
-			await this.loadData()
+			await this.loadData(),
 		);
 
 		// --- Initialize Default Registry Entry (Slash Command) ---  // Added clarification
@@ -623,7 +623,7 @@ export default class ProVibePlugin extends Plugin {
 			this.settings.registryEntries.length === 0
 		) {
 			console.log(
-				"ProVibe: Format Registry is empty, adding default '/issue' command."
+				"Hydrate: Format Registry is empty, adding default '/issue' command.",
 			);
 			this.settings.registryEntries = [
 				{
@@ -640,11 +640,11 @@ export default class ProVibePlugin extends Plugin {
 			const defaultIssueExists = this.settings.registryEntries.some(
 				(entry) =>
 					entry.id === "default-issue-board" ||
-					entry.slashCommandTrigger === "/issue"
+					entry.slashCommandTrigger === "/issue",
 			);
 			if (!defaultIssueExists) {
 				console.log(
-					"ProVibe: Default '/issue' command missing, adding it."
+					"Hydrate: Default '/issue' command missing, adding it.",
 				);
 				this.settings.registryEntries.push({
 					id: "default-issue-board",
@@ -661,7 +661,7 @@ export default class ProVibePlugin extends Plugin {
 
 		// --- Initialize Rules Registry (Ensure it's an array) --- <<< ADDED
 		if (!Array.isArray(this.settings.rulesRegistryEntries)) {
-			console.log("ProVibe: Initializing empty Rules Registry.");
+			console.log("Hydrate: Initializing empty Rules Registry.");
 			this.settings.rulesRegistryEntries = [];
 		}
 		// --- End Initialize Rules Registry ---
@@ -680,7 +680,7 @@ export default class ProVibePlugin extends Plugin {
 	getRegistryEntryByTrigger(trigger: string): RegistryEntry | undefined {
 		// Ensure array exists before searching
 		return this.settings.registryEntries?.find(
-			(entry) => entry.slashCommandTrigger === trigger
+			(entry) => entry.slashCommandTrigger === trigger,
 		);
 	}
 
@@ -699,7 +699,7 @@ export default class ProVibePlugin extends Plugin {
 	getRuleById(id: string): RuleEntry | undefined {
 		// Ensure array exists before searching
 		return this.settings.rulesRegistryEntries?.find(
-			(entry) => entry.id === id
+			(entry) => entry.id === id,
 		);
 	}
 	// --- End Rules Registry Helper functions ---
@@ -716,4 +716,4 @@ export default class ProVibePlugin extends Plugin {
 
 // --- REMOVED RegistryEditModal class definition (moved to src/settings/RegistryEditModal.ts) ---
 
-// --- REMOVED ProVibeSettingTab class definition (moved to src/settings/ProVibeSettingTab.ts) ---
+// --- REMOVED HydrateSettingTab class definition (moved to src/settings/HydrateSettingTab.ts) ---

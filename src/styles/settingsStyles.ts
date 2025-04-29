@@ -1,34 +1,34 @@
-import ProVibePlugin from "../main"; // Corrected path
+import HydratePlugin from "../main"; // Corrected path
 
-export function injectSettingsStyles(plugin: ProVibePlugin) {
+export function injectSettingsStyles(plugin: HydratePlugin) {
 	// Consolidate all CSS rules here, removing duplicates
 	// These setting are used to override pesky Obsidian styles that otherwise cannot be
 	const css = `
         /* --- General Settings Styles --- */
-        .provibe-settings-section {
+        .hydrate-settings-section {
             border-top: 1px solid var(--background-modifier-border);
             padding-top: 20px;
             margin-top: 20px;
         }
-        .provibe-settings-heading {
+        .hydrate-settings-heading {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 5px; /* Space below heading */
         }
-        .provibe-settings-heading h3 {
+        .hydrate-settings-heading h3 {
             margin-bottom: 0; /* Remove default margin from h3 */
         }
 
         /* --- Input Error State --- */
-        .provibe-input-error {
+        .hydrate-input-error {
             /* Using more specific theme variable */
             border-color: var(--text-error) !important;
             box-shadow: 0 0 0 1px var(--text-error) !important;
         }
 
         /* --- Registry List Styles --- */
-        .provibe-registry-list {
+        .hydrate-registry-list {
             margin-top: 15px;
             border: 1px solid var(--background-modifier-border);
             border-radius: var(--radius-m);
@@ -37,22 +37,22 @@ export function injectSettingsStyles(plugin: ProVibePlugin) {
             overflow-y: auto;
             background-color: var(--background-secondary);
         }
-        .provibe-registry-item {
+        .hydrate-registry-item {
              border-bottom: 1px solid var(--background-modifier-border);
              align-items: center;
         }
-        .provibe-registry-item:last-child {
+        .hydrate-registry-item:last-child {
              border-bottom: none;
         }
-        .provibe-registry-item .setting-item-info {
+        .hydrate-registry-item .setting-item-info {
             flex-grow: 1;
             margin-right: var(--size-4-2);
         }
-        .provibe-registry-item .setting-item-control {
+        .hydrate-registry-item .setting-item-control {
              flex-shrink: 0;
              margin-left: auto;
         }
-        .provibe-empty-list-message {
+        .hydrate-empty-list-message {
             color: var(--text-muted);
             padding: 15px;
             text-align: center;
@@ -62,13 +62,13 @@ export function injectSettingsStyles(plugin: ProVibePlugin) {
         /* --- Registry Edit Modal Styles --- */
 
         /* Wider Modal */
-        .provibe-registry-edit-modal-wide .modal {
+        .hydrate-registry-edit-modal-wide .modal {
             width: 70%; /* Adjust width as desired */
             max-width: 900px; /* Set a maximum width */
         }
 
         /* Vertical Layout for the Custom Content Setting */
-        .setting-item.provibe-content-setting-vertical {
+        .setting-item.hydrate-content-setting-vertical {
             display: flex;
             flex-direction: column;
             align-items: flex-start;
@@ -79,7 +79,7 @@ export function injectSettingsStyles(plugin: ProVibePlugin) {
         }
 
         /* Content Setting Info Block (Label + Description) */
-        .provibe-content-setting-vertical .setting-item-info {
+        .hydrate-content-setting-vertical .setting-item-info {
             width: 100%; /* Take full width */
             /* Remove default right margin if any */
             margin-right: 0;
@@ -87,12 +87,12 @@ export function injectSettingsStyles(plugin: ProVibePlugin) {
         }
 
         /* Content Setting Control Block (Textarea Container) */
-        .provibe-content-setting-vertical .setting-item-control {
+        .hydrate-content-setting-vertical .setting-item-control {
             width: 100%; /* Take full width */
         }
 
         /* Content Text Area Specific Styling */
-        .provibe-content-textarea {
+        .hydrate-content-textarea {
             width: 100%;
             min-height: 250px; /* Set desired minimum height */
             resize: vertical; /* Allow vertical resizing */
@@ -103,7 +103,7 @@ export function injectSettingsStyles(plugin: ProVibePlugin) {
         }
 
         /* Modal Button Bar Alignment */
-        .provibe-modal-button-bar {
+        .hydrate-modal-button-bar {
             display: flex; /* Use flex directly on the setting item */
             justify-content: flex-end; /* Align content (buttons) to the right */
             gap: var(--size-4-2); /* Space between buttons */
@@ -115,19 +115,19 @@ export function injectSettingsStyles(plugin: ProVibePlugin) {
         }
 
         /* Hide default info/description for button bar */
-        .provibe-modal-button-bar .setting-item-info {
+        .hydrate-modal-button-bar .setting-item-info {
             display: none;
         }
 
         /* Ensure control block for buttons doesn't take unnecessary space */
-        .provibe-modal-button-bar .setting-item-control {
+        .hydrate-modal-button-bar .setting-item-control {
             width: auto; /* Let buttons determine width */
             flex-grow: 0; /* Prevent it from growing */
         }
 
     `;
 	// Use Obsidian's mechanism to add/remove styles
-	const styleId = "provibe-settings-styles";
+	const styleId = "hydrate-settings-styles";
 	let styleEl = document.getElementById(styleId);
 	if (!styleEl) {
 		styleEl = document.createElement("style");

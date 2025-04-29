@@ -1,5 +1,5 @@
 import { Notice, TFile, requestUrl, MarkdownView } from "obsidian";
-import type { ProVibeView } from "./proVibeView";
+import type { HydrateView } from "./hydrateView";
 import { RegistryEntry } from "../../types"; // Added import
 import {
 	addMessageToChat,
@@ -15,7 +15,7 @@ import {
 /**
  * Clears the chat input and attached files.
  */
-export const handleClear = (view: ProVibeView): void => {
+export const handleClear = (view: HydrateView): void => {
 	setDomTextContent(view, "");
 	view.attachedFiles = [];
 	view.initialFilePathFromState = null;
@@ -36,15 +36,15 @@ export const handleClear = (view: ProVibeView): void => {
 /**
  * Handles file drops into the input area.
  */
-export const handleDrop = (view: ProVibeView, event: DragEvent): void => {
+export const handleDrop = (view: HydrateView, event: DragEvent): void => {
 	event.preventDefault();
 	event.stopPropagation();
 	const containerEl = view.containerEl;
 	const inputAreaContainer = containerEl.querySelector(
-		".provibe-input-area-container"
+		".hydrate-input-area-container",
 	);
 	if (!inputAreaContainer) return;
-	inputAreaContainer.classList.remove("provibe-drag-over");
+	inputAreaContainer.classList.remove("hydrate-drag-over");
 
 	let pathData = "";
 	if (event.dataTransfer?.types.includes("text/uri-list")) {
@@ -54,7 +54,7 @@ export const handleDrop = (view: ProVibeView, event: DragEvent): void => {
 	}
 
 	if (!pathData) {
-		console.warn("ProVibe drop: Could not extract path data.");
+		console.warn("Hydrate drop: Could not extract path data.");
 		return;
 	}
 
@@ -71,7 +71,7 @@ export const handleDrop = (view: ProVibeView, event: DragEvent): void => {
 		let foundVaultFile: TFile | null = null;
 		let normalizedPathForComparison: string | null = null;
 
-		// ... (rest of path resolution logic from ProVibeView.handleDrop) ...
+		// ... (rest of path resolution logic from HydrateView.handleDrop) ...
 		if (
 			potentialPath.startsWith("obsidian://open?vault=") ||
 			potentialPath.startsWith("obsidian://vault/")
@@ -84,13 +84,13 @@ export const handleDrop = (view: ProVibeView, event: DragEvent): void => {
 						decodeURIComponent(filePathParam);
 				} else {
 					console.warn(
-						`ProVibe drop: No 'file' param in URI: ${potentialPath}`
+						`Hydrate drop: No 'file' param in URI: ${potentialPath}`,
 					);
 				}
 			} catch (e) {
 				console.error(
-					`ProVibe drop: Error parsing URI: ${potentialPath}`,
-					e
+					`Hydrate drop: Error parsing URI: ${potentialPath}`,
+					e,
 				);
 			}
 		} else if (potentialPath.startsWith("file://")) {
@@ -102,8 +102,8 @@ export const handleDrop = (view: ProVibeView, event: DragEvent): void => {
 				normalizedPathForComparison = osPath.replace(/\\/g, "/");
 			} catch (e) {
 				console.error(
-					`ProVibe drop: Error decoding file URI: ${potentialPath}`,
-					e
+					`Hydrate drop: Error decoding file URI: ${potentialPath}`,
+					e,
 				);
 			}
 		} else {
@@ -112,7 +112,7 @@ export const handleDrop = (view: ProVibeView, event: DragEvent): void => {
 
 		if (normalizedPathForComparison) {
 			const directMatch = view.app.vault.getAbstractFileByPath(
-				normalizedPathForComparison
+				normalizedPathForComparison,
 			);
 			if (directMatch instanceof TFile) {
 				foundVaultFile = directMatch;
@@ -124,8 +124,8 @@ export const handleDrop = (view: ProVibeView, event: DragEvent): void => {
 					allVaultFiles.find(
 						(vf: TFile) =>
 							lowerCaseNormalized.endsWith(
-								"/" + vf.path.toLowerCase()
-							) || lowerCaseNormalized === vf.path.toLowerCase()
+								"/" + vf.path.toLowerCase(),
+							) || lowerCaseNormalized === vf.path.toLowerCase(),
 					) || null;
 			}
 			if (!foundVaultFile) {
@@ -133,16 +133,16 @@ export const handleDrop = (view: ProVibeView, event: DragEvent): void => {
 					vf.path
 						.toLowerCase()
 						.startsWith(
-							normalizedPathForComparison!.toLowerCase() + "."
-						)
+							normalizedPathForComparison!.toLowerCase() + ".",
+						),
 				);
 				if (possibleMatches.length === 1) {
 					foundVaultFile = possibleMatches[0];
 				} else if (possibleMatches.length > 1) {
 					console.warn(
-						`ProVibe drop: Ambiguous match for ${normalizedPathForComparison}: Found ${possibleMatches
+						`Hydrate drop: Ambiguous match for ${normalizedPathForComparison}: Found ${possibleMatches
 							.map((f: TFile) => f.path)
-							.join(", ")}`
+							.join(", ")}`,
 					);
 				}
 			}
@@ -172,7 +172,7 @@ export const handleDrop = (view: ProVibeView, event: DragEvent): void => {
 
 	if (failedPaths.length > 0) {
 		new Notice(
-			`Could not resolve ${failedPaths.length} dropped item(s) to vault files.`
+			`Could not resolve ${failedPaths.length} dropped item(s) to vault files.`,
 		);
 	}
 };
@@ -180,10 +180,10 @@ export const handleDrop = (view: ProVibeView, event: DragEvent): void => {
 /**
  * Removes a specific file pill and the corresponding file from the attached list.
  */
-export const removeFilePill = (view: ProVibeView, filePath: string): void => {
+export const removeFilePill = (view: HydrateView, filePath: string): void => {
 	const initialLength = view.attachedFiles.length;
 	view.attachedFiles = view.attachedFiles.filter(
-		(path: string) => path !== filePath
+		(path: string) => path !== filePath,
 	);
 	const removed = initialLength > view.attachedFiles.length;
 
@@ -203,7 +203,7 @@ export const removeFilePill = (view: ProVibeView, filePath: string): void => {
 /**
  * Sends the current input and attached files to the backend.
  */
-export const handleSend = async (view: ProVibeView): Promise<void> => {
+export const handleSend = async (view: HydrateView): Promise<void> => {
 	if (view.isLoading) return;
 
 	if (
@@ -223,7 +223,7 @@ export const handleSend = async (view: ProVibeView): Promise<void> => {
 	const capturedSelections = [...view.capturedSelections]; // Copy array
 	if (capturedSelections.length > 0) {
 		console.log(
-			`[handleSend] Found ${capturedSelections.length} captured selection(s).`
+			`[handleSend] Found ${capturedSelections.length} captured selection(s).`,
 		);
 		for (let i = 0; i < capturedSelections.length; i++) {
 			const index = i + 1; // 1-based index for token
@@ -236,11 +236,11 @@ export const handleSend = async (view: ProVibeView): Promise<void> => {
 				// Use replaceAll in case the same token was somehow added multiple times (though command logic prevents this)
 				payloadContent = payloadContent.replaceAll(token, replacement);
 				console.log(
-					`[handleSend] Replaced ${token} with Selected Text ${index}.`
+					`[handleSend] Replaced ${token} with Selected Text ${index}.`,
 				);
 			} else {
 				console.warn(
-					`[handleSend] Token ${token} not found in payloadContent, but selection ${index} was captured.`
+					`[handleSend] Token ${token} not found in payloadContent, but selection ${index} was captured.`,
 				);
 				// Optionally add a note about the unused selection?
 			}
@@ -264,12 +264,12 @@ export const handleSend = async (view: ProVibeView): Promise<void> => {
 
 		if (triggerMap.size > 0) {
 			const escapedTriggers = Array.from(triggerMap.keys()).map((cmd) =>
-				cmd.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&")
+				cmd.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&"),
 			);
 			// Regex to find registered commands *only*
 			const commandRegex = new RegExp(
 				`(?<!\\S)(${escapedTriggers.join("|")})(?=\\s|$)`, // Added negative lookbehind for start of word
-				"g"
+				"g",
 			);
 
 			// Perform replacement directly on payloadContent
@@ -281,7 +281,7 @@ export const handleSend = async (view: ProVibeView): Promise<void> => {
 	}
 	console.log(
 		"[handleSend] payloadContent after registered command processing:",
-		payloadContent
+		payloadContent,
 	);
 	// --- End Step 2 ---
 
@@ -299,7 +299,7 @@ export const handleSend = async (view: ProVibeView): Promise<void> => {
 			const file = view.app.vault.getAbstractFileByPath(filePath);
 			if (file instanceof TFile) {
 				const fileCache = view.app.metadataCache.getFileCache(file);
-				const ruleTags = fileCache?.frontmatter?.["provibe-rules"];
+				const ruleTags = fileCache?.frontmatter?.["hydrate-rules"];
 
 				let currentFileRuleIds: string[] = [];
 				if (typeof ruleTags === "string") {
@@ -318,20 +318,20 @@ export const handleSend = async (view: ProVibeView): Promise<void> => {
 							// rulesToApplyThisTurn.push(rule); // Optional
 							rulesContextToSend += `\n\n--- Begin Applied Rule: ${rule.id} ---\n${rule.ruleText}\n--- End Applied Rule: ${rule.id} ---\n`;
 							console.log(
-								`[handleSend] Applying rule '${ruleId}' for the first time this conversation.`
+								`[handleSend] Applying rule '${ruleId}' for the first time this conversation.`,
 							);
 						}
 					}
 				}
 			} else {
 				console.warn(
-					`[handleSend] Could not find TFile for rule check: ${filePath}`
+					`[handleSend] Could not find TFile for rule check: ${filePath}`,
 				);
 			}
 		} catch (error) {
 			console.error(
 				`[handleSend] Error processing rules for file ${filePath}:`,
-				error
+				error,
 			);
 		}
 	}
@@ -359,7 +359,7 @@ export const handleSend = async (view: ProVibeView): Promise<void> => {
 			console.log(
 				`[handleSend] Reading content for ${filePath} (Convo: ${
 					currentConvoId || "NEW"
-				})`
+				})`,
 			);
 			try {
 				const file = view.app.vault.getAbstractFileByPath(filePath);
@@ -370,18 +370,18 @@ export const handleSend = async (view: ProVibeView): Promise<void> => {
 					if (registryKey) {
 						view.sentFileContentRegistry.add(registryKey);
 						console.log(
-							`[handleSend] Added ${registryKey} to sent registry.`
+							`[handleSend] Added ${registryKey} to sent registry.`,
 						);
 					}
 				} else {
 					console.warn(
-						`[handleSend] Attached path is not a TFile: ${filePath}`
+						`[handleSend] Attached path is not a TFile: ${filePath}`,
 					);
 				}
 			} catch (error) {
 				console.error(
 					`[handleSend] Error reading attached file ${filePath}:`,
-					error
+					error,
 				);
 			}
 		}
@@ -402,7 +402,7 @@ export const handleSend = async (view: ProVibeView): Promise<void> => {
 
 	console.log(
 		"[handleSend] Final combinedPayload (length):",
-		combinedPayload.length
+		combinedPayload.length,
 	);
 	// console.log("[handleSend] Final combinedPayload (snippet):", combinedPayload.substring(0, 500)); // Log snippet
 
@@ -412,7 +412,7 @@ export const handleSend = async (view: ProVibeView): Promise<void> => {
 		view,
 		"user",
 		originalMessageContent ||
-			`(Sent with ${currentAttachedFiles.length} attached file(s))`
+			`(Sent with ${currentAttachedFiles.length} attached file(s))`,
 	);
 
 	const payload: any = {
@@ -433,7 +433,7 @@ export const handleSend = async (view: ProVibeView): Promise<void> => {
 			view,
 			"system",
 			`Error: ${error.message || "Failed to connect to backend"}`,
-			true
+			true,
 		);
 		setDomLoadingState(view, false);
 	} finally {
@@ -448,7 +448,7 @@ export const handleSend = async (view: ProVibeView): Promise<void> => {
 /**
  * Stops the ongoing backend request.
  */
-export const handleStop = async (view: ProVibeView): Promise<void> => {
+export const handleStop = async (view: HydrateView): Promise<void> => {
 	if (!view.isLoading || !view.conversationId || !view.stopButton) return;
 
 	view.stopButton.textContent = "Stopping...";
@@ -483,8 +483,8 @@ export const handleStop = async (view: ProVibeView): Promise<void> => {
  * Handles selection of a suggestion.
  */
 export const handleSuggestionSelect = (
-	view: ProVibeView,
-	index: number
+	view: HydrateView,
+	index: number,
 ): void => {
 	if (
 		index < 0 ||
@@ -522,7 +522,7 @@ export const handleSuggestionSelect = (
 /**
  * Handles input changes in the text area to show suggestions.
  */
-export const handleInputChange = (view: ProVibeView): void => {
+export const handleInputChange = (view: HydrateView): void => {
 	const value = view.textInput.value;
 	const cursorPos = view.textInput.selectionStart;
 
@@ -546,7 +546,7 @@ export const handleInputChange = (view: ProVibeView): void => {
 			let matchingEntries = allEntries.filter(
 				(entry: any) =>
 					entry.slashCommandTrigger?.startsWith(trigger) &&
-					entry.slashCommandTrigger !== "/"
+					entry.slashCommandTrigger !== "/",
 			);
 
 			if (matchingEntries.length > 0) {
@@ -568,8 +568,8 @@ export const handleInputChange = (view: ProVibeView): void => {
  * Handles keydown events in the input area (e.g., Enter to send).
  */
 export const handleInputKeydown = (
-	view: ProVibeView,
-	event: KeyboardEvent
+	view: HydrateView,
+	event: KeyboardEvent,
 ): void => {
 	const suggestionsVisible =
 		view.suggestions.length > 0 &&

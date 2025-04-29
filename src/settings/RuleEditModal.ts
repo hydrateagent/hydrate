@@ -6,13 +6,13 @@ import {
 	TextComponent,
 	TextAreaComponent,
 } from "obsidian";
-import ProVibePlugin from "../main"; // Corrected path
+import HydratePlugin from "../main"; // Corrected path
 import { RuleEntry } from "../types"; // Use RuleEntry type
 
 // --- Modal for Editing/Adding Rules Registry Entries ---
 export class RuleEditModal extends Modal {
 	entry: RuleEntry; // Entry to edit or a template for a new one
-	plugin: ProVibePlugin;
+	plugin: HydratePlugin;
 	isNew: boolean;
 	onSubmit: (result: RuleEntry) => void; // Callback on successful save
 
@@ -22,9 +22,9 @@ export class RuleEditModal extends Modal {
 
 	constructor(
 		app: App,
-		plugin: ProVibePlugin,
+		plugin: HydratePlugin,
 		entry: RuleEntry | null, // Pass null for new entry
-		onSubmit: (result: RuleEntry) => void
+		onSubmit: (result: RuleEntry) => void,
 	) {
 		super(app);
 		this.plugin = plugin;
@@ -37,11 +37,11 @@ export class RuleEditModal extends Modal {
 					description: "",
 					version: 1,
 					ruleText: "",
-			  };
+				};
 		this.onSubmit = onSubmit;
 
 		// Add class for wider modal (requires corresponding CSS)
-		this.modalEl.addClass("provibe-registry-edit-modal-wide"); // Reuse existing class
+		this.modalEl.addClass("hydrate-registry-edit-modal-wide"); // Reuse existing class
 	}
 
 	onOpen() {
@@ -58,7 +58,7 @@ export class RuleEditModal extends Modal {
 		new Setting(contentEl)
 			.setName("Rule ID (Tag)")
 			.setDesc(
-				"Identifier used in `provibe-rules` frontmatter. Must be unique and contain no spaces."
+				"Identifier used in `hydrate-rules` frontmatter. Must be unique and contain no spaces.",
 			)
 			.addText((text) => {
 				idInput = text;
@@ -68,9 +68,9 @@ export class RuleEditModal extends Modal {
 					.onChange((value) => {
 						const trimmed = value.trim();
 						if (trimmed && !trimmed.includes(" ")) {
-							text.inputEl.removeClass("provibe-input-error");
+							text.inputEl.removeClass("hydrate-input-error");
 						} else {
-							text.inputEl.addClass("provibe-input-error");
+							text.inputEl.addClass("hydrate-input-error");
 						}
 						// Update entry ID only if it's a new entry being created
 						if (this.isNew) {
@@ -98,7 +98,7 @@ export class RuleEditModal extends Modal {
 		// Rule Text (Content)
 		// Using manual layout for better control over textarea size
 		const contentSettingEl = contentEl.createDiv(
-			"setting-item provibe-content-setting-vertical"
+			"setting-item hydrate-content-setting-vertical",
 		); // Reuse existing class
 		const infoEl = contentSettingEl.createDiv("setting-item-info");
 		infoEl.createDiv({ cls: "setting-item-name", text: "Rule Text" });
@@ -112,7 +112,7 @@ export class RuleEditModal extends Modal {
 			"markdown-source-view",
 			"mod-cm6",
 			"is-live-preview",
-			"provibe-content-textarea", // Reuse existing class
+			"hydrate-content-textarea", // Reuse existing class
 		]);
 		contentTextArea
 			.setPlaceholder("Enter rule text here...")
@@ -127,7 +127,7 @@ export class RuleEditModal extends Modal {
 
 		// --- Buttons ---
 		new Setting(contentEl)
-			.setClass("provibe-modal-button-bar")
+			.setClass("hydrate-modal-button-bar")
 			.addButton((button) =>
 				button
 					.setButtonText("Save")
@@ -139,12 +139,12 @@ export class RuleEditModal extends Modal {
 						// Validate ID
 						if (!ruleId) {
 							new Notice("Rule ID (Tag) cannot be empty.");
-							idInput?.inputEl.addClass("provibe-input-error");
+							idInput?.inputEl.addClass("hydrate-input-error");
 							return;
 						}
 						if (ruleId.includes(" ")) {
 							new Notice("Rule ID (Tag) cannot contain spaces.");
-							idInput?.inputEl.addClass("provibe-input-error");
+							idInput?.inputEl.addClass("hydrate-input-error");
 							return;
 						}
 						// Check uniqueness only if it's a new entry
@@ -153,26 +153,26 @@ export class RuleEditModal extends Modal {
 								this.plugin.getRuleById(ruleId);
 							if (existingRule) {
 								new Notice(
-									`Rule ID "${ruleId}" is already used by entry "${existingRule.description}". Please choose a unique ID.`
+									`Rule ID "${ruleId}" is already used by entry "${existingRule.description}". Please choose a unique ID.`,
 								);
 								idInput?.inputEl.addClass(
-									"provibe-input-error"
+									"hydrate-input-error",
 								);
 								return;
 							}
 						}
-						idInput?.inputEl.removeClass("provibe-input-error");
+						idInput?.inputEl.removeClass("hydrate-input-error");
 
 						// Validate Description
 						if (!this.entry.description) {
 							new Notice("Description cannot be empty.");
 							descriptionInput?.inputEl.addClass(
-								"provibe-input-error"
+								"hydrate-input-error",
 							);
 							return;
 						} else {
 							descriptionInput?.inputEl.removeClass(
-								"provibe-input-error"
+								"hydrate-input-error",
 							);
 						}
 
@@ -183,10 +183,10 @@ export class RuleEditModal extends Modal {
 
 						this.onSubmit(this.entry);
 						this.close();
-					})
+					}),
 			)
 			.addButton((button) =>
-				button.setButtonText("Cancel").onClick(() => this.close())
+				button.setButtonText("Cancel").onClick(() => this.close()),
 			);
 	}
 

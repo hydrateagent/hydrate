@@ -1,10 +1,10 @@
 // src/types.ts
 import { App } from "obsidian";
-import ProVibePlugin from "./main"; // Corrected path
+import HydratePlugin from "./main"; // Corrected path
 
 export interface ReactViewProps {
 	app: App;
-	plugin: ProVibePlugin;
+	plugin: HydratePlugin;
 	filePath: string;
 	markdownContent: string;
 	updateMarkdownContent: (newContent: string) => Promise<boolean>;
@@ -31,7 +31,7 @@ export interface RegistryEntry {
 
 /** Represents a single rule in the Rules Registry. */
 export interface RuleEntry {
-	id: string; // Unique identifier, corresponds to a `provibe-rule` tag value
+	id: string; // Unique identifier, corresponds to a `hydrate-rule` tag value
 	description: string; // User-friendly description of the rule
 	ruleText: string; // The actual rule text to inject into the agent context
 	version: number; // Simple version number, incremented on update

@@ -1,6 +1,6 @@
 import { App, Modal, ButtonComponent } from "obsidian";
 import { diff_match_patch, Diff, patch_obj } from "diff-match-patch";
-import ProVibePlugin from "../main"; // May need plugin/app access later
+import HydratePlugin from "../main"; // May need plugin/app access later
 
 // Define the structure for a diff hunk
 interface DiffHunk {
@@ -27,7 +27,7 @@ export class DiffReviewModal extends Modal {
 	private filePath: string;
 	private instructions: string;
 	private toolCallId: string;
-	private plugin: ProVibePlugin;
+	private plugin: HydratePlugin;
 	private resolvePromise: (result: DiffReviewResult) => void; // Function to resolve the promise when done
 	private hunks: DiffHunk[] = [];
 	// The following is fine, ts is confused.
@@ -37,13 +37,13 @@ export class DiffReviewModal extends Modal {
 
 	constructor(
 		app: App,
-		plugin: ProVibePlugin,
+		plugin: HydratePlugin,
 		filePath: string,
 		originalContent: string,
 		proposedContent: string,
 		instructions: string,
 		toolCallId: string,
-		resolvePromise: (result: DiffReviewResult) => void
+		resolvePromise: (result: DiffReviewResult) => void,
 	) {
 		super(app);
 		this.plugin = plugin;
@@ -59,9 +59,9 @@ export class DiffReviewModal extends Modal {
 	onOpen() {
 		const { contentEl } = this;
 		contentEl.empty();
-		contentEl.addClass("provibe-diff-modal-content");
+		contentEl.addClass("hydrate-diff-modal-content");
 
-		this.modalEl.addClass("provibe-diff-modal"); // Add class to the modal container itself for sizing
+		this.modalEl.addClass("hydrate-diff-modal"); // Add class to the modal container itself for sizing
 
 		// --- Set Modal Width via JS --- //
 		this.modalEl.style.width = "90vw";
@@ -105,7 +105,7 @@ export class DiffReviewModal extends Modal {
 		// Use patch_make for better hunk structure
 		this.patches = this.dmp.patch_make(
 			this.originalContent,
-			this.proposedContent
+			this.proposedContent,
 		);
 		this.hunks = []; // Reset hunks
 
@@ -128,7 +128,7 @@ export class DiffReviewModal extends Modal {
 				const lines = text
 					.split("\n")
 					.filter(
-						(line, idx, arr) => idx < arr.length - 1 || line !== ""
+						(line, idx, arr) => idx < arr.length - 1 || line !== "",
 					); // Split lines, remove trailing empty line
 
 				lines.forEach((lineContent) => {
@@ -204,8 +204,8 @@ export class DiffReviewModal extends Modal {
 						line.type === "addition"
 							? "bg-green-100 dark:bg-green-900/50" // Faint green for light/dark modes
 							: line.type === "deletion"
-							? "bg-red-100 dark:bg-red-900/50" // Faint red for light/dark modes
-							: "" // No background for context lines
+								? "bg-red-100 dark:bg-red-900/50" // Faint red for light/dark modes
+								: "" // No background for context lines
 					}`,
 				});
 				let prefix = " ";
@@ -218,7 +218,7 @@ export class DiffReviewModal extends Modal {
 
 	private handleApply = () => {
 		console.log(
-			"Apply clicked. Reconstructing content based on selected hunks..."
+			"Apply clicked. Reconstructing content based on selected hunks...",
 		);
 		// TODO: Implement logic to reconstruct the final content
 		// based on the `applied` status of each hunk in `this.hunks`
@@ -246,7 +246,7 @@ export class DiffReviewModal extends Modal {
 	// TODO: Implement content reconstruction logic using patches
 	private reconstructContent(): string {
 		const selectedPatches = this.patches.filter(
-			(patch, index) => this.hunks[index]?.applied
+			(patch, index) => this.hunks[index]?.applied,
 		);
 
 		if (selectedPatches.length === 0) {
@@ -257,7 +257,7 @@ export class DiffReviewModal extends Modal {
 		console.log(`Applying ${selectedPatches.length} selected patches...`);
 		const [newContent, results] = this.dmp.patch_apply(
 			selectedPatches,
-			this.originalContent
+			this.originalContent,
 		);
 
 		// Check results for errors, add type annotation for the callback parameter
@@ -268,7 +268,7 @@ export class DiffReviewModal extends Modal {
 		} else {
 			console.error("Patch application failed for some hunks:", results);
 			throw new Error(
-				"Failed to apply selected changes. Please review the console."
+				"Failed to apply selected changes. Please review the console.",
 			);
 		}
 	}

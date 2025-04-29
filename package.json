@@ -1,7 +1,7 @@
 {
-	"name": "obsidian-sample-plugin",
+	"name": "hydrate-plugin",
 	"version": "1.0.0",
-	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
+	"description": "This is the hydrate plugin for Obsidian (https://obsidian.md)",
 	"main": "main.js",
 	"scripts": {
 		"build:js": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",

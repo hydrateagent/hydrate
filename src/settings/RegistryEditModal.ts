@@ -7,13 +7,13 @@ import {
 	DropdownComponent,
 	TextAreaComponent,
 } from "obsidian";
-import ProVibePlugin from "../main"; // Corrected path
+import HydratePlugin from "../main"; // Corrected path
 import { RegistryEntry, RegistryEntryContentType } from "../types";
 
 // --- Modal for Editing/Adding Registry Entries ---
 export class RegistryEditModal extends Modal {
 	entry: RegistryEntry; // Entry to edit or a template for a new one
-	plugin: ProVibePlugin;
+	plugin: HydratePlugin;
 	isNew: boolean;
 	onSubmit: (result: RegistryEntry) => void; // Callback on successful save
 
@@ -24,9 +24,9 @@ export class RegistryEditModal extends Modal {
 
 	constructor(
 		app: App,
-		plugin: ProVibePlugin,
+		plugin: HydratePlugin,
 		entry: RegistryEntry | null, // Pass null for new entry
-		onSubmit: (result: RegistryEntry) => void
+		onSubmit: (result: RegistryEntry) => void,
 	) {
 		super(app);
 		this.plugin = plugin;
@@ -43,11 +43,11 @@ export class RegistryEditModal extends Modal {
 					contentType: "markdown",
 					content: "",
 					slashCommandTrigger: "",
-			  };
+				};
 		this.onSubmit = onSubmit;
 
 		// Add class for wider modal (requires corresponding CSS in styles.css)
-		this.modalEl.addClass("provibe-registry-edit-modal-wide");
+		this.modalEl.addClass("hydrate-registry-edit-modal-wide");
 	}
 
 	onOpen() {
@@ -88,7 +88,7 @@ export class RegistryEditModal extends Modal {
 		new Setting(contentEl)
 			.setName("Slash Command Trigger (Optional)")
 			.setDesc(
-				"Command like /issue. Must start with / and contain no spaces, or be empty."
+				"Command like /issue. Must start with / and contain no spaces, or be empty.",
 			)
 			.addText((text) => {
 				triggerInput = text;
@@ -100,9 +100,9 @@ export class RegistryEditModal extends Modal {
 							trimmed === "" ||
 							(trimmed.startsWith("/") && !trimmed.includes(" "))
 						) {
-							text.inputEl.removeClass("provibe-input-error");
+							text.inputEl.removeClass("hydrate-input-error");
 						} else {
-							text.inputEl.addClass("provibe-input-error");
+							text.inputEl.addClass("hydrate-input-error");
 						}
 					});
 				this.textInputs.push(text);
@@ -126,7 +126,7 @@ export class RegistryEditModal extends Modal {
 		// --- Content (Manual Layout - Attempt 2) ---
 		// Create a container div for the whole setting item
 		const contentSettingEl = contentEl.createDiv(
-			"setting-item provibe-content-setting-vertical"
+			"setting-item hydrate-content-setting-vertical",
 		); // Add custom class for vertical layout
 
 		// Create info block (label + description) and append it
@@ -146,7 +146,7 @@ export class RegistryEditModal extends Modal {
 			"markdown-source-view",
 			"mod-cm6",
 			"is-live-preview",
-			"provibe-content-textarea", // Add specific class for styling
+			"hydrate-content-textarea", // Add specific class for styling
 		]);
 		contentTextArea
 			.setPlaceholder("Enter content here...")
@@ -164,7 +164,7 @@ export class RegistryEditModal extends Modal {
 
 		// --- Buttons ---
 		new Setting(contentEl)
-			.setClass("provibe-modal-button-bar")
+			.setClass("hydrate-modal-button-bar")
 			.addButton((button) =>
 				button
 					.setButtonText("Save")
@@ -174,12 +174,12 @@ export class RegistryEditModal extends Modal {
 						if (!this.entry.description) {
 							new Notice("Description cannot be empty.");
 							descriptionInput?.inputEl.addClass(
-								"provibe-input-error"
+								"hydrate-input-error",
 							);
 							return;
 						} else {
 							descriptionInput?.inputEl.removeClass(
-								"provibe-input-error"
+								"hydrate-input-error",
 							);
 						}
 
@@ -189,15 +189,15 @@ export class RegistryEditModal extends Modal {
 							(trigger.startsWith("/") && !trigger.includes(" "));
 						if (!isValidTrigger) {
 							new Notice(
-								"Slash command trigger must start with '/' and contain no spaces, or be empty."
+								"Slash command trigger must start with '/' and contain no spaces, or be empty.",
 							);
 							triggerInput?.inputEl.addClass(
-								"provibe-input-error"
+								"hydrate-input-error",
 							);
 							return;
 						} else {
 							triggerInput?.inputEl.removeClass(
-								"provibe-input-error"
+								"hydrate-input-error",
 							);
 							this.entry.slashCommandTrigger =
 								trigger === "" ? undefined : trigger;
@@ -206,22 +206,22 @@ export class RegistryEditModal extends Modal {
 						if (this.entry.slashCommandTrigger) {
 							const existingEntry =
 								this.plugin.getRegistryEntryByTrigger(
-									this.entry.slashCommandTrigger
+									this.entry.slashCommandTrigger,
 								);
 							if (
 								existingEntry &&
 								existingEntry.id !== this.entry.id
 							) {
 								new Notice(
-									`Slash command trigger "${this.entry.slashCommandTrigger}" is already used by entry "${existingEntry.description}". Please choose a unique trigger.`
+									`Slash command trigger "${this.entry.slashCommandTrigger}" is already used by entry "${existingEntry.description}". Please choose a unique trigger.`,
 								);
 								triggerInput?.inputEl.addClass(
-									"provibe-input-error"
+									"hydrate-input-error",
 								);
 								return;
 							} else {
 								triggerInput?.inputEl.removeClass(
-									"provibe-input-error"
+									"hydrate-input-error",
 								);
 							}
 						}
@@ -232,10 +232,10 @@ export class RegistryEditModal extends Modal {
 
 						this.onSubmit(this.entry);
 						this.close();
-					})
+					}),
 			)
 			.addButton((button) =>
-				button.setButtonText("Cancel").onClick(() => this.close())
+				button.setButtonText("Cancel").onClick(() => this.close()),
 			);
 	}
 

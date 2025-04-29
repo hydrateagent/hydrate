@@ -10,7 +10,7 @@ import {
 	ViewStateResult,
 	sanitizeHTMLToDom,
 } from "obsidian";
-import ProVibePlugin from "../../main"; // Corrected path to be relative to current dir
+import HydratePlugin from "../../main"; // Corrected path to be relative to current dir
 import { DiffReviewModal, DiffReviewResult } from "../DiffReviewModal"; // Corrected path (assuming same dir as view)
 import { ReactViewHost } from "../../ReactViewHost"; // Corrected path
 import { RegistryEntry, Patch } from "../../types"; // Corrected path
@@ -39,7 +39,7 @@ import {
 	removeFilePill as removeEventHandlerFilePill, // Alias event handler
 } from "./eventHandlers"; // Corrected path
 
-export const PROVIBE_VIEW_TYPE = "provibe-view";
+export const HYDRATE_VIEW_TYPE = "hydrate-view";
 
 // Define interfaces for communication with the backend
 interface HistoryMessage {
@@ -75,8 +75,8 @@ interface ToolResult {
 	result: any;
 }
 
-export class ProVibeView extends ItemView {
-	plugin: ProVibePlugin;
+export class HydrateView extends ItemView {
+	plugin: HydratePlugin;
 	textInput: HTMLTextAreaElement;
 	chatContainer: HTMLDivElement;
 	filePillsContainer: HTMLDivElement;
@@ -114,32 +114,32 @@ export class ProVibeView extends ItemView {
 	abortController: AbortController | null = null; // For cancelling requests
 	// --- End Current API Request Controller ---
 
-	constructor(leaf: WorkspaceLeaf, plugin: ProVibePlugin) {
+	constructor(leaf: WorkspaceLeaf, plugin: HydratePlugin) {
 		super(leaf);
 		this.plugin = plugin;
 	}
 
 	getViewType(): string {
-		return PROVIBE_VIEW_TYPE;
+		return HYDRATE_VIEW_TYPE;
 	}
 
 	getDisplayText(): string {
-		return "ProVibe";
+		return "Hydrate";
 	}
 
 	async setState(state: any, result: ViewStateResult): Promise<void> {
-		console.log("ProVibeView setState called with state:", state);
+		console.log("HydrateView setState called with state:", state);
 		let fileToAttachPath: string | null = null;
 
 		if (state?.sourceFilePath) {
 			fileToAttachPath = state.sourceFilePath;
 			console.log(
-				"ProVibeView setState: Captured sourceFilePath:",
-				fileToAttachPath
+				"HydrateView setState: Captured sourceFilePath:",
+				fileToAttachPath,
 			);
 		} else {
 			console.log(
-				"ProVibeView setState: No sourceFilePath found in state."
+				"HydrateView setState: No sourceFilePath found in state.",
 			);
 		}
 
@@ -147,22 +147,22 @@ export class ProVibeView extends ItemView {
 
 		if (fileToAttachPath && this.attachedFiles.length === 0) {
 			console.log(
-				"ProVibe [setState]: Attempting to auto-attach file from state:",
-				fileToAttachPath
+				"Hydrate [setState]: Attempting to auto-attach file from state:",
+				fileToAttachPath,
 			);
 			this.attachInitialFile(fileToAttachPath);
 		} else if (fileToAttachPath && this.attachedFiles.length > 0) {
 			console.log(
-				"ProVibe [setState]: Files already attached, skipping auto-attach from state."
+				"Hydrate [setState]: Files already attached, skipping auto-attach from state.",
 			);
 		}
 	}
 
 	public attachInitialFile(filePath: string) {
-		console.log("ProVibe [attachInitialFile]: Trying to attach:", filePath);
+		console.log("Hydrate [attachInitialFile]: Trying to attach:", filePath);
 		console.log(
-			"ProVibe [attachInitialFile]: Current attachedFiles BEFORE attach:",
-			[...this.attachedFiles]
+			"Hydrate [attachInitialFile]: Current attachedFiles BEFORE attach:",
+			[...this.attachedFiles],
 		);
 
 		if (filePath && !this.attachedFiles.includes(filePath)) {
@@ -170,14 +170,14 @@ export class ProVibeView extends ItemView {
 				this.app.vault.getAbstractFileByPath(filePath) instanceof TFile;
 			if (fileExists) {
 				console.log(
-					`ProVibe [attachInitialFile]: Attaching ${filePath}...`
+					`Hydrate [attachInitialFile]: Attaching ${filePath}...`,
 				);
 				this.attachedFiles = [filePath];
 				this.initialFilePathFromState = filePath;
 				this.wasInitiallyAttached = true;
 				console.log(
-					"ProVibe [attachInitialFile]: attachedFiles after push:",
-					[...this.attachedFiles]
+					"Hydrate [attachInitialFile]: attachedFiles after push:",
+					[...this.attachedFiles],
 				);
 				if (this.filePillsContainer) {
 					// Call the aliased dom util function
@@ -185,16 +185,16 @@ export class ProVibeView extends ItemView {
 				}
 			} else {
 				console.warn(
-					`ProVibe [attachInitialFile]: File path '${filePath}' does not exist or is not a TFile. Not attaching.`
+					`Hydrate [attachInitialFile]: File path '${filePath}' does not exist or is not a TFile. Not attaching.`,
 				);
 			}
 		} else if (filePath && this.attachedFiles.includes(filePath)) {
 			console.log(
-				`ProVibe [attachInitialFile]: File ${filePath} already attached.`
+				`Hydrate [attachInitialFile]: File ${filePath} already attached.`,
 			);
 		} else {
 			console.log(
-				"ProVibe [attachInitialFile]: File path variable was null/empty."
+				"Hydrate [attachInitialFile]: File path variable was null/empty.",
 			);
 		}
 	}
@@ -202,26 +202,26 @@ export class ProVibeView extends ItemView {
 	public handleActiveFileChange(newFilePath: string | null) {
 		if (!this.containerEl.isShown()) {
 			console.log(
-				"ProVibe [handleActiveFileChange]: View not visible, ignoring file change."
+				"Hydrate [handleActiveFileChange]: View not visible, ignoring file change.",
 			);
 			return;
 		}
 
 		console.log(
-			"ProVibe [handleActiveFileChange]: Received new file path:",
-			newFilePath
+			"Hydrate [handleActiveFileChange]: Received new file path:",
+			newFilePath,
 		);
 		console.log(
-			"ProVibe [handleActiveFileChange]: Current attachedFiles:",
-			[...this.attachedFiles]
+			"Hydrate [handleActiveFileChange]: Current attachedFiles:",
+			[...this.attachedFiles],
 		);
 		console.log(
-			"ProVibe [handleActiveFileChange]: wasInitiallyAttached:",
-			this.wasInitiallyAttached
+			"Hydrate [handleActiveFileChange]: wasInitiallyAttached:",
+			this.wasInitiallyAttached,
 		);
 		console.log(
-			"ProVibe [handleActiveFileChange]: initialFilePathFromState:",
-			this.initialFilePathFromState
+			"Hydrate [handleActiveFileChange]: initialFilePathFromState:",
+			this.initialFilePathFromState,
 		);
 
 		if (
@@ -235,7 +235,7 @@ export class ProVibeView extends ItemView {
 					TFile;
 				if (fileExists) {
 					console.log(
-						`ProVibe [handleActiveFileChange]: Replacing ${this.initialFilePathFromState} with ${newFilePath}`
+						`Hydrate [handleActiveFileChange]: Replacing ${this.initialFilePathFromState} with ${newFilePath}`,
 					);
 					this.attachedFiles = [newFilePath];
 					this.initialFilePathFromState = newFilePath;
@@ -244,12 +244,12 @@ export class ProVibeView extends ItemView {
 					renderDomFilePills(this); // Pass the view instance
 				} else {
 					console.warn(
-						`ProVibe [handleActiveFileChange]: New file path '${newFilePath}' does not exist. Not replacing.`
+						`Hydrate [handleActiveFileChange]: New file path '${newFilePath}' does not exist. Not replacing.`,
 					);
 				}
 			} else if (!newFilePath) {
 				console.log(
-					"ProVibe [handleActiveFileChange]: Switched to view without a file. Removing initial attachment."
+					"Hydrate [handleActiveFileChange]: Switched to view without a file. Removing initial attachment.",
 				);
 				this.attachedFiles = [];
 				this.initialFilePathFromState = null;
@@ -258,12 +258,12 @@ export class ProVibeView extends ItemView {
 				renderDomFilePills(this); // Pass the view instance
 			} else {
 				console.log(
-					"ProVibe [handleActiveFileChange]: New file path is the same as the current attached file. No change."
+					"Hydrate [handleActiveFileChange]: New file path is the same as the current attached file. No change.",
 				);
 			}
 		} else {
 			console.log(
-				"ProVibe [handleActiveFileChange]: Conditions not met for following active file. Stopping."
+				"Hydrate [handleActiveFileChange]: Conditions not met for following active file. Stopping.",
 			);
 		}
 	}
@@ -272,7 +272,7 @@ export class ProVibeView extends ItemView {
 		const container = this.containerEl.children[1];
 		container.empty();
 		container.addClasses([
-			"provibe-view-container",
+			"hydrate-view-container",
 			"p-3",
 			"flex",
 			"flex-col",
@@ -281,33 +281,33 @@ export class ProVibeView extends ItemView {
 
 		// Assign DOM elements to class properties
 		this.chatContainer = container.createEl("div", {
-			cls: "provibe-chat-container flex-grow overflow-y-auto p-2 space-y-3",
+			cls: "hydrate-chat-container flex-grow overflow-y-auto p-2 space-y-3",
 		});
 
 		const inputAreaContainer = container.createEl("div", {
-			cls: "provibe-input-area-container relative pt-3 border-t border-[var(--background-modifier-border)] mb-4",
+			cls: "hydrate-input-area-container relative pt-3 border-t border-[var(--background-modifier-border)] mb-4",
 		});
 
 		// Add Loading Indicator (initially hidden)
 		this.loadingIndicator = inputAreaContainer.createEl("div", {
-			cls: "provibe-loading-indicator absolute inset-x-0 top-0 h-1 bg-blue-500 animate-pulse hidden",
+			cls: "hydrate-loading-indicator absolute inset-x-0 top-0 h-1 bg-blue-500 animate-pulse hidden",
 			attr: { role: "progressbar", "aria-busy": "false" },
 		});
 
 		this.suggestionsContainer = inputAreaContainer.createEl("div", {
-			cls: "provibe-suggestions-container absolute bottom-full left-0 right-0 mb-1 p-1 bg-[var(--background-secondary)] border border-[var(--background-modifier-border)] rounded-md shadow-lg z-10 hidden max-h-40 overflow-y-auto",
+			cls: "hydrate-suggestions-container absolute bottom-full left-0 right-0 mb-1 p-1 bg-[var(--background-secondary)] border border-[var(--background-modifier-border)] rounded-md shadow-lg z-10 hidden max-h-40 overflow-y-auto",
 		});
 
 		this.filePillsContainer = inputAreaContainer.createEl("div", {
-			cls: "provibe-file-pills-container flex flex-wrap gap-1 pb-2",
+			cls: "hydrate-file-pills-container flex flex-wrap gap-1 pb-2",
 		});
 
 		const inputControlsArea = inputAreaContainer.createEl("div", {
-			cls: "provibe-input-controls-area flex items-end gap-2",
+			cls: "hydrate-input-controls-area flex items-end gap-2",
 		});
 
 		this.textInput = inputControlsArea.createEl("textarea", {
-			cls: "provibe-textarea flex-grow p-2 border border-[var(--background-modifier-border)] rounded-md bg-[var(--background-primary)] text-[var(--text-normal)] focus:border-[var(--interactive-accent)] focus:outline-none resize-none",
+			cls: "hydrate-textarea flex-grow p-2 border border-[var(--background-modifier-border)] rounded-md bg-[var(--background-primary)] text-[var(--text-normal)] focus:border-[var(--interactive-accent)] focus:outline-none resize-none",
 			attr: {
 				placeholder:
 					"Enter your prompt, drop files, or type / for commands...",
@@ -334,7 +334,7 @@ export class ProVibeView extends ItemView {
 			const maxHeight = lineHeight * maxRows + padding + border;
 			const targetHeight = Math.max(
 				minHeight,
-				Math.min(maxHeight, scrollHeight)
+				Math.min(maxHeight, scrollHeight),
 			);
 			inputEl.style.height = `${targetHeight}px`;
 			inputEl.style.overflowY =
@@ -345,19 +345,19 @@ export class ProVibeView extends ItemView {
 
 		// Buttons
 		const buttonContainer = inputControlsArea.createEl("div", {
-			cls: "provibe-button-container flex flex-col gap-1 flex-shrink-0",
+			cls: "hydrate-button-container flex flex-col gap-1 flex-shrink-0",
 		});
 		const clearButton = buttonContainer.createEl("button", {
 			text: "Clear",
-			cls: "provibe-button provibe-clear-button px-3 py-1.5 rounded-md bg-[var(--background-modifier-border)] text-[var(--text-muted)] hover:bg-[var(--background-modifier-hover)] transition-colors duration-150",
+			cls: "hydrate-button hydrate-clear-button px-3 py-1.5 rounded-md bg-[var(--background-modifier-border)] text-[var(--text-muted)] hover:bg-[var(--background-modifier-hover)] transition-colors duration-150",
 		});
 		const sendButton = buttonContainer.createEl("button", {
 			text: "Send",
-			cls: "provibe-button provibe-send-button px-3 py-1.5 rounded-md bg-[var(--interactive-accent)] text-[var(--text-on-accent)] hover:bg-[var(--interactive-accent-hover)] transition-colors duration-150",
+			cls: "hydrate-button hydrate-send-button px-3 py-1.5 rounded-md bg-[var(--interactive-accent)] text-[var(--text-on-accent)] hover:bg-[var(--interactive-accent-hover)] transition-colors duration-150",
 		});
 		this.stopButton = buttonContainer.createEl("button", {
 			text: "Stop",
-			cls: "provibe-button provibe-stop-button px-3 py-1.5 rounded-md bg-red-700 text-white hover:bg-red-600 transition-colors duration-150",
+			cls: "hydrate-button hydrate-stop-button px-3 py-1.5 rounded-md bg-red-700 text-white hover:bg-red-600 transition-colors duration-150",
 		});
 		this.stopButton.style.display = "none";
 
@@ -367,7 +367,7 @@ export class ProVibeView extends ItemView {
 		this.stopButton.addEventListener("click", () => handleStop(this));
 		this.textInput.addEventListener("input", () => handleInputChange(this));
 		this.textInput.addEventListener("keydown", (e) =>
-			handleInputKeydown(this, e)
+			handleInputKeydown(this, e),
 		);
 		this.textInput.addEventListener("click", () => handleInputChange(this));
 		this.textInput.addEventListener("keyup", (e) => {
@@ -399,15 +399,15 @@ export class ProVibeView extends ItemView {
 			(event: DragEvent) => {
 				if (event.dataTransfer) {
 					event.preventDefault();
-					inputAreaContainer.addClass("provibe-drag-over");
+					inputAreaContainer.addClass("hydrate-drag-over");
 				}
-			}
+			},
 		);
 		this.registerDomEvent(inputAreaContainer, "dragleave", () => {
-			inputAreaContainer.removeClass("provibe-drag-over");
+			inputAreaContainer.removeClass("hydrate-drag-over");
 		});
 		this.registerDomEvent(inputAreaContainer, "drop", (e) =>
-			handleDrop(this, e)
+			handleDrop(this, e),
 		);
 
 		// Initial UI setup using imported functions
@@ -424,12 +424,12 @@ export class ProVibeView extends ItemView {
 
 	// --- Backend Communication (Remains in the class, simplified) ---
 	async callBackend(endpoint: string, payload: any) {
-		console.log(`ProVibe: Calling ${endpoint} with payload:`, payload);
+		console.log(`Hydrate: Calling ${endpoint} with payload:`, payload);
 		setDomLoadingState(this, true); // Use aliased function
 		try {
 			// If there's an existing request, abort it
 			if (this.abortController) {
-				console.log("ProVibe: Aborting previous request...");
+				console.log("Hydrate: Aborting previous request...");
 				this.abortController.abort();
 			}
 
@@ -448,7 +448,7 @@ export class ProVibeView extends ItemView {
 
 			if (response.status >= 400) {
 				throw new Error(
-					`Backend error (${response.status}): ${response.text}`
+					`Backend error (${response.status}): ${response.text}`,
 				);
 			}
 
@@ -470,7 +470,7 @@ export class ProVibeView extends ItemView {
 					addMessageToChat(
 						this,
 						"agent",
-						"_(Performing requested action(s)...)_"
+						"_(Performing requested action(s)...)_",
 					);
 				}
 				// If content is empty and no tools, nothing is displayed for the agent turn
@@ -487,7 +487,7 @@ export class ProVibeView extends ItemView {
 			}
 		} catch (error: any) {
 			if (error.name === "AbortError") {
-				console.log("ProVibe: Request aborted by user.");
+				console.log("Hydrate: Request aborted by user.");
 				// No notice needed, as it was user-initiated
 				addMessageToChat(this, "agent", "Generation stopped.");
 			} else {
@@ -496,7 +496,7 @@ export class ProVibeView extends ItemView {
 					this,
 					"system",
 					`Error: ${error.message}`,
-					true
+					true,
 				);
 			}
 			setDomLoadingState(this, false); // Use aliased function
@@ -516,7 +516,7 @@ export class ProVibeView extends ItemView {
 	}
 
 	private async processToolCalls(
-		toolCalls: BackendToolCall[]
+		toolCalls: BackendToolCall[],
 	): Promise<void> {
 		const results: ToolResult[] = [];
 		// Identify all tools that require review (edits or replacements)
@@ -524,20 +524,20 @@ export class ProVibeView extends ItemView {
 			(tc) =>
 				tc.tool === "editFile" ||
 				tc.tool === "replaceSelectionInFile" ||
-				tc.tool === "applyPatchesToFile"
+				tc.tool === "applyPatchesToFile",
 		);
 		// Identify other tools that run directly
 		const otherToolCalls = toolCalls.filter(
 			(tc) =>
 				tc.tool !== "editFile" &&
 				tc.tool !== "replaceSelectionInFile" &&
-				tc.tool !== "applyPatchesToFile"
+				tc.tool !== "applyPatchesToFile",
 		);
 
 		addMessageToChat(
 			this,
 			"system",
-			`Agent requests ${toolCalls.length} action(s)...`
+			`Agent requests ${toolCalls.length} action(s)...`,
 		);
 
 		// Execute non-edit tools first
@@ -546,7 +546,7 @@ export class ProVibeView extends ItemView {
 				addMessageToChat(
 					this,
 					"system",
-					`Executing ${toolCall.tool}...`
+					`Executing ${toolCall.tool}...`,
 				);
 				const result = await this.executeSingleTool(toolCall);
 				results.push({ id: toolCall.id, result });
@@ -554,8 +554,8 @@ export class ProVibeView extends ItemView {
 					this,
 					"system",
 					`Result for ${toolCall.tool}: ${JSON.stringify(
-						result
-					).substring(0, 100)}...`
+						result,
+					).substring(0, 100)}...`,
 				);
 			} catch (error) {
 				console.error(`Error executing tool ${toolCall.tool}:`, error);
@@ -576,11 +576,10 @@ export class ProVibeView extends ItemView {
 					"system",
 					`Review required for changes to ${reviewToolCalls
 						.map((tc) => tc.params.path)
-						.join(", ")}`
+						.join(", ")}`,
 				);
-				const editResults = await this.reviewAndExecuteEdits(
-					reviewToolCalls
-				);
+				const editResults =
+					await this.reviewAndExecuteEdits(reviewToolCalls);
 				results.push(...editResults);
 			} catch (error) {
 				console.error("Error processing file edits:", error);
@@ -606,14 +605,13 @@ export class ProVibeView extends ItemView {
 	// --- Tool Execution (Uses imported tool implementations) ---
 
 	private async reviewAndExecuteEdits(
-		pendingEdits: BackendToolCall[]
+		pendingEdits: BackendToolCall[],
 	): Promise<ToolResult[]> {
 		const results: ToolResult[] = [];
 		for (const toolCall of pendingEdits) {
 			try {
-				const reviewResult = await this.displayDiffModalForReview(
-					toolCall
-				);
+				const reviewResult =
+					await this.displayDiffModalForReview(toolCall);
 
 				// Check the 'applied' property from DiffReviewResult
 				if (reviewResult.applied) {
@@ -624,24 +622,24 @@ export class ProVibeView extends ItemView {
 							addMessageToChat(
 								this,
 								"system",
-								`Applying changes to ${toolCall.params.path}... (editFile)`
+								`Applying changes to ${toolCall.params.path}... (editFile)`,
 							);
 							executionResult = await toolEditFile(
 								this.app,
 								toolCall.params.path,
 								reviewResult.finalContent,
-								toolCall.params.instructions
+								toolCall.params.instructions,
 							);
 						} else {
 							throw new Error(
-								"Edit applied but final content was missing."
+								"Edit applied but final content was missing.",
 							);
 						}
 					} else if (toolCall.tool === "replaceSelectionInFile") {
 						addMessageToChat(
 							this,
 							"system",
-							`Applying changes to ${toolCall.params.path}... (replaceSelectionInFile)`
+							`Applying changes to ${toolCall.params.path}... (replaceSelectionInFile)`,
 						);
 						// For replaceSelection, call the specific tool with its required params
 						// It handles finding the selection and replacing internally
@@ -649,7 +647,7 @@ export class ProVibeView extends ItemView {
 							this.app,
 							toolCall.params.path,
 							toolCall.params.original_selection,
-							toolCall.params.new_content
+							toolCall.params.new_content,
 						);
 					} else if (toolCall.tool === "applyPatchesToFile") {
 						// If approved, apply the finalContent generated during the successful simulation
@@ -657,23 +655,23 @@ export class ProVibeView extends ItemView {
 							addMessageToChat(
 								this,
 								"system",
-								`Applying changes to ${toolCall.params.path}... (applyPatchesToFile)`
+								`Applying changes to ${toolCall.params.path}... (applyPatchesToFile)`,
 							);
 							const file = this.app.vault.getAbstractFileByPath(
-								toolCall.params.path
+								toolCall.params.path,
 							);
 							if (file instanceof TFile) {
 								try {
 									await this.app.vault.modify(
 										file,
-										reviewResult.finalContent
+										reviewResult.finalContent,
 									);
 									executionResult = `Successfully applied patches to ${toolCall.params.path}`;
 									new Notice(executionResult);
 								} catch (e) {
 									console.error(
 										"Error applying simulated patch content:",
-										e
+										e,
 									);
 									executionResult = {
 										error: `Failed to write patched file: ${e.message}`,
@@ -690,13 +688,13 @@ export class ProVibeView extends ItemView {
 								error: "Edit applied but final patch content was missing.",
 							};
 							console.error(
-								"Patch review approved, but finalContent missing from reviewResult."
+								"Patch review approved, but finalContent missing from reviewResult.",
 							);
 						}
 					} else {
 						// Should not happen if filtering in processToolCalls is correct
 						throw new Error(
-							`Unhandled tool type in reviewAndExecuteEdits: ${toolCall.tool}`
+							`Unhandled tool type in reviewAndExecuteEdits: ${toolCall.tool}`,
 						);
 					}
 
@@ -706,7 +704,7 @@ export class ProVibeView extends ItemView {
 						result: executionResult,
 					});
 					new Notice(
-						`File ${toolCall.params.path} updated via ${toolCall.tool}.`
+						`File ${toolCall.params.path} updated via ${toolCall.tool}.`,
 					);
 				} else {
 					results.push({
@@ -719,7 +717,7 @@ export class ProVibeView extends ItemView {
 			} catch (error) {
 				console.error(
 					`Error processing edit for ${toolCall.params.path}:`,
-					error
+					error,
 				);
 				const errorMsg = `Failed to apply edit: ${error.message}`;
 				results.push({
@@ -734,7 +732,7 @@ export class ProVibeView extends ItemView {
 	}
 
 	private displayDiffModalForReview(
-		toolCall: BackendToolCall
+		toolCall: BackendToolCall,
 	): Promise<DiffReviewResult> {
 		return new Promise(async (resolve) => {
 			// Extract common parameters
@@ -762,25 +760,25 @@ export class ProVibeView extends ItemView {
 						// If original selection isn't found, maybe show modal with error or just the new content?
 						// For now, let's show the diff against the original, highlighting the intended change might fail.
 						console.warn(
-							`Original selection for replaceSelectionInFile not found in ${targetPath}. Diff may be inaccurate.`
+							`Original selection for replaceSelectionInFile not found in ${targetPath}. Diff may be inaccurate.`,
 						);
 						// Fallback: show the new content as the proposed change for review, although tool execution might fail later.
 						// Alternatively, we could reject here? Let's show the diff for now.
 						proposedContent = originalContent.replace(
 							original_selection,
-							new_content
+							new_content,
 						);
 					} else {
 						proposedContent = originalContent.replace(
 							original_selection,
-							new_content
+							new_content,
 						);
 					}
 				} else if (toolCall.tool === "applyPatchesToFile") {
 					const patches = toolCall.params.patches as Patch[];
 					if (!Array.isArray(patches)) {
 						throw new Error(
-							"Invalid patches data for applyPatchesToFile."
+							"Invalid patches data for applyPatchesToFile.",
 						);
 					}
 					// Simulate applying patches to get proposed content
@@ -797,18 +795,18 @@ export class ProVibeView extends ItemView {
 						if (contextIndex === -1) {
 							console.error(
 								`Context not found during simulation. Searching for:\n${JSON.stringify(
-									contextString
+									contextString,
 								)}\nin content:\n${JSON.stringify(
-									simulatedContent
-								)}`
+									simulatedContent,
+								)}`,
 							);
 							console.warn(
 								`Context for patch not found during simulation: ${JSON.stringify(
-									patch
-								)}`
+									patch,
+								)}`,
 							);
 							simulationErrors.push(
-								"Context not found for patch."
+								"Context not found for patch.",
 							); // Record error
 							continue;
 						}
@@ -816,16 +814,16 @@ export class ProVibeView extends ItemView {
 						if (
 							simulatedContent.indexOf(
 								contextString,
-								contextIndex + 1
+								contextIndex + 1,
 							) !== -1
 						) {
 							console.warn(
 								`Ambiguous context for patch found during simulation: ${JSON.stringify(
-									patch
-								)}`
+									patch,
+								)}`,
 							);
 							simulationErrors.push(
-								"Ambiguous context for patch."
+								"Ambiguous context for patch.",
 							); // Record error
 							continue;
 						}
@@ -846,12 +844,12 @@ export class ProVibeView extends ItemView {
 				if (simulationErrors.length > 0) {
 					console.error(
 						"Simulation failed, cannot show diff modal reliably.",
-						simulationErrors
+						simulationErrors,
 					);
 					resolve({
 						applied: false,
 						message: `Could not apply patches due to context errors: ${simulationErrors.join(
-							", "
+							", ",
 						)}`,
 						finalContent: originalContent, // Return original content
 						toolCallId: toolCall.id,
@@ -871,21 +869,21 @@ export class ProVibeView extends ItemView {
 					(result: DiffReviewResult) => {
 						// Add type to result
 						resolve(result);
-					}
+					},
 				).open();
 			} catch (error) {
 				console.error(
 					`Error preparing data for DiffReviewModal for ${targetPath}:`,
-					error
+					error,
 				);
 				// Log the original content and tool call on error for debugging
 				console.log(
 					"Original Content during error:",
-					JSON.stringify(originalContent)
+					JSON.stringify(originalContent),
 				);
 				console.log(
 					"Tool Call during error:",
-					JSON.stringify(toolCall)
+					JSON.stringify(toolCall),
 				);
 				// Resolve the promise with a rejected state if we can't even show the modal
 				resolve({
@@ -906,18 +904,18 @@ export class ProVibeView extends ItemView {
 				// This case should ideally not be hit directly anymore if filtering is correct,
 				// but kept for safety. Review logic handles execution.
 				console.warn(
-					"executeSingleTool called for replaceSelectionInFile - should go through review."
+					"executeSingleTool called for replaceSelectionInFile - should go through review.",
 				);
 				// Fallback to direct execution if somehow called directly (not ideal)
 				return await toolReplaceSelectionInFile(
 					this.app,
 					toolCall.params.path,
 					toolCall.params.original_selection,
-					toolCall.params.new_content
+					toolCall.params.new_content,
 				);
 			default:
 				throw new Error(
-					`Unknown or unsupported tool for direct execution: ${toolCall.tool}`
+					`Unknown or unsupported tool for direct execution: ${toolCall.tool}`,
 				);
 		}
 	}
