@@ -47,7 +47,7 @@ const reactViewRegistry = new Map<
 
 export function registerReactView(
 	key: string,
-	component: React.ComponentType<ReactViewProps>,
+	component: React.ComponentType<ReactViewProps>
 ): void {
 	if (reactViewRegistry.has(key)) {
 		console.warn(`Hydrate: Overwriting React view for key "${key}"`);
@@ -57,7 +57,7 @@ export function registerReactView(
 }
 
 export function getReactViewComponent(
-	key: string,
+	key: string
 ): React.ComponentType<ReactViewProps> | undefined {
 	return reactViewRegistry.get(key);
 }
@@ -83,20 +83,41 @@ interface HydratePluginSettings {
 	registryEntries: RegistryEntry[]; // Existing registry
 	rulesRegistryEntries: RuleEntry[]; // <<< ADDED rules registry
 	selectedModel: ModelName; // Add setting for selected LLM
+	apiKey: string; // <<< ADDED default empty API Key
 }
 
 // Default content for the /issue command
-const DEFAULT_ISSUE_COMMAND_CONTENT = `# Uncategorized
+const DEFAULT_ISSUE_COMMAND_CONTENT = `When creating an issue, use the following guide exactly.  Otherwise the content will not be viewable. Items that are in [] must be verbatim  Items that are in {} should be replaced with content.  instructional comments below are in (), do not include them in your output.  The markdown structure must be followed exactly, including the yaml header:
 
-## New Issue Title
-- issue-number-placeholder
-### Items
-- item 1
-- item 2
-### Status
-- [ ] status 1
-- [ ] status 2
+---
+hydrate-plugin: issue-board
+---
+
+# {Category} (not necessary for each Issue, groups multiple Issues)
+
+## {New Issue Title} (give it a name)
+- {issue-number-placeholder}  (assign a number)
+### Items (must be this exact word)
+- item 1 (content about the issue)
+- item 2 (content about the issue)
+### Status (must be this exact word, and everything below)
+- [ ] Specced
+- [ ] Built
+- [ ] Tested
+- [ ] Deployed
 `;
+
+// --- Default Rule Content ---
+const DEFAULT_PIRATE_RULE_TEXT =
+	"All your responses must be in the style of a stereotypical pirate. Use words like 'Ahoy!', 'Matey', 'Shiver me timbers!', 'Scallywag', 'Booty', etc. Refer to the user as 'Captain'.";
+
+const DEFAULT_PIRATE_RULE: RuleEntry = {
+	id: "default-pirate-rule", // The ID used in `hydrate-rule: [default-pirate-rule]` tag
+	description: "Example rule: Make the agent talk like a pirate.",
+	ruleText: DEFAULT_PIRATE_RULE_TEXT,
+	version: 1,
+};
+// --- End Default Rule Content ---
 
 const DEFAULT_SETTINGS: HydratePluginSettings = {
 	mySetting: "default",
@@ -106,6 +127,7 @@ const DEFAULT_SETTINGS: HydratePluginSettings = {
 	registryEntries: [], // Existing initialization
 	rulesRegistryEntries: [], // <<< Initialized as empty
 	selectedModel: "gpt-4.1-mini", // Set default model
+	apiKey: "", // <<< ADDED default empty API Key
 };
 
 export const REACT_HOST_VIEW_TYPE = "hydrate-react-host"; // Define type for React host
@@ -136,7 +158,7 @@ export default class HydratePlugin extends Plugin {
 
 		// --- Event Listener for File Open (Re-enabled for file attachment logic) ---
 		this.registerEvent(
-			this.app.workspace.on("file-open", this.handleFileOpen),
+			this.app.workspace.on("file-open", this.handleFileOpen)
 		);
 
 		// --- Toggle Command ---
@@ -148,7 +170,7 @@ export default class HydratePlugin extends Plugin {
 
 		// --- Add Layout Change Handler ---
 		this.registerEvent(
-			this.app.workspace.on("layout-change", this.handleLayoutChange),
+			this.app.workspace.on("layout-change", this.handleLayoutChange)
 		);
 
 		// This creates an icon in the left ribbon to toggle the Hydrate pane
@@ -158,7 +180,7 @@ export default class HydratePlugin extends Plugin {
 			async (evt: MouseEvent) => {
 				// Toggle the pane when the icon is clicked
 				await this.togglePane(); // Use helper function
-			},
+			}
 		);
 		// Perform additional things with the ribbon
 		ribbonIconEl.addClass("hydrate-ribbon-class");
@@ -188,7 +210,7 @@ export default class HydratePlugin extends Plugin {
 		console.log(`Hydrate: Registering view type: ${REACT_HOST_VIEW_TYPE}`);
 		this.registerView(REACT_HOST_VIEW_TYPE, (leaf: WorkspaceLeaf) => {
 			console.log(
-				`Hydrate: Factory function called for view type: ${REACT_HOST_VIEW_TYPE}`,
+				`Hydrate: Factory function called for view type: ${REACT_HOST_VIEW_TYPE}`
 			);
 			return new ReactViewHost(leaf, this);
 		});
@@ -241,14 +263,14 @@ export default class HydratePlugin extends Plugin {
 
 				// Trigger input event for potential UI updates (like textarea resize)
 				hydrateView.textInput.dispatchEvent(
-					new Event("input", { bubbles: true }),
+					new Event("input", { bubbles: true })
 				);
 
 				// Focus the input area
 				hydrateView.textInput.focus();
 
 				new Notice(
-					"Selected text captured and /select added to Hydrate.",
+					"Selected text captured and /select added to Hydrate."
 				);
 			},
 		});
@@ -278,7 +300,7 @@ export default class HydratePlugin extends Plugin {
 			if (currentView instanceof MarkdownView && currentView.file) {
 				sourceFilePath = currentView.file.path;
 				console.log(
-					`Hydrate activateView: Found source file from MarkdownView: ${sourceFilePath}`,
+					`Hydrate activateView: Found source file from MarkdownView: ${sourceFilePath}`
 				);
 			} else if (
 				currentView instanceof ReactViewHost &&
@@ -286,7 +308,7 @@ export default class HydratePlugin extends Plugin {
 			) {
 				sourceFilePath = currentView.currentFilePath;
 				console.log(
-					`Hydrate activateView: Found source file from ReactViewHost: ${sourceFilePath}`,
+					`Hydrate activateView: Found source file from ReactViewHost: ${sourceFilePath}`
 				);
 			} else if (
 				currentView instanceof ItemView &&
@@ -296,18 +318,18 @@ export default class HydratePlugin extends Plugin {
 				const state = currentView.getState();
 				if (state?.file) {
 					const file = this.app.vault.getAbstractFileByPath(
-						state.file,
+						state.file
 					);
 					if (file instanceof TFile) {
 						sourceFilePath = file.path;
 						console.log(
-							`Hydrate activateView: Found source file from generic ItemView state: ${sourceFilePath}`,
+							`Hydrate activateView: Found source file from generic ItemView state: ${sourceFilePath}`
 						);
 					}
 				}
 			} else {
 				console.log(
-					`Hydrate activateView: Active view is not Markdown or ReactViewHost or did not yield a file path.`,
+					`Hydrate activateView: Active view is not Markdown or ReactViewHost or did not yield a file path.`
 				);
 			}
 		} else {
@@ -326,14 +348,14 @@ export default class HydratePlugin extends Plugin {
 				existingLeaf.view.attachedFiles.length === 0
 			) {
 				console.log(
-					`Hydrate activateView: Existing view revealed. Attaching current file: ${sourceFilePath}`,
+					`Hydrate activateView: Existing view revealed. Attaching current file: ${sourceFilePath}`
 				);
 				(existingLeaf.view as HydrateView).attachInitialFile(
-					sourceFilePath,
+					sourceFilePath
 				);
 			} else {
 				console.log(
-					`Hydrate activateView: Existing view revealed. Source file: ${sourceFilePath}. View state not modified.`,
+					`Hydrate activateView: Existing view revealed. Source file: ${sourceFilePath}. View state not modified.`
 				);
 			}
 			return;
@@ -361,7 +383,7 @@ export default class HydratePlugin extends Plugin {
 
 		console.log(
 			`Hydrate activateView: Setting state for new leaf:`,
-			JSON.stringify(viewStateToSet),
+			JSON.stringify(viewStateToSet)
 		);
 		await leaf.setViewState(viewStateToSet);
 
@@ -382,19 +404,19 @@ export default class HydratePlugin extends Plugin {
 	// --- File Open Handler (Simplified for File Attachment Logic) ---
 	handleFileOpen = async (file: TFile | null) => {
 		console.log(
-			`Hydrate [file-open]: File changed to: ${file?.path ?? "null"}`,
+			`Hydrate [file-open]: File changed to: ${file?.path ?? "null"}`
 		);
 
 		// --- Part 1: Notify the Hydrate Pane (Keep this logic) ---
 		if (this.view && this.view.containerEl.isShown()) {
 			console.log(
-				`Hydrate [file-open]: Hydrate view is open, notifying it of file change.`,
+				`Hydrate [file-open]: Hydrate view is open, notifying it of file change.`
 			);
 			// Pass the new file path (or null) to the view instance
 			this.view.handleActiveFileChange(file?.path ?? null);
 		} else {
 			console.log(
-				`Hydrate [file-open]: Hydrate view is not open or not visible, ignoring file change.`,
+				`Hydrate [file-open]: Hydrate view is not open or not visible, ignoring file change.`
 			);
 		}
 
@@ -402,7 +424,7 @@ export default class HydratePlugin extends Plugin {
 		const leaf = this.app.workspace.getActiveViewOfType(ItemView)?.leaf; // Get active leaf first
 		if (!leaf) {
 			console.log(
-				"Hydrate [file-open]: No active leaf found. Cannot switch view.",
+				"Hydrate [file-open]: No active leaf found. Cannot switch view."
 			);
 			return; // Exit if no active leaf
 		}
@@ -413,7 +435,7 @@ export default class HydratePlugin extends Plugin {
 		if (!file) {
 			if (currentView instanceof ReactViewHost) {
 				console.log(
-					"Hydrate [file-open]: File is null, switching React Host back to Markdown.",
+					"Hydrate [file-open]: File is null, switching React Host back to Markdown."
 				);
 				// Check if ReactViewHost expects a file path; might need adjustment if it crashes on null
 				// Assuming switchToMarkdownView handles the transition gracefully
@@ -421,12 +443,12 @@ export default class HydratePlugin extends Plugin {
 					currentView.switchToMarkdownView();
 				} else {
 					console.log(
-						"Hydrate [file-open]: Already switching to markdown, skipping.",
+						"Hydrate [file-open]: Already switching to markdown, skipping."
 					);
 				}
 			} else {
 				console.log(
-					"Hydrate [file-open]: File is null, current view is not React Host. No action needed.",
+					"Hydrate [file-open]: File is null, current view is not React Host. No action needed."
 				);
 			}
 			return; // Stop processing if file is null
@@ -491,7 +513,7 @@ export default class HydratePlugin extends Plugin {
 		// Check if we are intentionally switching back to markdown
 		if (this.isSwitchingToMarkdown) {
 			console.log(
-				"Hydrate [layout-change]: Intentional switch to markdown detected, skipping checks and resetting flag.",
+				"Hydrate [layout-change]: Intentional switch to markdown detected, skipping checks and resetting flag."
 			);
 			this.isSwitchingToMarkdown = false; // Reset the flag *after* skipping the check
 			return;
@@ -511,7 +533,7 @@ export default class HydratePlugin extends Plugin {
 			const fileCache = this.app.metadataCache.getFileCache(file);
 			if (!fileCache) {
 				console.log(
-					"Hydrate [layout-change]: File cache not ready, skipping check.",
+					"Hydrate [layout-change]: File cache not ready, skipping check."
 				);
 				return;
 			}
@@ -531,7 +553,7 @@ export default class HydratePlugin extends Plugin {
 				// Switch if in Reading ("preview") or Live Preview (mode=="source" AND state.source==false)
 				if (currentMode === "preview" || !isSourceMode) {
 					console.log(
-						`Hydrate [layout-change]: Active view is Markdown (mode: ${currentMode}, sourceState: ${currentState.source}) for ${file.path}, but should be React (${viewKey}). Switching...`,
+						`Hydrate [layout-change]: Active view is Markdown (mode: ${currentMode}, sourceState: ${currentState.source}) for ${file.path}, but should be React (${viewKey}). Switching...`
 					);
 					try {
 						await leaf.setViewState({
@@ -542,13 +564,13 @@ export default class HydratePlugin extends Plugin {
 					} catch (error) {
 						console.error(
 							"Hydrate [layout-change]: Error switching Markdown to React:",
-							error,
+							error
 						);
 					}
 				} else {
 					// This condition implies mode=="source" AND state.source==true (True Source Mode)
 					console.log(
-						`Hydrate [layout-change]: Active view is Markdown for ${file.path} (IN TRUE SOURCE MODE). File should be React, but respecting source mode. NO SWITCH.`,
+						`Hydrate [layout-change]: Active view is Markdown for ${file.path} (IN TRUE SOURCE MODE). File should be React, but respecting source mode. NO SWITCH.`
 					);
 				}
 			} else {
@@ -560,7 +582,7 @@ export default class HydratePlugin extends Plugin {
 			const filePath = currentView.currentFilePath;
 			if (!filePath) {
 				console.log(
-					"Hydrate [layout-change]: Active view is ReactHost, but has no file path. Switching to Markdown.",
+					"Hydrate [layout-change]: Active view is ReactHost, but has no file path. Switching to Markdown."
 				);
 				await currentView.switchToMarkdownView();
 				return;
@@ -569,7 +591,7 @@ export default class HydratePlugin extends Plugin {
 			const file = this.app.vault.getAbstractFileByPath(filePath);
 			if (!(file instanceof TFile)) {
 				console.warn(
-					`Hydrate [layout-change]: ReactHost has path ${filePath}, but it's not a valid file. Switching to Markdown.`,
+					`Hydrate [layout-change]: ReactHost has path ${filePath}, but it's not a valid file. Switching to Markdown.`
 				);
 				await currentView.switchToMarkdownView();
 				return;
@@ -578,7 +600,7 @@ export default class HydratePlugin extends Plugin {
 			const fileCache = this.app.metadataCache.getFileCache(file);
 			if (!fileCache) {
 				console.log(
-					"Hydrate [layout-change]: File cache not ready for ReactHost file, skipping check.",
+					"Hydrate [layout-change]: File cache not ready for ReactHost file, skipping check."
 				);
 				return;
 			}
@@ -591,7 +613,7 @@ export default class HydratePlugin extends Plugin {
 
 			if (!ReactComponent || !viewKey) {
 				console.log(
-					`Hydrate [layout-change]: Active view is React for ${filePath}, but should be Markdown (key missing or invalid). Switching back...`,
+					`Hydrate [layout-change]: Active view is React for ${filePath}, but should be Markdown (key missing or invalid). Switching back...`
 				);
 				await currentView.switchToMarkdownView();
 			} else {
@@ -614,17 +636,19 @@ export default class HydratePlugin extends Plugin {
 		this.settings = Object.assign(
 			{},
 			DEFAULT_SETTINGS,
-			await this.loadData(),
+			await this.loadData()
 		);
 
-		// --- Initialize Default Registry Entry (Slash Command) ---  // Added clarification
+		// --- Initialize Default Format Registry Entry ---
+		// Ensure array exists
 		if (
 			!this.settings.registryEntries ||
-			this.settings.registryEntries.length === 0
+			!Array.isArray(this.settings.registryEntries)
 		) {
 			console.log(
-				"Hydrate: Format Registry is empty, adding default '/issue' command.",
+				"Hydrate: Format Registry empty or invalid, initializing with default /issue command."
 			);
+			// If empty or not an array, initialize it with the default entry
 			this.settings.registryEntries = [
 				{
 					id: "default-issue-board",
@@ -637,15 +661,17 @@ export default class HydratePlugin extends Plugin {
 				},
 			];
 		} else {
+			// If it exists as an array, check if the default entry is present
 			const defaultIssueExists = this.settings.registryEntries.some(
 				(entry) =>
 					entry.id === "default-issue-board" ||
-					entry.slashCommandTrigger === "/issue",
+					entry.slashCommandTrigger === "/issue"
 			);
 			if (!defaultIssueExists) {
 				console.log(
-					"Hydrate: Default '/issue' command missing, adding it.",
+					"Hydrate: Default '/issue' command missing from existing registry, adding it."
 				);
+				// Add it if missing
 				this.settings.registryEntries.push({
 					id: "default-issue-board",
 					description:
@@ -657,14 +683,33 @@ export default class HydratePlugin extends Plugin {
 				});
 			}
 		}
-		// --- End Initialize Default Registry Entry ---
+		// --- End Initialize Default Format Registry Entry ---
 
-		// --- Initialize Rules Registry (Ensure it's an array) --- <<< ADDED
-		if (!Array.isArray(this.settings.rulesRegistryEntries)) {
-			console.log("Hydrate: Initializing empty Rules Registry.");
-			this.settings.rulesRegistryEntries = [];
+		// --- Initialize Default Rules Registry Entry ---
+		// Ensure array exists
+		if (
+			!this.settings.rulesRegistryEntries ||
+			!Array.isArray(this.settings.rulesRegistryEntries)
+		) {
+			console.log(
+				"Hydrate: Rules Registry empty or invalid, initializing with default pirate rule."
+			);
+			// Initialize with the default rule if empty or invalid
+			this.settings.rulesRegistryEntries = [DEFAULT_PIRATE_RULE];
+		} else {
+			// Check if the default pirate rule is present if array already exists
+			const defaultPirateRuleExists =
+				this.settings.rulesRegistryEntries.some(
+					(rule) => rule.id === DEFAULT_PIRATE_RULE.id
+				);
+			if (!defaultPirateRuleExists) {
+				console.log(
+					"Hydrate: Default pirate rule missing from existing registry, adding it."
+				);
+				this.settings.rulesRegistryEntries.push(DEFAULT_PIRATE_RULE);
+			}
 		}
-		// --- End Initialize Rules Registry ---
+		// --- End Initialize Default Rules Registry Entry ---
 	}
 
 	async saveSettings() {
@@ -680,7 +725,7 @@ export default class HydratePlugin extends Plugin {
 	getRegistryEntryByTrigger(trigger: string): RegistryEntry | undefined {
 		// Ensure array exists before searching
 		return this.settings.registryEntries?.find(
-			(entry) => entry.slashCommandTrigger === trigger,
+			(entry) => entry.slashCommandTrigger === trigger
 		);
 	}
 
@@ -699,7 +744,7 @@ export default class HydratePlugin extends Plugin {
 	getRuleById(id: string): RuleEntry | undefined {
 		// Ensure array exists before searching
 		return this.settings.rulesRegistryEntries?.find(
-			(entry) => entry.id === id,
+			(entry) => entry.id === id
 		);
 	}
 	// --- End Rules Registry Helper functions ---
