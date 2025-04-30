@@ -39,7 +39,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("Default LLM Model")
 			.setDesc(
-				"Select the language model to use for the agent. Ensure you have the corresponding API key set in the backend environment (e.g., .env file with OPENAI_API_KEY, ANTHROPIC_API_KEY, or GOOGLE_API_KEY).",
+				"Select the language model to use for the agent. Ensure you have the corresponding API key set in the backend environment (e.g., .env file with OPENAI_API_KEY, ANTHROPIC_API_KEY, or GOOGLE_API_KEY)."
 			)
 			.addDropdown((dropdown) => {
 				// Add options dynamically from the allowed list
@@ -59,7 +59,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("Backend URL")
 			.setDesc(
-				"URL of the Hydrate agent backend (e.g., http://localhost:8000).",
+				"URL of the Hydrate agent backend (e.g., http://localhost:8000)."
 			)
 			.addText((text) => {
 				text.setPlaceholder("http://localhost:8000")
@@ -97,10 +97,30 @@ export class HydrateSettingTab extends PluginSettingTab {
 				});
 			});
 
+		// --- ADDED API KEY SETTING ---
+		new Setting(containerEl)
+			.setName("API Key")
+			.setDesc(
+				"The API key required to authenticate with the backend service. This must match the HYDRATE_API_KEY on the server."
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder("Enter your API key")
+					.setValue(this.plugin.settings.apiKey) // Use the apiKey setting
+					.onChange(async (value) => {
+						// Basic trim, no complex validation needed here
+						this.plugin.settings.apiKey = value.trim();
+						await this.plugin.saveSettings();
+						// Optionally add a notice, though maybe not necessary for key changes
+						// new Notice("API Key updated.");
+					})
+			);
+		// --- END ADDED API KEY SETTING ---
+
 		new Setting(containerEl)
 			.setName("Development Path")
 			.setDesc(
-				"Internal setting: Path to the plugin development directory.",
+				"Internal setting: Path to the plugin development directory."
 			)
 			.addText((text) =>
 				text
@@ -109,12 +129,12 @@ export class HydrateSettingTab extends PluginSettingTab {
 					.onChange(async (value) => {
 						this.plugin.settings.developmentPath = value.trim();
 						await this.plugin.saveSettings();
-					}),
+					})
 			);
 
 		// --- Format & Context Registry Section ---
 		const formatRegistrySection = containerEl.createDiv(
-			"hydrate-settings-section",
+			"hydrate-settings-section"
 		);
 		const formatHeadingEl = formatRegistrySection.createEl("div", {
 			cls: "hydrate-settings-heading",
@@ -143,9 +163,9 @@ export class HydrateSettingTab extends PluginSettingTab {
 						new Notice(
 							`Added format entry: ${
 								newEntry.description || newEntry.id
-							}`,
+							}`
 						);
-					},
+					}
 				);
 				modal.open();
 			});
@@ -156,14 +176,14 @@ export class HydrateSettingTab extends PluginSettingTab {
 		});
 
 		const formatRegistryListEl = formatRegistrySection.createDiv(
-			"hydrate-registry-list",
+			"hydrate-registry-list"
 		); // Container for the list items
 
 		this.renderFormatRegistryList(formatRegistryListEl); // Call helper to render the list items
 
 		// --- Rules Registry Section ---
 		const rulesRegistrySection = containerEl.createDiv(
-			"hydrate-settings-section",
+			"hydrate-settings-section"
 		);
 		const rulesHeadingEl = rulesRegistrySection.createEl("div", {
 			cls: "hydrate-settings-heading",
@@ -188,9 +208,9 @@ export class HydrateSettingTab extends PluginSettingTab {
 						this.plugin.saveSettings();
 						this.renderRulesRegistryList(rulesRegistryListEl); // Re-render the rules list
 						new Notice(
-							`Added rule: ${newRule.description || newRule.id}`,
+							`Added rule: ${newRule.description || newRule.id}`
 						);
-					},
+					}
 				);
 				modal.open();
 			});
@@ -199,7 +219,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 			cls: "setting-item-description",
 		});
 		const rulesRegistryListEl = rulesRegistrySection.createDiv(
-			"hydrate-registry-list",
+			"hydrate-registry-list"
 		);
 		this.renderRulesRegistryList(rulesRegistryListEl); // Call rules list renderer
 
@@ -223,7 +243,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 		// Sort alphabetically by description for consistent order
 		entries.sort((a, b) =>
-			(a.description || a.id).localeCompare(b.description || b.id),
+			(a.description || a.id).localeCompare(b.description || b.id)
 		);
 
 		entries.forEach((entry) => {
@@ -232,7 +252,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 				.setDesc(
 					`Trigger: ${entry.slashCommandTrigger || "None"} | Type: ${
 						entry.contentType
-					} | v${entry.version}`,
+					} | v${entry.version}`
 				)
 				.setClass("hydrate-registry-item") // Custom class for item styling
 
@@ -254,7 +274,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 											.map((e) =>
 												e.id === updatedEntry.id
 													? updatedEntry
-													: e,
+													: e
 											);
 									this.plugin.saveSettings();
 									this.renderFormatRegistryList(containerEl); // Use specific renderer
@@ -262,12 +282,12 @@ export class HydrateSettingTab extends PluginSettingTab {
 										`Updated format entry: ${
 											updatedEntry.description ||
 											updatedEntry.id
-										}`,
+										}`
 									);
-								},
+								}
 							);
 							modal.open();
-						}),
+						})
 				)
 				// Delete Button
 				.addButton((button) =>
@@ -281,7 +301,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 								confirm(
 									`Are you sure you want to delete "${
 										entry.description || entry.id
-									}"?`,
+									}"?`
 								)
 							) {
 								this.plugin.settings.registryEntries =
@@ -293,10 +313,10 @@ export class HydrateSettingTab extends PluginSettingTab {
 								new Notice(
 									`Deleted format entry: ${
 										entry.description || entry.id
-									}`,
+									}`
 								);
 							}
-						}),
+						})
 				);
 		});
 	}
@@ -317,7 +337,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 		// Sort alphabetically by description or ID for consistent order
 		rules.sort((a, b) =>
-			(a.description || a.id).localeCompare(b.description || b.id),
+			(a.description || a.id).localeCompare(b.description || b.id)
 		);
 
 		rules.forEach((rule) => {
@@ -344,7 +364,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 											.map((r) =>
 												r.id === updatedRule.id
 													? updatedRule
-													: r,
+													: r
 											);
 									this.plugin.saveSettings();
 									this.renderRulesRegistryList(containerEl); // Re-render this list
@@ -352,12 +372,12 @@ export class HydrateSettingTab extends PluginSettingTab {
 										`Updated rule: ${
 											updatedRule.description ||
 											updatedRule.id
-										}`,
+										}`
 									);
-								},
+								}
 							);
 							modal.open();
-						}),
+						})
 				)
 				// Delete Button
 				.addButton((button) =>
@@ -370,7 +390,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 								confirm(
 									`Are you sure you want to delete the rule "${
 										rule.description || rule.id
-									}"?`,
+									}"?`
 								)
 							) {
 								this.plugin.settings.rulesRegistryEntries =
@@ -382,10 +402,10 @@ export class HydrateSettingTab extends PluginSettingTab {
 								new Notice(
 									`Deleted rule: ${
 										rule.description || rule.id
-									}`,
+									}`
 								);
 							}
-						}),
+						})
 				);
 		});
 	}
