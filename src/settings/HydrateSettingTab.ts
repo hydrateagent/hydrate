@@ -117,21 +117,6 @@ export class HydrateSettingTab extends PluginSettingTab {
 			);
 		// --- END ADDED API KEY SETTING ---
 
-		new Setting(containerEl)
-			.setName("Development Path")
-			.setDesc(
-				"Internal setting: Path to the plugin development directory."
-			)
-			.addText((text) =>
-				text
-					.setPlaceholder(".obsidian/plugins/hydrate")
-					.setValue(this.plugin.settings.developmentPath)
-					.onChange(async (value) => {
-						this.plugin.settings.developmentPath = value.trim();
-						await this.plugin.saveSettings();
-					})
-			);
-
 		// --- Format & Context Registry Section ---
 		const formatRegistrySection = containerEl.createDiv(
 			"hydrate-settings-section"

@@ -108,13 +108,27 @@ hydrate-plugin: issue-board
 `;
 
 // --- Default Rule Content ---
-const DEFAULT_PIRATE_RULE_TEXT =
-	"All your responses must be in the style of a stereotypical pirate. Use words like 'Ahoy!', 'Matey', 'Shiver me timbers!', 'Scallywag', 'Booty', etc. Refer to the user as 'Captain'.";
+const DEFAULT_CONVERSATION_RULE_TEXT = `This rules controls how text can be added to this file.  Whenever the user asks for an edit to this file, he wants you to follow the following rules. This file is structured as a conversation between you and the user.  It must be structured with alternating headers, noting who is to speaking:
 
-const DEFAULT_PIRATE_RULE: RuleEntry = {
-	id: "default-pirate-rule", // The ID used in `hydrate-rule: [default-pirate-rule]` tag
-	description: "Example rule: Make the agent talk like a pirate.",
-	ruleText: DEFAULT_PIRATE_RULE_TEXT,
+
+## User
+
+<their questions go here>
+
+## Agent
+
+<your responses go here>
+
+
+This alternating pattern should repeat down the page.  When the user makes their input, you answer with an edit that appends the new exchange to the end of the file:
+
+1) First their question under a new User heading
+2) Next your answer under a new Agent heading.`;
+
+const DEFAULT_CONVERSATION_RULE: RuleEntry = {
+	id: "default-conversation-rule", // The ID used in `hydrate-rule: [default-conversation-rule]` tag
+	description: "Example rule: Structure file as User/Agent conversation.",
+	ruleText: DEFAULT_CONVERSATION_RULE_TEXT,
 	version: 1,
 };
 // --- End Default Rule Content ---
@@ -692,21 +706,23 @@ export default class HydratePlugin extends Plugin {
 			!Array.isArray(this.settings.rulesRegistryEntries)
 		) {
 			console.log(
-				"Hydrate: Rules Registry empty or invalid, initializing with default pirate rule."
+				"Hydrate: Rules Registry empty or invalid, initializing with default conversation rule."
 			);
 			// Initialize with the default rule if empty or invalid
-			this.settings.rulesRegistryEntries = [DEFAULT_PIRATE_RULE];
+			this.settings.rulesRegistryEntries = [DEFAULT_CONVERSATION_RULE];
 		} else {
-			// Check if the default pirate rule is present if array already exists
-			const defaultPirateRuleExists =
+			// Check if the default conversation rule is present if array already exists
+			const defaultConversationRuleExists =
 				this.settings.rulesRegistryEntries.some(
-					(rule) => rule.id === DEFAULT_PIRATE_RULE.id
+					(rule) => rule.id === DEFAULT_CONVERSATION_RULE.id
 				);
-			if (!defaultPirateRuleExists) {
+			if (!defaultConversationRuleExists) {
 				console.log(
-					"Hydrate: Default pirate rule missing from existing registry, adding it."
+					"Hydrate: Default conversation rule missing from existing registry, adding it."
 				);
-				this.settings.rulesRegistryEntries.push(DEFAULT_PIRATE_RULE);
+				this.settings.rulesRegistryEntries.push(
+					DEFAULT_CONVERSATION_RULE
+				);
 			}
 		}
 		// --- End Initialize Default Rules Registry Entry ---

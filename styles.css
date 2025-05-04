@@ -770,6 +770,26 @@
     }
   }
 }
+.hydrate-user-message::-moz-selection {
+  background-color: hsl(
+		210,
+		100%,
+		75%
+	);
+  color: var(
+		--text-normal
+	);
+}
+.hydrate-user-message::selection {
+  background-color: hsl(
+		210,
+		100%,
+		75%
+	);
+  color: var(
+		--text-normal
+	);
+}
 @property --tw-space-y-reverse {
   syntax: "*";
   inherits: false;

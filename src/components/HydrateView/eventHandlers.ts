@@ -41,7 +41,7 @@ export const handleDrop = (view: HydrateView, event: DragEvent): void => {
 	event.stopPropagation();
 	const containerEl = view.containerEl;
 	const inputAreaContainer = containerEl.querySelector(
-		".hydrate-input-area-container",
+		".hydrate-input-area-container"
 	);
 	if (!inputAreaContainer) return;
 	inputAreaContainer.classList.remove("hydrate-drag-over");
@@ -84,13 +84,13 @@ export const handleDrop = (view: HydrateView, event: DragEvent): void => {
 						decodeURIComponent(filePathParam);
 				} else {
 					console.warn(
-						`Hydrate drop: No 'file' param in URI: ${potentialPath}`,
+						`Hydrate drop: No 'file' param in URI: ${potentialPath}`
 					);
 				}
 			} catch (e) {
 				console.error(
 					`Hydrate drop: Error parsing URI: ${potentialPath}`,
-					e,
+					e
 				);
 			}
 		} else if (potentialPath.startsWith("file://")) {
@@ -103,7 +103,7 @@ export const handleDrop = (view: HydrateView, event: DragEvent): void => {
 			} catch (e) {
 				console.error(
 					`Hydrate drop: Error decoding file URI: ${potentialPath}`,
-					e,
+					e
 				);
 			}
 		} else {
@@ -112,7 +112,7 @@ export const handleDrop = (view: HydrateView, event: DragEvent): void => {
 
 		if (normalizedPathForComparison) {
 			const directMatch = view.app.vault.getAbstractFileByPath(
-				normalizedPathForComparison,
+				normalizedPathForComparison
 			);
 			if (directMatch instanceof TFile) {
 				foundVaultFile = directMatch;
@@ -124,8 +124,8 @@ export const handleDrop = (view: HydrateView, event: DragEvent): void => {
 					allVaultFiles.find(
 						(vf: TFile) =>
 							lowerCaseNormalized.endsWith(
-								"/" + vf.path.toLowerCase(),
-							) || lowerCaseNormalized === vf.path.toLowerCase(),
+								"/" + vf.path.toLowerCase()
+							) || lowerCaseNormalized === vf.path.toLowerCase()
 					) || null;
 			}
 			if (!foundVaultFile) {
@@ -133,8 +133,8 @@ export const handleDrop = (view: HydrateView, event: DragEvent): void => {
 					vf.path
 						.toLowerCase()
 						.startsWith(
-							normalizedPathForComparison!.toLowerCase() + ".",
-						),
+							normalizedPathForComparison!.toLowerCase() + "."
+						)
 				);
 				if (possibleMatches.length === 1) {
 					foundVaultFile = possibleMatches[0];
@@ -142,7 +142,7 @@ export const handleDrop = (view: HydrateView, event: DragEvent): void => {
 					console.warn(
 						`Hydrate drop: Ambiguous match for ${normalizedPathForComparison}: Found ${possibleMatches
 							.map((f: TFile) => f.path)
-							.join(", ")}`,
+							.join(", ")}`
 					);
 				}
 			}
@@ -172,7 +172,7 @@ export const handleDrop = (view: HydrateView, event: DragEvent): void => {
 
 	if (failedPaths.length > 0) {
 		new Notice(
-			`Could not resolve ${failedPaths.length} dropped item(s) to vault files.`,
+			`Could not resolve ${failedPaths.length} dropped item(s) to vault files.`
 		);
 	}
 };
@@ -183,7 +183,7 @@ export const handleDrop = (view: HydrateView, event: DragEvent): void => {
 export const removeFilePill = (view: HydrateView, filePath: string): void => {
 	const initialLength = view.attachedFiles.length;
 	view.attachedFiles = view.attachedFiles.filter(
-		(path: string) => path !== filePath,
+		(path: string) => path !== filePath
 	);
 	const removed = initialLength > view.attachedFiles.length;
 
@@ -223,7 +223,7 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 	const capturedSelections = [...view.capturedSelections]; // Copy array
 	if (capturedSelections.length > 0) {
 		console.log(
-			`[handleSend] Found ${capturedSelections.length} captured selection(s).`,
+			`[handleSend] Found ${capturedSelections.length} captured selection(s).`
 		);
 		for (let i = 0; i < capturedSelections.length; i++) {
 			const index = i + 1; // 1-based index for token
@@ -236,11 +236,11 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 				// Use replaceAll in case the same token was somehow added multiple times (though command logic prevents this)
 				payloadContent = payloadContent.replaceAll(token, replacement);
 				console.log(
-					`[handleSend] Replaced ${token} with Selected Text ${index}.`,
+					`[handleSend] Replaced ${token} with Selected Text ${index}.`
 				);
 			} else {
 				console.warn(
-					`[handleSend] Token ${token} not found in payloadContent, but selection ${index} was captured.`,
+					`[handleSend] Token ${token} not found in payloadContent, but selection ${index} was captured.`
 				);
 				// Optionally add a note about the unused selection?
 			}
@@ -264,12 +264,12 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 
 		if (triggerMap.size > 0) {
 			const escapedTriggers = Array.from(triggerMap.keys()).map((cmd) =>
-				cmd.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&"),
+				cmd.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&")
 			);
 			// Regex to find registered commands *only*
 			const commandRegex = new RegExp(
 				`(?<!\\S)(${escapedTriggers.join("|")})(?=\\s|$)`, // Added negative lookbehind for start of word
-				"g",
+				"g"
 			);
 
 			// Perform replacement directly on payloadContent
@@ -281,7 +281,7 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 	}
 	console.log(
 		"[handleSend] payloadContent after registered command processing:",
-		payloadContent,
+		payloadContent
 	);
 	// --- End Step 2 ---
 
@@ -318,20 +318,20 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 							// rulesToApplyThisTurn.push(rule); // Optional
 							rulesContextToSend += `\n\n--- Begin Applied Rule: ${rule.id} ---\n${rule.ruleText}\n--- End Applied Rule: ${rule.id} ---\n`;
 							console.log(
-								`[handleSend] Applying rule '${ruleId}' for the first time this conversation.`,
+								`[handleSend] Applying rule '${ruleId}' for the first time this conversation.`
 							);
 						}
 					}
 				}
 			} else {
 				console.warn(
-					`[handleSend] Could not find TFile for rule check: ${filePath}`,
+					`[handleSend] Could not find TFile for rule check: ${filePath}`
 				);
 			}
 		} catch (error) {
 			console.error(
 				`[handleSend] Error processing rules for file ${filePath}:`,
-				error,
+				error
 			);
 		}
 	}
@@ -359,7 +359,7 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 			console.log(
 				`[handleSend] Reading content for ${filePath} (Convo: ${
 					currentConvoId || "NEW"
-				})`,
+				})`
 			);
 			try {
 				const file = view.app.vault.getAbstractFileByPath(filePath);
@@ -370,18 +370,18 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 					if (registryKey) {
 						view.sentFileContentRegistry.add(registryKey);
 						console.log(
-							`[handleSend] Added ${registryKey} to sent registry.`,
+							`[handleSend] Added ${registryKey} to sent registry.`
 						);
 					}
 				} else {
 					console.warn(
-						`[handleSend] Attached path is not a TFile: ${filePath}`,
+						`[handleSend] Attached path is not a TFile: ${filePath}`
 					);
 				}
 			} catch (error) {
 				console.error(
 					`[handleSend] Error reading attached file ${filePath}:`,
-					error,
+					error
 				);
 			}
 		}
@@ -402,7 +402,7 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 
 	console.log(
 		"[handleSend] Final combinedPayload (length):",
-		combinedPayload.length,
+		combinedPayload.length
 	);
 	// console.log("[handleSend] Final combinedPayload (snippet):", combinedPayload.substring(0, 500)); // Log snippet
 
@@ -412,7 +412,7 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 		view,
 		"user",
 		originalMessageContent ||
-			`(Sent with ${currentAttachedFiles.length} attached file(s))`,
+			`(Sent with ${currentAttachedFiles.length} attached file(s))`
 	);
 
 	const payload: any = {
@@ -433,7 +433,7 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 			view,
 			"system",
 			`Error: ${error.message || "Failed to connect to backend"}`,
-			true,
+			true
 		);
 		setDomLoadingState(view, false);
 	} finally {
@@ -446,37 +446,82 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 };
 
 /**
- * Stops the ongoing backend request.
+ * Stops the current backend request.
  */
 export const handleStop = async (view: HydrateView): Promise<void> => {
-	if (!view.isLoading || !view.conversationId || !view.stopButton) return;
-
-	view.stopButton.textContent = "Stopping...";
-	view.stopButton.disabled = true;
-
-	const backendUrl = view.plugin.settings.backendUrl;
-	if (!backendUrl) {
-		new Notice("Backend URL is not configured.");
-		if (view.isLoading && view.stopButton) {
-			view.stopButton.textContent = "Stop";
-			view.stopButton.disabled = false;
-		}
+	if (!view.isLoading || !view.abortController) {
+		console.log("Hydrate: Stop clicked, but no request is active.");
 		return;
 	}
 
-	const stopUrl = `${backendUrl}/stop/${view.conversationId}`;
+	console.log("Hydrate: Stop requested. Aborting current request...");
+	const currentConversationId = view.conversationId; // Capture ID before clearing
 
-	try {
-		await requestUrl({ url: stopUrl, method: "POST" });
-		new Notice("Stop signal sent.");
-	} catch (error: any) {
-		console.error("Error sending stop signal:", error);
-		new Notice(`Failed to send stop signal: ${error.message}`);
-		if (view.isLoading && view.stopButton) {
-			view.stopButton.textContent = "Stop";
-			view.stopButton.disabled = false;
+	// Abort the frontend fetch request immediately
+	view.abortController.abort();
+	view.abortController = null; // Clear the controller
+
+	// Stop the loading state visually
+	setDomLoadingState(view, false);
+
+	// Inform the user
+	addMessageToChat(view, "system", "Request stopped by user.");
+
+	// If we have a conversation ID, tell the backend to stop too
+	if (currentConversationId) {
+		console.log(
+			`Hydrate: Sending stop signal to backend for conversation ${currentConversationId}...`
+		);
+		const stopUrl = `${view.plugin.settings.backendUrl}/stop/${currentConversationId}`;
+		const apiKey = view.plugin.settings.apiKey;
+
+		if (!apiKey) {
+			console.error("Hydrate: Cannot send stop signal, API Key missing.");
+			// No need to add another chat message, already indicated stop locally
+			return;
 		}
+
+		try {
+			// Send a quick POST request to the /stop endpoint
+			// Note: This request doesn't need an abort signal itself
+			const stopResponse = await requestUrl({
+				url: stopUrl,
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"X-API-Key": apiKey,
+				},
+				body: JSON.stringify({}), // Empty body, ID is in URL
+				throw: false, // Don't throw on 4xx/5xx for this signal
+			});
+
+			if (stopResponse.status >= 400) {
+				console.warn(
+					`Hydrate: Backend returned status ${stopResponse.status} on stop signal: ${stopResponse.text}`
+				);
+				// Optionally notify user if backend stop failed, but might be noise
+			} else {
+				console.log(
+					"Hydrate: Backend acknowledged stop signal.",
+					stopResponse.json
+				);
+			}
+		} catch (error) {
+			console.error(
+				"Hydrate: Error sending stop signal to backend:",
+				error
+			);
+			// Optionally notify user of error sending stop signal
+		}
+	} else {
+		console.log(
+			"Hydrate: No conversation ID found, cannot send stop signal to backend."
+		);
 	}
+
+	// Ensure UI is fully reset (e.g., re-enable input if needed)
+	view.textInput.disabled = false;
+	view.textInput.focus();
 };
 
 /**
@@ -484,7 +529,7 @@ export const handleStop = async (view: HydrateView): Promise<void> => {
  */
 export const handleSuggestionSelect = (
 	view: HydrateView,
-	index: number,
+	index: number
 ): void => {
 	if (
 		index < 0 ||
@@ -546,7 +591,7 @@ export const handleInputChange = (view: HydrateView): void => {
 			let matchingEntries = allEntries.filter(
 				(entry: any) =>
 					entry.slashCommandTrigger?.startsWith(trigger) &&
-					entry.slashCommandTrigger !== "/",
+					entry.slashCommandTrigger !== "/"
 			);
 
 			if (matchingEntries.length > 0) {
@@ -569,7 +614,7 @@ export const handleInputChange = (view: HydrateView): void => {
  */
 export const handleInputKeydown = (
 	view: HydrateView,
-	event: KeyboardEvent,
+	event: KeyboardEvent
 ): void => {
 	const suggestionsVisible =
 		view.suggestions.length > 0 &&

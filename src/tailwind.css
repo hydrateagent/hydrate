@@ -1,1 +1,13 @@
 @import "tailwindcss";
+
+/* Override default selection style within Hydrate user messages */
+.hydrate-user-message::selection {
+	background-color: hsl(
+		210,
+		100%,
+		75%
+	); /* Lighter blue background for selection */
+	color: var(
+		--text-normal
+	); /* Ensure text remains readable, maybe default text color? */
+}

@@ -426,17 +426,21 @@ export class HydrateView extends ItemView {
 	async callBackend(endpoint: string, payload: any) {
 		console.log(`Hydrate: Calling ${endpoint} with payload:`, payload);
 		setDomLoadingState(this, true); // Use aliased function
+
+		// If there's an existing request, abort it first
+		if (this.abortController) {
+			console.log(
+				"Hydrate: Aborting previous request before starting new one..."
+			);
+			this.abortController.abort();
+			// No need to nullify here, the finally block will handle it
+		}
+
+		// Create a new AbortController for THIS request
+		this.abortController = new AbortController();
+		const signal = this.abortController.signal;
+
 		try {
-			// If there's an existing request, abort it
-			if (this.abortController) {
-				console.log("Hydrate: Aborting previous request...");
-				this.abortController.abort();
-			}
-
-			// Create a new AbortController for this request
-			this.abortController = new AbortController();
-			const signal = this.abortController.signal;
-
 			// --- Retrieve API Key ---
 			const apiKey = this.plugin.settings.apiKey;
 			if (!apiKey) {
@@ -447,6 +451,8 @@ export class HydrateView extends ItemView {
 					"Error: API Key is missing. Please configure it in the Hydrate plugin settings.",
 					true
 				);
+				// No need for finally block here as controller wasn't fully used yet
+				this.abortController = null;
 				setDomLoadingState(this, false);
 				return; // Stop execution if key is missing
 			}
@@ -461,8 +467,15 @@ export class HydrateView extends ItemView {
 				},
 				body: JSON.stringify(payload),
 				throw: false,
-				// signal, // <<< REMOVED - requestUrl doesn't support AbortSignal directly
+				// signal: signal, // Pass the signal (even if potentially ignored by requestUrl)
 			});
+
+			// Check if the request was aborted *during* the await
+			if (signal.aborted) {
+				console.log("Hydrate: Request aborted during await.");
+				// The handleStop function already adds a message, so just return
+				return;
+			}
 
 			if (response.status >= 400) {
 				throw new Error(
@@ -501,23 +514,36 @@ export class HydrateView extends ItemView {
 			) {
 				await this.processToolCalls(responseData.tool_calls_prepared);
 			} else {
-				setDomLoadingState(this, false); // Stop loading if no tools to process
+				// If no tool calls, the interaction might be done, stop loading
+				setDomLoadingState(this, false);
 			}
 		} catch (error: any) {
-			if (error.name === "AbortError") {
-				console.log("Hydrate: Request aborted by user.");
-				// No notice needed, as it was user-initiated
-				addMessageToChat(this, "agent", "Generation stopped.");
+			// Check if the error is due to the request being aborted
+			if (error.name === "AbortError" || signal.aborted) {
+				console.log("Hydrate: Backend request was aborted by user.");
+				// UI state (loading, message) is handled by handleStop
 			} else {
-				console.error(`Error calling ${endpoint}:`, error);
+				// Handle other errors
+				console.error("Hydrate: Error calling backend:", error);
 				addMessageToChat(
 					this,
 					"system",
 					`Error: ${error.message}`,
 					true
 				);
+				setDomLoadingState(this, false); // Stop loading on error
 			}
-			setDomLoadingState(this, false); // Use aliased function
+		} finally {
+			// Ensure the controller for *this* request is cleared after completion/error/abort
+			// Check if the current controller is the one we created for this specific call
+			if (
+				this.abortController &&
+				this.abortController.signal === signal
+			) {
+				this.abortController = null;
+			}
+			// Don't turn off loading here if tool calls are being processed
+			// setDomLoadingState(this, false); // Moved earlier or handled by processToolCalls
 		}
 	}
 
