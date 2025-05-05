@@ -1,4 +1,11 @@
-import { App, PluginSettingTab, Setting, Notice } from "obsidian";
+import {
+	App,
+	PluginSettingTab,
+	Setting,
+	Notice,
+	TextComponent,
+	ButtonComponent,
+} from "obsidian";
 import HydratePlugin, { ALLOWED_MODELS, ModelName } from "../main"; // Corrected path & ADDED IMPORTS
 import { RegistryEditModal } from "./RegistryEditModal";
 import { RuleEditModal } from "./RuleEditModal"; // <<< IMPORT NEW MODAL
@@ -7,6 +14,7 @@ import { RuleEntry } from "../types"; // <<< IMPORT RuleEntry
 
 export class HydrateSettingTab extends PluginSettingTab {
 	plugin: HydratePlugin;
+	startIndexingButton: ButtonComponent | null = null;
 
 	constructor(app: App, plugin: HydratePlugin) {
 		super(app, plugin);
@@ -207,6 +215,147 @@ export class HydrateSettingTab extends PluginSettingTab {
 			"hydrate-registry-list"
 		);
 		this.renderRulesRegistryList(rulesRegistryListEl); // Call rules list renderer
+
+		// --- Remote Embeddings Section ---
+		containerEl.createEl("h3", { text: "Remote Embeddings Configuration" });
+
+		new Setting(containerEl)
+			.setName("Enable Remote Embeddings")
+			.setDesc(
+				"Use a remote API endpoint (like OpenAI) to generate embeddings instead of running a local model. Requires separate configuration below."
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.enableRemoteEmbeddings)
+					.onChange(async (value) => {
+						this.plugin.settings.enableRemoteEmbeddings = value;
+						await this.plugin.saveSettings();
+						this.display();
+					})
+			);
+
+		if (this.plugin.settings.enableRemoteEmbeddings) {
+			new Setting(containerEl)
+				.setName("Embedding API URL")
+				.setDesc(
+					"The full URL of the OpenAI-compatible embedding API endpoint."
+				)
+				.addText((text) =>
+					text
+						.setPlaceholder(
+							"e.g., https://api.openai.com/v1/embeddings"
+						)
+						.setValue(this.plugin.settings.remoteEmbeddingUrl)
+						.onChange(async (value) => {
+							this.plugin.settings.remoteEmbeddingUrl =
+								value.trim();
+							await this.plugin.saveSettings();
+						})
+				);
+
+			new Setting(containerEl)
+				.setName("Embedding API Key")
+				.setDesc(
+					"Your API key for the embedding service. Will be sent with requests. Ensure you trust the endpoint."
+				)
+				.addText((text) => {
+					text.setPlaceholder("Enter API key (e.g., sk-...)")
+						.setValue(this.plugin.settings.remoteEmbeddingApiKey)
+						.onChange(async (value: string) => {
+							this.plugin.settings.remoteEmbeddingApiKey =
+								value.trim();
+							await this.plugin.saveSettings();
+						});
+
+					text.inputEl.type = "password";
+				});
+
+			new Setting(containerEl)
+				.setName("Embedding Model Name")
+				.setDesc(
+					"The exact name of the embedding model to use with the API (e.g., text-embedding-3-small)."
+				)
+				.addText((text) =>
+					text
+						.setPlaceholder("e.g., text-embedding-3-small")
+						.setValue(this.plugin.settings.remoteEmbeddingModelName)
+						.onChange(async (value) => {
+							this.plugin.settings.remoteEmbeddingModelName =
+								value.trim();
+							await this.plugin.saveSettings();
+						})
+				);
+
+			new Setting(containerEl)
+				.setName("Indexed File Extensions")
+				.setDesc(
+					"Comma-separated list of file extensions to index (e.g., md,txt,js). Leave empty to index no files. Changes require re-indexing."
+				)
+				.addText((text) =>
+					text
+						.setPlaceholder("e.g., md,txt,js")
+						.setValue(this.plugin.settings.indexFileExtensions)
+						.onChange(async (value) => {
+							this.plugin.settings.indexFileExtensions = value
+								.split(",")
+								.map((ext) => ext.trim().toLowerCase())
+								.filter((ext) => ext.length > 0)
+								.join(",");
+							await this.plugin.saveSettings();
+						})
+				);
+
+			const indexingDesc = document.createDocumentFragment();
+			indexingDesc.append(
+				"Scan the entire vault and generate embeddings for specified file types using the configured remote endpoint.",
+				indexingDesc.createEl("br"),
+				indexingDesc.createEl("strong", { text: "Warning:" }),
+				" This may take a long time and may incur costs."
+			);
+
+			new Setting(containerEl)
+				.setName("Re-index Entire Vault")
+				.setDesc(indexingDesc)
+				.addButton((button) => {
+					this.startIndexingButton = button
+						.setButtonText("Start Full Vault Indexing")
+						.setCta()
+						.onClick(async () => {
+							if (this.plugin.isIndexing) {
+								new Notice("Indexing is already in progress.");
+								return;
+							}
+							if (this.startIndexingButton) {
+								this.startIndexingButton.setDisabled(true);
+								this.startIndexingButton.setButtonText(
+									"Indexing..."
+								);
+							}
+							try {
+								await this.plugin.triggerInitialIndexing();
+							} catch (error) {
+								console.error(
+									"Initial indexing trigger failed:",
+									error
+								);
+								new Notice(
+									"Failed to start indexing. Check console."
+								);
+							} finally {
+								if (this.startIndexingButton) {
+									this.startIndexingButton.setDisabled(false);
+									this.startIndexingButton.setButtonText(
+										"Start Full Vault Indexing"
+									);
+								}
+							}
+						});
+					if (this.plugin.isIndexing) {
+						button.setDisabled(true);
+						button.setButtonText("Indexing...");
+					}
+				});
+		}
 
 		// --- Inject CSS --- <<< CALL INJECTOR FUNCTION
 		injectSettingsStyles(this.plugin);

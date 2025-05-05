@@ -34,11 +34,11 @@ export async function toolEditFile(
 	app: App,
 	path: string,
 	final_content: string,
-	instructions: string,
+	instructions: string
 ): Promise<string> {
 	const normalizedPath = path.startsWith("./") ? path.substring(2) : path;
 	console.log(
-		`Tool: Applying content to ${normalizedPath} (Instructions: ${instructions})`,
+		`Tool: Applying content to ${normalizedPath} (Instructions: ${instructions})`
 	);
 	const file = app.vault.getAbstractFileByPath(normalizedPath);
 
@@ -54,10 +54,10 @@ export async function toolEditFile(
 		} catch (error: any) {
 			console.error(
 				`Error during vault.create for ${normalizedPath}:`,
-				error,
+				error
 			);
 			throw new Error(
-				`Failed to create file ${normalizedPath}: ${error.message}`,
+				`Failed to create file ${normalizedPath}: ${error.message}`
 			);
 		}
 	} else if (file instanceof TFile) {
@@ -71,10 +71,10 @@ export async function toolEditFile(
 		} catch (error: any) {
 			console.error(
 				`Error during vault.modify for ${normalizedPath}:`,
-				error,
+				error
 			);
 			throw new Error(
-				`Failed to write changes to ${normalizedPath}: ${error.message}`,
+				`Failed to write changes to ${normalizedPath}: ${error.message}`
 			);
 		}
 	} else {
@@ -96,14 +96,14 @@ export async function toolReplaceSelectionInFile(
 	app: App,
 	path: string,
 	original_selection: string,
-	new_content: string,
+	new_content: string
 ): Promise<string> {
 	const normalizedPath = path.startsWith("./") ? path.substring(2) : path;
 	console.log(
 		`Tool: Replacing selection in ${normalizedPath} (Original Selection: '${original_selection.substring(
 			0,
-			50,
-		)}...')`,
+			50
+		)}...')`
 	);
 
 	const file = app.vault.getAbstractFileByPath(normalizedPath);
@@ -119,19 +119,19 @@ export async function toolReplaceSelectionInFile(
 	// Check if the exact selection exists in the file
 	if (!originalContent.includes(original_selection)) {
 		console.warn(
-			`Original selection not found in ${normalizedPath}. Content may have changed.`,
+			`Original selection not found in ${normalizedPath}. Content may have changed.`
 		);
 		// Consider if we should still attempt replacement or throw a more specific error.
 		// For now, let's throw an error to prevent unexpected full-file replacement if the context is lost.
 		throw new Error(
-			`The exact original selection was not found in the file ${normalizedPath}. Cannot perform replacement.`,
+			`The exact original selection was not found in the file ${normalizedPath}. Cannot perform replacement.`
 		);
 	}
 
 	// Replace only the first occurrence
 	const final_content = originalContent.replace(
 		original_selection,
-		new_content,
+		new_content
 	);
 
 	// Check if content actually changed (replacement might result in the same string)
@@ -150,10 +150,10 @@ export async function toolReplaceSelectionInFile(
 	} catch (error: any) {
 		console.error(
 			`Error during vault.modify for selection replacement in ${normalizedPath}:`,
-			error,
+			error
 		);
 		throw new Error(
-			`Failed to write changes after replacing selection in ${normalizedPath}: ${error.message}`,
+			`Failed to write changes after replacing selection in ${normalizedPath}: ${error.message}`
 		);
 	}
 }
@@ -167,7 +167,7 @@ export async function toolReplaceSelectionInFile(
  */
 export async function applyPatchesToFile(
 	plugin: HydratePlugin,
-	params: any,
+	params: any
 ): Promise<string> {
 	console.log("Applying patches with params:", params);
 
@@ -207,7 +207,7 @@ export async function applyPatchesToFile(
 				patch.new === null
 			) {
 				errors.push(
-					`Patch ${i + 1} is invalid: missing 'old' or 'new' field.`,
+					`Patch ${i + 1} is invalid: missing 'old' or 'new' field.`
 				);
 				console.error(`Patch ${i + 1} invalid:`, patch);
 				continue;
@@ -226,11 +226,11 @@ export async function applyPatchesToFile(
 				errors.push(
 					`Patch ${
 						i + 1
-					} is invalid: cannot apply patch with empty context (before, old, and after are all effectively empty).`,
+					} is invalid: cannot apply patch with empty context (before, old, and after are all effectively empty).`
 				);
 				console.error(
 					`Patch ${i + 1} invalid due to empty context:`,
-					patch,
+					patch
 				);
 				continue;
 			}
@@ -242,23 +242,22 @@ export async function applyPatchesToFile(
 				const errorMsg = `Patch ${
 					i + 1
 				} failed: Could not find context in ${path}.\nContext Searched:\n\`\`\`\n${contextString}\n\`\`\`\nPatch Details:\n${JSON.stringify(
-					patch,
+					patch
 				)}`;
 				errors.push(errorMsg);
 				console.error(errorMsg);
 				continue;
 			}
 
-			// Check for ambiguity (multiple occurrences of the context)
-			const secondContextIndex = currentContent.indexOf(
-				contextString,
-				contextIndex + 1,
-			);
+			// Check for ambiguity (multiple occurrences of the context) - only if context is not empty
+			const secondContextIndex = contextString
+				? currentContent.indexOf(contextString, contextIndex + 1)
+				: -1;
 			if (secondContextIndex !== -1) {
 				const errorMsg = `Patch ${
 					i + 1
 				} failed: Ambiguous context found in ${path}. Multiple matches for:\n\`\`\`\n${contextString}\n\`\`\`\nPlease provide more specific 'before' or 'after' context.\nPatch Details:\n${JSON.stringify(
-					patch,
+					patch
 				)}`;
 				errors.push(errorMsg);
 				console.error(errorMsg);
@@ -300,7 +299,7 @@ export async function applyPatchesToFile(
 	} catch (error) {
 		console.error(`Error applying patches to file ${path}:`, error);
 		new Notice(
-			`Error applying patches to file ${file.basename}: ${error.message}`,
+			`Error applying patches to file ${file.basename}: ${error.message}`
 		);
 		return `Error applying patches to file: ${error.message}`;
 	}

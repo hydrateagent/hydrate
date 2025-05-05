@@ -37,6 +37,15 @@ import { HydrateSettingTab } from "./settings/HydrateSettingTab"; // Corrected p
 import { injectSettingsStyles } from "./styles/settingsStyles"; // Corrected path
 import { injectPaneStyles } from "./styles/paneStyles"; // <<< ADDED IMPORT
 
+import {
+	initializeVectorSystem, // Only loads local index now
+	addOrUpdateDocumentRemote, // Use this for create/modify
+	deleteDocumentFromIndex, // Use this for delete (no remote call needed)
+	searchIndexRemote, // Use this for search
+} from "./vectorIndex"; // Updated imports
+
+import { handleSearchProject } from "./toolHandlers"; // <<< ADD IMPORT
+
 // Remember to rename these classes and interfaces!
 
 // --- React View Registry ---
@@ -75,7 +84,7 @@ export const ALLOWED_MODELS = [
 
 export type ModelName = (typeof ALLOWED_MODELS)[number]; // Create type from array values
 
-interface HydratePluginSettings {
+export interface HydratePluginSettings {
 	mySetting: string;
 	developmentPath: string;
 	backendUrl: string;
@@ -84,6 +93,13 @@ interface HydratePluginSettings {
 	rulesRegistryEntries: RuleEntry[]; // <<< ADDED rules registry
 	selectedModel: ModelName; // Add setting for selected LLM
 	apiKey: string; // <<< ADDED default empty API Key
+
+	// --- NEW: Settings for Remote Embeddings ---
+	enableRemoteEmbeddings: boolean;
+	remoteEmbeddingUrl: string;
+	remoteEmbeddingApiKey: string;
+	remoteEmbeddingModelName: string;
+	indexFileExtensions: string; // New setting for file extensions
 }
 
 // Default content for the /issue command
@@ -142,17 +158,44 @@ const DEFAULT_SETTINGS: HydratePluginSettings = {
 	rulesRegistryEntries: [], // <<< Initialized as empty
 	selectedModel: "gpt-4.1-mini", // Set default model
 	apiKey: "", // <<< ADDED default empty API Key
+
+	// --- NEW: Default values for Remote Embeddings ---
+	enableRemoteEmbeddings: false, // Default to disabled
+	remoteEmbeddingUrl: "https://api.openai.com/v1/embeddings", // Default to OpenAI endpoint
+	remoteEmbeddingApiKey: "", // Default to empty
+	remoteEmbeddingModelName: "text-embedding-3-small", // Default to OpenAI's model
+	indexFileExtensions: "md", // Default to only markdown
 };
 
 export const REACT_HOST_VIEW_TYPE = "hydrate-react-host"; // Define type for React host
+
+// Define a type for the prepared tool calls received from the agent
+interface AgentPreparedToolCall {
+	id: string;
+	tool: string;
+	params: any; // Parameters for the tool
+	// action: string; // Might also include 'action' field like 'tool_call'
+}
+
+// Define a type for the results to send back to the agent
+interface ToolExecutionResult {
+	id: string; // The ID of the original tool call
+	result: string; // The result of the tool execution (stringified if complex)
+}
 
 export default class HydratePlugin extends Plugin {
 	settings: HydratePluginSettings;
 	isSwitchingToMarkdown: boolean = false;
 	view: HydrateView | null = null; // Keep reference to the view instance
+	isIndexing: boolean = false; // Flag to prevent concurrent indexing
 
 	async onload() {
+		console.log("Loading Hydrate plugin...");
+
 		await this.loadSettings();
+
+		// --- Initialize Vector System (Loads Local Index) ---
+		await initializeVectorSystem(this.app);
 
 		// Inject custom styles
 		injectSettingsStyles(this);
@@ -169,6 +212,81 @@ export default class HydratePlugin extends Plugin {
 
 		// Register example component (we'll create this later)
 		registerReactView("issue-board", IssueBoardView); // <<< ADD THIS REGISTRATION
+
+		// --- Event Listeners for File Changes (Using Remote Embedding Logic) ---
+		this.registerEvent(
+			this.app.vault.on("create", (file) => {
+				if (
+					file instanceof TFile &&
+					this.settings.enableRemoteEmbeddings
+				) {
+					console.log(
+						`File created: ${file.path}, triggering remote indexing.`
+					);
+					// No need to await, let it run in the background
+					addOrUpdateDocumentRemote(
+						this.app,
+						file,
+						this.settings
+					).catch((err: any) =>
+						console.error(
+							`Error indexing created file ${file.path}:`,
+							err
+						)
+					);
+				} else if (file instanceof TFile) {
+					console.log(
+						`File created: ${file.path}, remote embeddings disabled, skipping indexing.`
+					);
+				}
+			})
+		);
+
+		this.registerEvent(
+			this.app.vault.on("modify", (file) => {
+				if (
+					file instanceof TFile &&
+					this.settings.enableRemoteEmbeddings
+				) {
+					console.log(
+						`File modified: ${file.path}, triggering remote indexing.`
+					);
+					// No need to await, let it run in the background
+					addOrUpdateDocumentRemote(
+						this.app,
+						file,
+						this.settings
+					).catch((err: any) =>
+						console.error(
+							`Error indexing modified file ${file.path}:`,
+							err
+						)
+					);
+				} else if (file instanceof TFile) {
+					console.log(
+						`File modified: ${file.path}, remote embeddings disabled, skipping indexing.`
+					);
+				}
+			})
+		);
+
+		this.registerEvent(
+			this.app.vault.on("delete", (file) => {
+				console.log(
+					`File/folder deleted: ${file.path}, triggering index removal.`
+				);
+				// Deleting from index doesn't require remote settings
+				// No need to await, let it run in the background
+				deleteDocumentFromIndex(this.app, file.path).catch((err: any) =>
+					console.error(
+						`Error removing deleted file ${file.path} from index:`,
+						err
+					)
+				);
+				// Note: This simple delete only handles the exact file path.
+				// Folder deletion cleanup would require iterating through the index.
+			})
+		);
 
 		// --- Event Listener for File Open (Re-enabled for file attachment logic) ---
 		this.registerEvent(
@@ -289,6 +407,23 @@ export default class HydratePlugin extends Plugin {
 			},
 		});
 		// --- End Add Selection Command ---
+
+		/**
+		 * Conceptual function to process tool calls from the agent.
+		 * You would call this function when your plugin receives a response from the agent
+		 * that includes tool_calls_prepared.
+		 *
+		 * @param preparedCalls An array of tool calls from the agent.
+		 * @returns A promise that resolves to an array of tool execution results.
+		 */
+		this.addCommand({
+			id: "process-agent-tool-calls",
+			name: "Hydrate: Process agent tool calls",
+			callback: async () => {
+				const toolCalls = await this.processAgentToolCalls([]);
+				new Notice(`Processed ${toolCalls.length} tool calls.`);
+			},
+		});
 	}
 
 	// --- Helper to Toggle Pane ---
@@ -773,6 +908,157 @@ export default class HydratePlugin extends Plugin {
 			: "gpt-4.1-mini";
 	}
 	// --- End Helper function --- // <<< ADDED
+
+	// --- Add Initial Indexing Function ---
+	async triggerInitialIndexing() {
+		if (!this.settings.enableRemoteEmbeddings) {
+			new Notice(
+				"Remote embeddings are disabled in settings. Cannot start indexing."
+			);
+			return;
+		}
+		// Add check for incomplete remote embedding config before starting
+		if (
+			!this.settings.remoteEmbeddingUrl ||
+			!this.settings.remoteEmbeddingApiKey ||
+			!this.settings.remoteEmbeddingModelName
+		) {
+			new Notice(
+				"Remote embedding configuration is incomplete. Please check settings in Hydrate plugin options."
+			);
+			return;
+		}
+
+		if (this.isIndexing) {
+			new Notice("Indexing is already in progress.");
+			return;
+		}
+
+		this.isIndexing = true;
+		new Notice("Starting initial vault indexing... This may take a while.");
+		console.log("Starting initial vault indexing...");
+
+		// Fetch ALL files, not just markdown. Filtering will happen in addOrUpdateDocumentRemote.
+		const allFiles = this.app.vault.getFiles();
+		const totalFiles = allFiles.length;
+		let processedFilesCount = 0; // Count files actually sent to addOrUpdateDocumentRemote
+		let successfullyIndexedCount = 0; // Count files confirmed indexed by addOrUpdate (if we can track that)
+		let errorCount = 0;
+
+		console.log(
+			`Found ${totalFiles} total files to check for indexing based on extensions: '${this.settings.indexFileExtensions}'.`
+		);
+
+		for (const file of allFiles) {
+			// Check flag again in case user cancelled (though no UI for this yet)
+			if (!this.isIndexing) {
+				new Notice("Indexing cancelled by flag.");
+				console.log("Indexing cancelled by flag.");
+				break;
+			}
+			processedFilesCount++;
+			// console.log(  // Optional: verbose logging for each file being checked
+			//     `Checking file ${processedFilesCount}/${totalFiles}: ${file.path}`
+			// );
+			try {
+				// addOrUpdateDocumentRemote will use settings.indexFileExtensions to filter
+				// It will also handle console logging for skipped or indexed files.
+				await addOrUpdateDocumentRemote(this.app, file, this.settings);
+				// We can't easily tell from the return of addOrUpdateDocumentRemote if it *actually* indexed
+				// or just skipped due to extension. The logs within that function are the source of truth.
+			} catch (error) {
+				console.error(
+					`Error processing file ${file.path} during initial indexing:`,
+					error
+				);
+				errorCount++;
+			}
+		}
+
+		// The completion message should reflect that files were *checked*.
+		// The actual number indexed is best found by observing logs from addOrUpdateDocumentRemote.
+		const completionMessage = `Vault indexing check finished. Checked ${processedFilesCount} files. Errors: ${errorCount}. See console for details on skipped/indexed files.`;
+		new Notice(completionMessage);
+		console.log(completionMessage);
+		this.isIndexing = false;
+	}
+
+	// Add a function to potentially stop indexing if needed
+	stopIndexing() {
+		if (this.isIndexing) {
+			console.log("Requesting indexing stop...");
+			this.isIndexing = false; // Set flag to stop loop
+		}
+	}
+
+	/**
+	 * Conceptual function to process tool calls from the agent.
+	 * You would call this function when your plugin receives a response from the agent
+	 * that includes tool_calls_prepared.
+	 *
+	 * @param preparedCalls An array of tool calls from the agent.
+	 * @returns A promise that resolves to an array of tool execution results.
+	 */
+	async processAgentToolCalls(
+		preparedCalls: AgentPreparedToolCall[]
+	): Promise<ToolExecutionResult[]> {
+		const toolResults: ToolExecutionResult[] = [];
+
+		if (!preparedCalls || preparedCalls.length === 0) {
+			return toolResults;
+		}
+
+		console.log(
+			"[Hydrate Plugin] Processing agent tool calls:",
+			preparedCalls
+		);
+
+		for (const call of preparedCalls) {
+			if (call.tool === "search_project") {
+				// Ensure params structure matches what handleSearchProject expects for its 'call' argument
+				const searchCall = {
+					id: call.id,
+					tool: call.tool,
+					params: call.params, // handleSearchProject will cast this to SearchProjectParams
+				};
+				const searchResult = await handleSearchProject(
+					searchCall,
+					this.app,
+					this.settings
+				);
+				toolResults.push(searchResult);
+			}
+			// --- Add other tool handlers here as else if (call.tool === "anotherTool") ---
+			// Example for readFile (conceptual, actual implementation would be similar)
+			// else if (call.tool === "readFile") {
+			//     const path = call.params.path as string;
+			//     try {
+			//         const content = await this.app.vault.adapter.read(path);
+			//         toolResults.push({ id: call.id, result: content });
+			//     } catch (error) {
+			//         console.error(`Error reading file ${path}:`, error);
+			//         toolResults.push({ id: call.id, result: `Error reading file: ${error.message}` });
+			//     }
+			// }
+			else {
+				console.warn(
+					`[Hydrate Plugin] Unknown tool call received: ${call.tool}`
+				);
+				toolResults.push({
+					id: call.id,
+					result: `Error: Unknown tool '${call.tool}' requested by agent.`,
+				});
+			}
+		}
+
+		console.log(
+			"[Hydrate Plugin] Sending tool results back to agent:",
+			toolResults
+		);
+		// Here, you would typically send these toolResults back to your FastAPI /tool_result endpoint.
+		// For example, via another fetch/requestUrl call if this is not already part of that flow.
+		return toolResults;
+	}
 }
 
 // --- REMOVED RegistryEditModal class definition (moved to src/settings/RegistryEditModal.ts) ---

@@ -835,7 +835,6 @@ export class HydrateView extends ItemView {
 						const after = patch.after ?? "";
 						const newText = patch.new;
 						const contextString = before + oldText + after;
-						if (!contextString) continue; // Skip empty context
 						const contextIndex =
 							simulatedContent.indexOf(contextString);
 						if (contextIndex === -1) {
@@ -856,8 +855,9 @@ export class HydrateView extends ItemView {
 							); // Record error
 							continue;
 						}
-						// Simple ambiguity check for simulation
+						// Simple ambiguity check for simulation - only if context is not empty
 						if (
+							contextString &&
 							simulatedContent.indexOf(
 								contextString,
 								contextIndex + 1

@@ -14,6 +14,18 @@ export function injectPaneStyles(plugin: HydratePlugin) {
             flex-grow: 0.35; /* Override default, aim for ~35% width */
             /* flex-basis removed as grow handles initial sizing */
         }
+
+        /* --- User Chat Bubble Text Selection --- */
+        .hydrate-user-message::selection {
+            background-color: #003bff; /* A distinct blue background for selection */
+            color: #ffffff; /* White text for contrast */
+        }
+
+        /* For Firefox */
+        .hydrate-user-message::-moz-selection {
+            background-color: #007bff;
+            color: #ffffff;
+        }
     `;
 
 	const styleId = "hydrate-pane-styles";

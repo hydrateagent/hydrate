@@ -43,7 +43,7 @@ export class DiffReviewModal extends Modal {
 		proposedContent: string,
 		instructions: string,
 		toolCallId: string,
-		resolvePromise: (result: DiffReviewResult) => void,
+		resolvePromise: (result: DiffReviewResult) => void
 	) {
 		super(app);
 		this.plugin = plugin;
@@ -58,6 +58,28 @@ export class DiffReviewModal extends Modal {
 
 	onOpen() {
 		const { contentEl } = this;
+		console.log("DiffReviewModal [onOpen]: Opening modal.");
+		console.log(
+			`DiffReviewModal [onOpen]: FilePath: ${this.filePath}, ToolCallId: ${this.toolCallId}`
+		);
+		console.log(
+			`DiffReviewModal [onOpen]: Original Content Length: ${this.originalContent.length}`,
+			`Proposed Content Length: ${this.proposedContent.length}`
+		);
+		// Log snippets for verification, careful with large content
+		console.log(
+			`DiffReviewModal [onOpen]: Original Snippet: ${this.originalContent.substring(
+				0,
+				100
+			)}`
+		);
+		console.log(
+			`DiffReviewModal [onOpen]: Proposed Snippet: ${this.proposedContent.substring(
+				0,
+				100
+			)}`
+		);
+
 		contentEl.empty();
 		contentEl.addClass("hydrate-diff-modal-content");
 
@@ -105,7 +127,7 @@ export class DiffReviewModal extends Modal {
 		// Use patch_make for better hunk structure
 		this.patches = this.dmp.patch_make(
 			this.originalContent,
-			this.proposedContent,
+			this.proposedContent
 		);
 		this.hunks = []; // Reset hunks
 
@@ -128,7 +150,7 @@ export class DiffReviewModal extends Modal {
 				const lines = text
 					.split("\n")
 					.filter(
-						(line, idx, arr) => idx < arr.length - 1 || line !== "",
+						(line, idx, arr) => idx < arr.length - 1 || line !== ""
 					); // Split lines, remove trailing empty line
 
 				lines.forEach((lineContent) => {
@@ -162,10 +184,67 @@ export class DiffReviewModal extends Modal {
 	// Implemented hunk rendering
 	private renderHunks(container: HTMLElement): void {
 		container.empty();
+		console.log("DiffReviewModal [renderHunks]: Starting render...");
+
+		// Log before the check
+		console.log(
+			`DiffReviewModal [renderHunks]: Checking empty file condition. Original length: ${this.originalContent.length}, Proposed length: ${this.proposedContent.length}`
+		);
+
+		// --- Special Handling for Empty Original File ---
+		if (this.originalContent === "" && this.proposedContent !== "") {
+			console.log(
+				"DiffReviewModal [renderHunks]: ENTERING Special handling for empty original file."
+			);
+			console.log("Rendering diff for empty original file.");
+			const lines = this.proposedContent.split("\n");
+			// Remove trailing empty line if present from split
+			if (lines[lines.length - 1] === "") {
+				lines.pop();
+			}
+
+			const hunkContainer = container.createDiv({ cls: "diff-hunk" });
+			const headerContainer = hunkContainer.createDiv({
+				cls: "diff-hunk-header",
+			});
+			// No checkbox needed as it's all or nothing for new file content
+			headerContainer.createSpan({
+				// Simple header indicating full insertion
+				text: `@@ +1,${lines.length} @@ New File Content`,
+				cls: "diff-hunk-header-text",
+			});
+
+			const linesContainer = hunkContainer.createDiv({
+				cls: "diff-hunk-lines !font-mono",
+			});
+
+			lines.forEach((lineContent) => {
+				const lineEl = linesContainer.createDiv({
+					cls: `diff-line diff-line-addition bg-green-100 dark:bg-green-900/50`, // Always addition style
+				});
+				lineEl.setText(`+ ${lineContent}`); // Always '+' prefix
+			});
+
+			// Skip the rest of the standard hunk rendering
+			return;
+		}
+		// --- End Special Handling ---
+
+		console.log(
+			"DiffReviewModal [renderHunks]: Condition for empty file special case NOT met."
+		);
+
 		if (this.hunks.length === 0) {
+			console.log(
+				"DiffReviewModal [renderHunks]: No hunks generated, displaying 'No changes detected'."
+			);
 			container.setText("No changes detected.");
 			return;
 		}
+
+		console.log(
+			`DiffReviewModal [renderHunks]: Rendering ${this.hunks.length} standard hunks.`
+		);
 
 		this.hunks.forEach((hunk, index) => {
 			const hunkContainer = container.createDiv({ cls: "diff-hunk" });
@@ -204,8 +283,8 @@ export class DiffReviewModal extends Modal {
 						line.type === "addition"
 							? "bg-green-100 dark:bg-green-900/50" // Faint green for light/dark modes
 							: line.type === "deletion"
-								? "bg-red-100 dark:bg-red-900/50" // Faint red for light/dark modes
-								: "" // No background for context lines
+							? "bg-red-100 dark:bg-red-900/50" // Faint red for light/dark modes
+							: "" // No background for context lines
 					}`,
 				});
 				let prefix = " ";
@@ -218,7 +297,7 @@ export class DiffReviewModal extends Modal {
 
 	private handleApply = () => {
 		console.log(
-			"Apply clicked. Reconstructing content based on selected hunks...",
+			"Apply clicked. Reconstructing content based on selected hunks..."
 		);
 		// TODO: Implement logic to reconstruct the final content
 		// based on the `applied` status of each hunk in `this.hunks`
@@ -246,7 +325,7 @@ export class DiffReviewModal extends Modal {
 	// TODO: Implement content reconstruction logic using patches
 	private reconstructContent(): string {
 		const selectedPatches = this.patches.filter(
-			(patch, index) => this.hunks[index]?.applied,
+			(patch, index) => this.hunks[index]?.applied
 		);
 
 		if (selectedPatches.length === 0) {
@@ -257,7 +336,7 @@ export class DiffReviewModal extends Modal {
 		console.log(`Applying ${selectedPatches.length} selected patches...`);
 		const [newContent, results] = this.dmp.patch_apply(
 			selectedPatches,
-			this.originalContent,
+			this.originalContent
 		);
 
 		// Check results for errors, add type annotation for the callback parameter
@@ -268,7 +347,7 @@ export class DiffReviewModal extends Modal {
 		} else {
 			console.error("Patch application failed for some hunks:", results);
 			throw new Error(
-				"Failed to apply selected changes. Please review the console.",
+				"Failed to apply selected changes. Please review the console."
 			);
 		}
 	}
