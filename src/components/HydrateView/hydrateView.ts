@@ -18,8 +18,9 @@ import {
 	toolReadFile,
 	toolEditFile,
 	toolReplaceSelectionInFile,
-	applyPatchesToFile as toolApplyPatchesToFile, // Corrected alias
-} from "./toolImplementations"; // Corrected path
+	applyPatchesToFile,
+} from "./toolImplementations"; // Ensure this path is correct for your setup
+import { handleSearchProject } from "../../toolHandlers"; // <<< ADD THIS IMPORT
 import {
 	addMessageToChat,
 	renderFilePills as renderDomFilePills, // Alias dom utils
@@ -958,6 +959,12 @@ export class HydrateView extends ItemView {
 					toolCall.params.path,
 					toolCall.params.original_selection,
 					toolCall.params.new_content
+				);
+			case "search_project": // <<< ADD THIS CASE
+				return await handleSearchProject(
+					toolCall,
+					this.app,
+					this.plugin.settings
 				);
 			default:
 				throw new Error(
