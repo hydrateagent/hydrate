@@ -1,4 +1,7 @@
 import { Notice, TFile, requestUrl, MarkdownView } from "obsidian";
+import { TFolder } from "obsidian";
+import { ManifestFile, DirectoryManifest } from "../../manifestUtils";
+import * as path from "path";
 import type { HydrateView } from "./hydrateView";
 import { RegistryEntry } from "../../types"; // Added import
 import {
@@ -388,38 +391,196 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 	}
 	// --- End Step 4 ---
 
+	// --- START: Apply diff - NEW STEP: Inject Local Directory Manifest Context ---
+	let localManifestContext = "";
+	let pathForManifestLookup: string | undefined = undefined;
+
+	// Priority 1: Use the first attached file's directory
+	if (view.attachedFiles && view.attachedFiles.length > 0) {
+		pathForManifestLookup = view.attachedFiles[0];
+	}
+
+	// Fallback: If no files are attached, try to determine the relevant context
+	if (!pathForManifestLookup) {
+		const activeFile = view.app.workspace.getActiveFile();
+		if (activeFile) {
+			pathForManifestLookup = activeFile.path;
+			console.log(
+				`[handleSend] Using activeFile for manifest lookup: ${activeFile.path}`
+			);
+		} else {
+			console.log(
+				"[handleSend] No activeFile found. Trying activeMarkdownView..."
+			);
+			// Fallback to existing logic if getActiveFile() is null
+			const activeMarkdownView =
+				view.app.workspace.getActiveViewOfType(MarkdownView);
+			if (activeMarkdownView && activeMarkdownView.file) {
+				pathForManifestLookup = activeMarkdownView.file.path;
+				console.log(
+					`[handleSend] Using activeMarkdownView for manifest lookup: ${activeMarkdownView.file.path}`
+				);
+			} else {
+				console.log(
+					"[handleSend] No activeMarkdownView with a file found either."
+				);
+				// pathForManifestLookup remains undefined
+			}
+		}
+	}
+
+	// Debug log for the path determination logic
+	console.log("[handleSend] Determining path for manifest lookup:", {
+		firstAttachedFilePath:
+			view.attachedFiles && view.attachedFiles.length > 0
+				? view.attachedFiles[0]
+				: null,
+		activeObsidianFilePath:
+			view.app.workspace.getActiveFile()?.path ?? null,
+		activeMarkdownViewFilePathViaType:
+			view.app.workspace.getActiveViewOfType(MarkdownView)?.file?.path ??
+			null,
+		finalPathForManifestLookup: pathForManifestLookup, // This is the important one
+	});
+
+	if (pathForManifestLookup) {
+		try {
+			const dir = path.dirname(pathForManifestLookup);
+			// Only proceed if not in vault root (dirname would be '.')
+			if (dir && dir !== ".") {
+				const manifestFilePath = path.join(dir, ".hydrate-manifest.md");
+				const manifestFileExists = await view.app.vault.adapter.exists(
+					manifestFilePath
+				);
+
+				if (manifestFileExists) {
+					console.log(
+						`[handleSend] Found manifest file at: ${manifestFilePath}`
+					);
+					const manifestContent = await view.app.vault.adapter.read(
+						manifestFilePath
+					);
+					const manifest =
+						ManifestFile.fromString(manifestContent).getManifest();
+
+					localManifestContext += `\n\n--- Directory Manifest Context for: ${dir} ---\n`;
+					localManifestContext += `Purpose: ${manifest.purpose}\n`;
+					localManifestContext += `Type: ${manifest.type}\n`;
+					if (manifest.domain)
+						localManifestContext += `Domain: ${manifest.domain}\n`;
+					if (manifest.parent)
+						localManifestContext += `Parent: ${manifest.parent}\n`;
+
+					if (manifest.children && manifest.children.length > 0) {
+						localManifestContext += `Children: ${manifest.children.join(
+							", "
+						)}\n`;
+					}
+					localManifestContext += "Contents:\n";
+					if (manifest.contents && manifest.contents.length > 0) {
+						manifest.contents.forEach((item) => {
+							localManifestContext += `- ${item.name} (Type: ${
+								item.type
+							}, Modified: ${item.modified}): ${
+								item.purpose || "N/A"
+							}\n`;
+						});
+					} else {
+						localManifestContext +=
+							"(No files listed in manifest)\n";
+					}
+					localManifestContext += `--- End Manifest Context for: ${dir} ---\n`;
+					console.log(
+						"[handleSend] Successfully added local manifest context."
+					);
+				} else {
+					console.log(
+						`[handleSend] No manifest file found at: ${manifestFilePath}`
+					);
+				}
+			} else {
+				console.log(
+					`[handleSend] File for manifest lookup ('${pathForManifestLookup}') is in vault root, or dir is invalid. Skipping manifest context.`
+				);
+			}
+		} catch (error) {
+			console.error(
+				`[handleSend] Error processing local directory manifest using path '${pathForManifestLookup}':`,
+				error
+			);
+		}
+	} else {
+		console.log(
+			"[handleSend] No valid file path found (via attached files, active file, or active markdown view) for manifest lookup. Skipping manifest context."
+		);
+	}
+	// --- END: Apply diff - NEW STEP ---
+
 	// --- Step 5: Construct final payload ---
 	let combinedPayload = payloadContent;
 
-	// Prepend newly applied rules (if any)
+	// Prepend rules context first, if it exists
 	if (rulesContextToSend) {
 		combinedPayload = rulesContextToSend + combinedPayload;
-		// console.log(`[handleSend] Prepended ${rulesToApplyThisTurn.length} new rule(s) to context.`); // Optional log
 	}
 
-	// Append the content of newly included files (if any)
-	combinedPayload += fileContentsToSend;
+	// Append local manifest context if available and not empty
+	if (localManifestContext && localManifestContext.trim() !== "") {
+		// Ensure there's a separator
+		if (combinedPayload.length > 0 && !combinedPayload.endsWith("\n\n")) {
+			combinedPayload += "\n\n";
+		}
+		combinedPayload += localManifestContext;
+	}
+
+	// Append file contents last
+	if (fileContentsToSend && fileContentsToSend.trim() !== "") {
+		// Ensure there's a separator
+		if (combinedPayload.length > 0 && !combinedPayload.endsWith("\n\n")) {
+			combinedPayload += "\n\n";
+		}
+		combinedPayload += fileContentsToSend;
+	}
+	// --- END: Corrected Payload Construction ---
 
 	console.log(
 		"[handleSend] Final combinedPayload (length):",
 		combinedPayload.length
 	);
-	// console.log("[handleSend] Final combinedPayload (snippet):", combinedPayload.substring(0, 500)); // Log snippet
 
-	if (currentAttachedFiles.length === 0 && !originalMessageContent) return; // Check if *anything* is being sent
+	// --- START: Apply diff for conditional send and user message ---
+	if (
+		currentAttachedFiles.length === 0 &&
+		!originalMessageContent &&
+		(!localManifestContext || localManifestContext.trim() === "") // Use localManifestContext from this scope
+	)
+		return;
 
 	addMessageToChat(
 		view,
 		"user",
 		originalMessageContent ||
-			`(Sent with ${currentAttachedFiles.length} attached file(s))`
+			`(Sent with ${currentAttachedFiles.length} attached file(s)${
+				// Use localManifestContext from this scope
+				localManifestContext && localManifestContext.trim() !== ""
+					? " and local directory context"
+					: ""
+			})`
 	);
+	// --- END: Apply diff for conditional send and user message ---
 
 	const payload: any = {
-		message: combinedPayload,
+		message: combinedPayload, // Use the carefully constructed combinedPayload
 		conversation_id: view.conversationId,
 		model: view.plugin.getSelectedModel(),
 	};
+
+	// --- START: Apply diff debug log for payload ---
+	console.log(
+		"[Hydrate - handleSend] Payload to be sent to agent:",
+		JSON.stringify(payload, null, 2)
+	);
+	// --- END: Apply diff debug log for payload ---
 
 	setDomTextContent(view, "");
 	setDomSuggestions(view, []);
