@@ -107,6 +107,23 @@ export class ManifestFile {
 		return JSON.parse(JSON.stringify(this.manifest)); // Return a deep copy
 	}
 
+	public updateFields(updates: {
+		purpose?: string;
+		type?: "docs" | "code" | "mixed" | "other";
+		domain?: string;
+	}): void {
+		if (updates.purpose !== undefined) {
+			this.manifest.purpose = updates.purpose;
+		}
+		if (updates.type !== undefined) {
+			this.manifest.type = updates.type;
+		}
+		if (updates.domain !== undefined) {
+			// Allow setting domain to an empty string or null to remove it
+			this.manifest.domain = updates.domain;
+		}
+	}
+
 	public updateManifest(updatedFields: Partial<DirectoryManifest>): void {
 		this.manifest = { ...this.manifest, ...updatedFields };
 	}

@@ -1,6 +1,8 @@
-import { App, TFile, Notice } from "obsidian";
+import { App, TFile, Notice, normalizePath } from "obsidian";
 import HydratePlugin from "../../main";
 import { Patch } from "../../types";
+import { ManifestFile } from "../../manifestUtils";
+import * as path from "path";
 /**
  * Reads the content of a file within the Obsidian vault.
  * @param app - The Obsidian App instance.
@@ -9,14 +11,30 @@ import { Patch } from "../../types";
  * @throws Error if the file is not found or is not a file.
  */
 export async function toolReadFile(app: App, path: string): Promise<string> {
-	const normalizedPath = path.startsWith("./") ? path.substring(2) : path;
-	console.log(`Tool: Reading file ${normalizedPath} (Original: ${path})`);
-	const file = app.vault.getAbstractFileByPath(normalizedPath);
+	const initialNormalizedPath = path.startsWith("./")
+		? path.substring(2)
+		: path;
+	const finalNormalizedPath = normalizePath(initialNormalizedPath);
+
+	console.log(
+		`Tool: Reading file. Original: '${path}', Initial Norm: '${initialNormalizedPath}', Final Norm: '${finalNormalizedPath}'`
+	);
+	const adapterExists = await app.vault.adapter.exists(finalNormalizedPath);
+	console.log(
+		`Tool: app.vault.adapter.exists('${finalNormalizedPath}') returned: ${adapterExists}`
+	);
+
+	const file = app.vault.getAbstractFileByPath(finalNormalizedPath);
 	if (!file) {
-		throw new Error(`File not found: ${normalizedPath}`);
+		// Add more context to the error
+		const activeFilePath = app.workspace.getActiveFile()?.path;
+		console.error(
+			`toolReadFile: File not found. Path='${finalNormalizedPath}', ActiveFile='${activeFilePath}'. Adapter says exists: ${adapterExists}`
+		);
+		throw new Error(`File not found: ${finalNormalizedPath}`);
 	}
 	if (!(file instanceof TFile)) {
-		throw new Error(`Path is not a file: ${normalizedPath}`);
+		throw new Error(`Path is not a file: ${finalNormalizedPath}`);
 	}
 	return await app.vault.read(file);
 }
@@ -36,50 +54,55 @@ export async function toolEditFile(
 	final_content: string,
 	instructions: string
 ): Promise<string> {
-	const normalizedPath = path.startsWith("./") ? path.substring(2) : path;
+	const initialNormalizedPath = path.startsWith("./")
+		? path.substring(2)
+		: path;
+	const finalNormalizedPath = normalizePath(initialNormalizedPath);
 	console.log(
-		`Tool: Applying content to ${normalizedPath} (Instructions: ${instructions})`
+		`Tool: Applying content to ${finalNormalizedPath} (Instructions: ${instructions}) (Original Path: '${path}')`
 	);
-	const file = app.vault.getAbstractFileByPath(normalizedPath);
+	const file = app.vault.getAbstractFileByPath(finalNormalizedPath);
 
 	// Check if file exists before deciding create vs modify
 	if (!file) {
 		// File does not exist, create it
-		console.log(`Tool: File ${normalizedPath} not found. Creating...`);
+		console.log(`Tool: File ${finalNormalizedPath} not found. Creating...`);
 		try {
-			await app.vault.create(normalizedPath, final_content);
-			const successMsg = `Successfully created file ${normalizedPath}`;
+			await app.vault.create(finalNormalizedPath, final_content);
+			const successMsg = `Successfully created file ${finalNormalizedPath}`;
 			new Notice(successMsg);
 			return successMsg;
 		} catch (error: any) {
 			console.error(
-				`Error during vault.create for ${normalizedPath}:`,
+				`Error during vault.create for ${finalNormalizedPath}:`,
 				error
 			);
 			throw new Error(
-				`Failed to create file ${normalizedPath}: ${error.message}`
+				`Failed to create file ${finalNormalizedPath}: ${error.message}`
 			);
 		}
 	} else if (file instanceof TFile) {
 		// File exists, modify it
-		console.log(`Tool: File ${normalizedPath} exists. Modifying...`);
+		console.log(`Tool: File ${finalNormalizedPath} exists. Modifying...`);
 		try {
 			await app.vault.modify(file, final_content);
-			const successMsg = `Successfully applied changes to ${normalizedPath}`;
+			const successMsg = `Successfully applied changes to ${finalNormalizedPath}`;
 			new Notice(successMsg);
 			return successMsg;
 		} catch (error: any) {
 			console.error(
-				`Error during vault.modify for ${normalizedPath}:`,
+				`Error during vault.modify for ${finalNormalizedPath}:`,
 				error
 			);
 			throw new Error(
-				`Failed to write changes to ${normalizedPath}: ${error.message}`
+				`Failed to write changes to ${finalNormalizedPath}: ${error.message}`
 			);
 		}
 	} else {
 		// Path exists but is not a file (e.g., a folder)
-		throw new Error(`Path exists but is not a file: ${normalizedPath}`);
+		throw new Error(
+			`Path exists but is not a file: ${finalNormalizedPath}`
+		);
 	}
 }
 
@@ -98,20 +121,23 @@ export async function toolReplaceSelectionInFile(
 	original_selection: string,
 	new_content: string
 ): Promise<string> {
-	const normalizedPath = path.startsWith("./") ? path.substring(2) : path;
+	const initialNormalizedPath = path.startsWith("./")
+		? path.substring(2)
+		: path;
+	const finalNormalizedPath = normalizePath(initialNormalizedPath);
 	console.log(
-		`Tool: Replacing selection in ${normalizedPath} (Original Selection: '${original_selection.substring(
+		`Tool: Replacing selection in ${finalNormalizedPath} (Original Selection: '${original_selection.substring(
 			0,
 			50
-		)}...')`
+		)}...') (Original Path: '${path}')`
 	);
 
-	const file = app.vault.getAbstractFileByPath(normalizedPath);
+	const file = app.vault.getAbstractFileByPath(finalNormalizedPath);
 	if (!file) {
-		throw new Error(`File not found: ${normalizedPath}`);
+		throw new Error(`File not found: ${finalNormalizedPath}`);
 	}
 	if (!(file instanceof TFile)) {
-		throw new Error(`Path is not a file: ${normalizedPath}`);
+		throw new Error(`Path is not a file: ${finalNormalizedPath}`);
 	}
 
 	const originalContent = await app.vault.read(file);
@@ -119,12 +145,12 @@ export async function toolReplaceSelectionInFile(
 	// Check if the exact selection exists in the file
 	if (!originalContent.includes(original_selection)) {
 		console.warn(
-			`Original selection not found in ${normalizedPath}. Content may have changed.`
+			`Original selection not found in ${finalNormalizedPath}. Content may have changed.`
 		);
 		// Consider if we should still attempt replacement or throw a more specific error.
 		// For now, let's throw an error to prevent unexpected full-file replacement if the context is lost.
 		throw new Error(
-			`The exact original selection was not found in the file ${normalizedPath}. Cannot perform replacement.`
+			`The exact original selection was not found in the file ${finalNormalizedPath}. Cannot perform replacement.`
 		);
 	}
 
@@ -136,7 +162,7 @@ export async function toolReplaceSelectionInFile(
 
 	// Check if content actually changed (replacement might result in the same string)
 	if (final_content === originalContent) {
-		const noChangeMsg = `Replacement in ${normalizedPath} resulted in no change to the file content.`;
+		const noChangeMsg = `Replacement in ${finalNormalizedPath} resulted in no change to the file content.`;
 		console.log(noChangeMsg);
 		// Return success, as the intended state (post-replacement) matches current state.
 		return noChangeMsg;
@@ -144,16 +170,16 @@ export async function toolReplaceSelectionInFile(
 
 	try {
 		await app.vault.modify(file, final_content);
-		const successMsg = `Successfully replaced selection in ${normalizedPath}`;
+		const successMsg = `Successfully replaced selection in ${finalNormalizedPath}`;
 		new Notice(successMsg);
 		return successMsg;
 	} catch (error: any) {
 		console.error(
-			`Error during vault.modify for selection replacement in ${normalizedPath}:`,
+			`Error during vault.modify for selection replacement in ${finalNormalizedPath}:`,
 			error
 		);
 		throw new Error(
-			`Failed to write changes after replacing selection in ${normalizedPath}: ${error.message}`
+			`Failed to write changes after replacing selection in ${finalNormalizedPath}: ${error.message}`
 		);
 	}
 }
@@ -183,10 +209,16 @@ export async function applyPatchesToFile(
 	if (patches.length === 0) {
 		return "No patches provided, no changes made.";
 	}
+	// Also apply normalizePath here for consistency, though it's not the primary source of the bug
+	const normalizedPathForPatches = normalizePath(
+		path.startsWith("./") ? path.substring(2) : path
+	);
 
-	const file = plugin.app.vault.getAbstractFileByPath(path);
+	const file = plugin.app.vault.getAbstractFileByPath(
+		normalizedPathForPatches
+	);
 	if (!file || !(file instanceof TFile)) {
-		return `Error: File not found or is not a markdown file: ${path}`;
+		return `Error: File not found or is not a markdown file: ${normalizedPathForPatches}`;
 	}
 
 	try {
@@ -241,7 +273,7 @@ export async function applyPatchesToFile(
 			if (contextIndex === -1) {
 				const errorMsg = `Patch ${
 					i + 1
-				} failed: Could not find context in ${path}.\nContext Searched:\n\`\`\`\n${contextString}\n\`\`\`\nPatch Details:\n${JSON.stringify(
+				} failed: Could not find context in ${normalizedPathForPatches}.\nContext Searched:\n\`\`\`\n${contextString}\n\`\`\`\nPatch Details:\n${JSON.stringify(
 					patch
 				)}`;
 				errors.push(errorMsg);
@@ -256,7 +288,7 @@ export async function applyPatchesToFile(
 			if (secondContextIndex !== -1) {
 				const errorMsg = `Patch ${
 					i + 1
-				} failed: Ambiguous context found in ${path}. Multiple matches for:\n\`\`\`\n${contextString}\n\`\`\`\nPlease provide more specific 'before' or 'after' context.\nPatch Details:\n${JSON.stringify(
+				} failed: Ambiguous context found in ${normalizedPathForPatches}. Multiple matches for:\n\`\`\`\n${contextString}\n\`\`\`\nPlease provide more specific 'before' or 'after' context.\nPatch Details:\n${JSON.stringify(
 					patch
 				)}`;
 				errors.push(errorMsg);
@@ -302,5 +334,75 @@ export async function applyPatchesToFile(
 			`Error applying patches to file ${file.basename}: ${error.message}`
 		);
 		return `Error applying patches to file: ${error.message}`;
+	}
+}
+
+/**
+ * Updates specific fields in a .hydrate-manifest.md file.
+ * @param plugin - The HydratePlugin instance.
+ * @param params - The parameters for updating the manifest.
+ *                 Expected: { directory_path: string, purpose?: string, type?: string, domain?: string }
+ * @returns A success or error message string.
+ */
+export async function toolUpdateHydrateManifest(
+	plugin: HydratePlugin,
+	params: any
+): Promise<string> {
+	const { directory_path, purpose, type, domain } = params;
+
+	if (!directory_path || typeof directory_path !== "string") {
+		return "Error: 'directory_path' parameter is missing or invalid.";
+	}
+
+	const manifestFilePath = normalizePath(
+		path.join(directory_path, ".hydrate-manifest.md")
+	);
+
+	console.log(
+		`Tool: Attempting to update manifest at ${manifestFilePath} with params:`,
+		params
+	);
+
+	try {
+		const manifestExists = await plugin.app.vault.adapter.exists(
+			manifestFilePath
+		);
+
+		if (!manifestExists) {
+			const msg = `Error: Manifest file not found at ${manifestFilePath}. This tool can only update existing manifests.`;
+			console.warn(msg);
+			return msg;
+		}
+
+		const currentContent = await plugin.app.vault.adapter.read(
+			manifestFilePath
+		);
+		const manifestFile = ManifestFile.fromString(currentContent);
+
+		const updates: { purpose?: string; type?: any; domain?: string } = {};
+		if (purpose !== undefined) updates.purpose = purpose;
+		if (type !== undefined) updates.type = type;
+		if (domain !== undefined) updates.domain = domain;
+
+		if (Object.keys(updates).length === 0) {
+			return "No update parameters provided. Manifest remains unchanged.";
+		}
+
+		manifestFile.updateFields(updates);
+
+		await plugin.app.vault.adapter.write(
+			manifestFilePath,
+			manifestFile.toString()
+		);
+
+		const successMsg = `Successfully updated manifest for directory: ${directory_path}`;
+		new Notice(successMsg);
+		console.log(successMsg);
+		return successMsg;
+	} catch (error: any) {
+		const errorMsg = `Error updating manifest for ${directory_path}: ${error.message}`;
+		console.error(errorMsg, error);
+		new Notice(errorMsg);
+		return errorMsg;
 	}
 }
