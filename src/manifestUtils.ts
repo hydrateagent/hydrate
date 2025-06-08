@@ -36,7 +36,11 @@ export interface DirectoryManifest {
 // Helper function to extract text content from a generic MDAST node
 function nodeToText(node: Node | undefined): string {
 	if (!node) return "";
-	if ("value" in node) return String(node.value);
+	if ("value" in node) {
+		// The `in` operator type guard is not correctly narrowing the `Node` union type.
+		// Casting to a simple object with a `value` property bypasses the type error.
+		return String((node as { value: unknown }).value);
+	}
 	if ("children" in node && Array.isArray((node as Parent).children)) {
 		return (node as Parent).children.map(nodeToText).join("");
 	}
