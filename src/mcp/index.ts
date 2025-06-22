@@ -1,40 +1,40 @@
 /**
  * MCP (Model Context Protocol) Integration
  *
- * This module provides client-side MCP protocol implementation for the Hydrate plugin.
- * It enables communication with MCP servers running as local processes or WebSocket servers.
+ * This module provides comprehensive MCP client and server management
+ * for the Hydrate Obsidian plugin.
  */
 
-// Transport layer
+// MCP Transport Layer
 export type { MCPTransport } from "./MCPTransport";
 export { StdioTransport, WebSocketTransport } from "./MCPTransport";
 
-// Client layer
-export type {
-	MCPRequest,
-	MCPResponse,
-	MCPNotification,
-	MCPMessage,
-	MCPToolSchema,
-} from "./MCPClient";
-export {
-	MCPClient,
-	createStdioMCPClient,
-	createWebSocketMCPClient,
-} from "./MCPClient";
+// MCP Client
+export { MCPClient } from "./MCPClient";
+export type { MCPToolSchema } from "./MCPClient";
 
-// Server management
-export type { MCPServerConfig, MCPServerStats } from "./MCPServerConfig";
+// MCP Server Configuration
+export type { MCPServerConfig } from "./MCPServerConfig";
 export {
 	MCPServerStatus,
 	MCPServerHealth,
-	MCPServerConfigValidator,
-	DEFAULT_MCP_SERVER_CONFIG,
 	MCP_SERVER_TEMPLATES,
+	DEFAULT_MCP_SERVER_CONFIG,
 } from "./MCPServerConfig";
+
+// MCP Server Management
 export { MCPServer } from "./MCPServer";
 export type { MCPServerEvents } from "./MCPServer";
 
+// MCP Tool Discovery
+export { MCPToolDiscovery, DEFAULT_DISCOVERY_CONFIG } from "./MCPToolDiscovery";
+export type {
+	MCPToolSchemaWithMetadata,
+	MCPToolDiscoveryConfig,
+	MCPToolDiscoveryEvents,
+} from "./MCPToolDiscovery";
+
 // Test utilities
 export { testMCPClient } from "./test-mcp-client";
-export { testMCPServer, testServerCrashRecovery } from "./test-mcp-server";
+export { testMCPServer } from "./test-mcp-server";
+export { testToolDiscovery } from "./test-tool-discovery";
