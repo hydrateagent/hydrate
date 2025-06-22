@@ -23,5 +23,18 @@ export {
 	createWebSocketMCPClient,
 } from "./MCPClient";
 
+// Server management
+export type { MCPServerConfig, MCPServerStats } from "./MCPServerConfig";
+export {
+	MCPServerStatus,
+	MCPServerHealth,
+	MCPServerConfigValidator,
+	DEFAULT_MCP_SERVER_CONFIG,
+	MCP_SERVER_TEMPLATES,
+} from "./MCPServerConfig";
+export { MCPServer } from "./MCPServer";
+export type { MCPServerEvents } from "./MCPServer";
+
 // Test utilities
 export { testMCPClient } from "./test-mcp-client";
+export { testMCPServer, testServerCrashRecovery } from "./test-mcp-server";
