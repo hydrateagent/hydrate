@@ -9,8 +9,14 @@ import {
 import HydratePlugin, { ALLOWED_MODELS, ModelName } from "../main"; // Corrected path & ADDED IMPORTS
 import { RegistryEditModal } from "./RegistryEditModal";
 import { RuleEditModal } from "./RuleEditModal"; // <<< IMPORT NEW MODAL
+import { MCPServerEditModal } from "./MCPServerEditModal"; // <<< IMPORT MCP SERVER MODAL
 import { injectSettingsStyles } from "../styles/settingsStyles";
 import { RuleEntry } from "../types"; // <<< IMPORT RuleEntry
+import {
+	MCPServerConfig,
+	MCPServerStatus,
+	MCPServerHealth,
+} from "../mcp/MCPServerConfig"; // <<< IMPORT MCP TYPES
 
 export class HydrateSettingTab extends PluginSettingTab {
 	plugin: HydratePlugin;
@@ -215,6 +221,52 @@ export class HydrateSettingTab extends PluginSettingTab {
 			"hydrate-registry-list"
 		);
 		this.renderRulesRegistryList(rulesRegistryListEl); // Call rules list renderer
+
+		// --- MCP Servers Section ---
+		const mcpServersSection = containerEl.createDiv(
+			"hydrate-settings-section"
+		);
+		const mcpHeadingEl = mcpServersSection.createEl("div", {
+			cls: "hydrate-settings-heading",
+		});
+		mcpHeadingEl.createEl("h3", { text: "MCP Servers" });
+		const mcpAddButtonContainer = mcpHeadingEl.createDiv({
+			cls: "hydrate-heading-actions",
+		});
+		mcpAddButtonContainer
+			.createEl("button", { text: "Add MCP Server", cls: "mod-cta" })
+			.addEventListener("click", () => {
+				const modal = new MCPServerEditModal(
+					this.app,
+					this.plugin,
+					null, // Creating a new server
+					(newServer) => {
+						// Add the new server to settings
+						this.plugin.settings.mcpServers = [
+							...this.plugin.settings.mcpServers,
+							newServer,
+						];
+						this.plugin.saveSettings();
+						this.renderMCPServersList(mcpServersListEl);
+						new Notice(
+							`Added MCP server: ${
+								newServer.name || newServer.id
+							}`
+						);
+					}
+				);
+				modal.open();
+			});
+
+		mcpServersSection.createEl("p", {
+			text: "Configure Model Context Protocol (MCP) servers to extend agent capabilities with external tools and data sources.",
+			cls: "setting-item-description",
+		});
+
+		const mcpServersListEl = mcpServersSection.createDiv(
+			"hydrate-registry-list"
+		);
+		this.renderMCPServersList(mcpServersListEl);
 
 		// --- Remote Embeddings Section ---
 		containerEl.createEl("h3", { text: "Remote Embeddings Configuration" });
@@ -542,5 +594,253 @@ export class HydrateSettingTab extends PluginSettingTab {
 						})
 				);
 		});
+	}
+
+	// --- Helper to Render the MCP Servers List ---
+	renderMCPServersList(containerEl: HTMLElement) {
+		containerEl.empty(); // Clear previous list
+
+		const servers = this.plugin.settings.mcpServers || [];
+
+		if (servers.length === 0) {
+			containerEl.createEl("p", {
+				text: "No MCP servers configured yet. Click 'Add MCP Server' above to create one.",
+				cls: "hydrate-empty-list-message",
+			});
+			return;
+		}
+
+		// Sort alphabetically by name for consistent order
+		servers.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
+
+		servers.forEach((server) => {
+			const statusText = this.getMCPServerStatusText(server);
+			const statusClass = this.getMCPServerStatusClass(server);
+
+			const settingItem = new Setting(containerEl)
+				.setName(server.name || `(ID: ${server.id})`)
+				.setDesc(
+					`${server.description || "No description"} | Transport: ${
+						server.transport
+					} | Status: ${statusText}`
+				)
+				.setClass("hydrate-registry-item")
+
+				// Status indicator
+				.addButton((button) => {
+					button
+						.setButtonText(server.enabled ? "✅" : "⏸️")
+						.setTooltip(
+							server.enabled
+								? "Server Enabled"
+								: "Server Disabled"
+						)
+						.onClick(async () => {
+							// Toggle enabled status
+							const updatedServers =
+								this.plugin.settings.mcpServers.map((s) =>
+									s.id === server.id
+										? { ...s, enabled: !s.enabled }
+										: s
+								);
+							this.plugin.settings.mcpServers = updatedServers;
+							await this.plugin.saveSettings();
+
+							// Update MCP manager if available
+							if (this.plugin.mcpManager) {
+								if (server.enabled) {
+									await this.plugin.mcpManager.stopServer(
+										server.id
+									);
+								} else {
+									await this.plugin.mcpManager.startServer(
+										server
+									);
+								}
+							}
+
+							this.renderMCPServersList(containerEl);
+							new Notice(
+								`${
+									server.enabled ? "Disabled" : "Enabled"
+								} server: ${server.name}`
+							);
+						});
+				})
+
+				// Test Connection Button
+				.addButton((button) =>
+					button
+						.setIcon("zap")
+						.setTooltip("Test Server Connection")
+						.onClick(async () => {
+							try {
+								new Notice("Testing server connection...");
+
+								if (this.plugin.mcpManager) {
+									const testResult =
+										await this.plugin.mcpManager.testServerConnection(
+											server
+										);
+									if (testResult.success) {
+										new Notice(
+											`✅ Connection successful! Found ${
+												testResult.toolCount || 0
+											} tools.`
+										);
+									} else {
+										new Notice(
+											`❌ Connection failed: ${testResult.error}`
+										);
+									}
+								} else {
+									new Notice("❌ MCP Manager not available");
+								}
+							} catch (error) {
+								console.error(
+									"Error testing MCP server:",
+									error
+								);
+								new Notice(
+									`❌ Test failed: ${
+										error instanceof Error
+											? error.message
+											: String(error)
+									}`
+								);
+							}
+						})
+				)
+
+				// Edit Button
+				.addButton((button) =>
+					button
+						.setIcon("pencil")
+						.setTooltip("Edit MCP Server")
+						.onClick(() => {
+							const modal = new MCPServerEditModal(
+								this.app,
+								this.plugin,
+								server, // Pass the existing server
+								(updatedServer) => {
+									// Update the server in the settings array
+									this.plugin.settings.mcpServers =
+										this.plugin.settings.mcpServers.map(
+											(s) =>
+												s.id === updatedServer.id
+													? updatedServer
+													: s
+										);
+									this.plugin.saveSettings();
+									this.renderMCPServersList(containerEl);
+									new Notice(
+										`Updated MCP server: ${
+											updatedServer.name ||
+											updatedServer.id
+										}`
+									);
+								}
+							);
+							modal.open();
+						})
+				)
+
+				// Delete Button
+				.addButton((button) =>
+					button
+						.setIcon("trash")
+						.setTooltip("Delete MCP Server")
+						.setClass("mod-warning")
+						.onClick(async () => {
+							if (
+								confirm(
+									`Are you sure you want to delete the MCP server "${
+										server.name || server.id
+									}"? This will stop the server if it's running.`
+								)
+							) {
+								// Stop the server if it's running
+								if (this.plugin.mcpManager) {
+									try {
+										await this.plugin.mcpManager.stopServer(
+											server.id
+										);
+									} catch (error) {
+										console.warn(
+											"Error stopping server during deletion:",
+											error
+										);
+									}
+								}
+
+								// Remove from settings
+								this.plugin.settings.mcpServers =
+									this.plugin.settings.mcpServers.filter(
+										(s) => s.id !== server.id
+									);
+								await this.plugin.saveSettings();
+								this.renderMCPServersList(containerEl);
+								new Notice(
+									`Deleted MCP server: ${
+										server.name || server.id
+									}`
+								);
+							}
+						})
+				);
+		});
+	}
+
+	private getMCPServerStatusText(server: MCPServerConfig): string {
+		if (!server.enabled) return "Disabled";
+
+		// Try to get actual status from MCP manager
+		if (this.plugin.mcpManager) {
+			const status = this.plugin.mcpManager.getServerStatus(server.id);
+			if (status) {
+				switch (status) {
+					case MCPServerStatus.RUNNING:
+						return "Running";
+					case MCPServerStatus.STARTING:
+						return "Starting";
+					case MCPServerStatus.STOPPING:
+						return "Stopping";
+					case MCPServerStatus.CRASHED:
+						return "Crashed";
+					case MCPServerStatus.FAILED:
+						return "Failed";
+					case MCPServerStatus.RESTARTING:
+						return "Restarting";
+					default:
+						return "Stopped";
+				}
+			}
+		}
+
+		return "Unknown";
+	}
+
+	private getMCPServerStatusClass(server: MCPServerConfig): string {
+		if (!server.enabled) return "mcp-status-disabled";
+
+		if (this.plugin.mcpManager) {
+			const status = this.plugin.mcpManager.getServerStatus(server.id);
+			if (status) {
+				switch (status) {
+					case MCPServerStatus.RUNNING:
+						return "mcp-status-running";
+					case MCPServerStatus.STARTING:
+					case MCPServerStatus.RESTARTING:
+						return "mcp-status-starting";
+					case MCPServerStatus.CRASHED:
+					case MCPServerStatus.FAILED:
+						return "mcp-status-error";
+					default:
+						return "mcp-status-stopped";
+				}
+			}
+		}
+
+		return "mcp-status-unknown";
 	}
 }

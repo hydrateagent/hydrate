@@ -49,6 +49,10 @@ import { handleSearchProject } from "./toolHandlers"; // <<< ADD IMPORT
 
 import { ManifestFile, DirectoryManifest } from "./manifestUtils"; // Assuming manifestUtils.ts is in the same directory
 
+// MCP imports
+import { MCPServerManager } from "./mcp/MCPServerManager";
+import { MCPConfigStorage } from "./mcp/index";
+
 // Remember to rename these classes and interfaces!
 
 // --- React View Registry ---
@@ -103,6 +107,7 @@ export interface HydratePluginSettings {
 	remoteEmbeddingApiKey: string;
 	remoteEmbeddingModelName: string;
 	indexFileExtensions: string; // New setting for file extensions
+	mcpServers: any[]; // Added mcpServers property
 }
 
 // Default content for the /issue command
@@ -168,6 +173,7 @@ const DEFAULT_SETTINGS: HydratePluginSettings = {
 	remoteEmbeddingApiKey: "", // Default to empty
 	remoteEmbeddingModelName: "text-embedding-3-small", // Default to OpenAI's model
 	indexFileExtensions: "md", // Default to only markdown
+	mcpServers: [], // Initialize mcpServers
 };
 
 export const REACT_HOST_VIEW_TYPE = "hydrate-react-host"; // Define type for React host
@@ -194,6 +200,7 @@ export default class HydratePlugin extends Plugin {
 	isSwitchingToMarkdown: boolean = false;
 	view: HydrateView | null = null; // Keep reference to the view instance
 	isIndexing: boolean = false; // Flag to prevent concurrent indexing
+	mcpManager: MCPServerManager | null = null; // MCP Server Manager
 
 	async onload() {
 		console.log("Loading Hydrate plugin...");
@@ -202,6 +209,34 @@ export default class HydratePlugin extends Plugin {
 
 		// --- Initialize Vector System (Loads Local Index) ---
 		await initializeVectorSystem(this.app);
+
+		// --- Initialize MCP Server Manager ---
+		console.log("Initializing MCP Server Manager...");
+		try {
+			// Create a simple config storage implementation
+			const configStorage: MCPConfigStorage = {
+				async saveConfig(config: any): Promise<void> {
+					// Store MCP config in plugin settings
+					this.settings.mcpServers = config.servers || [];
+					await this.saveSettings();
+				},
+				async loadConfig(): Promise<any> {
+					// Load MCP config from plugin settings
+					return {
+						servers: this.settings.mcpServers || [],
+					};
+				},
+			};
+
+			this.mcpManager = new MCPServerManager();
+			this.mcpManager.setStorage(configStorage);
+			console.log("MCP Server Manager initialized successfully");
+		} catch (error) {
+			console.error("Failed to initialize MCP Server Manager:", error);
+			new Notice(
+				"Failed to initialize MCP Server Manager. MCP tools will not be available."
+			);
+		}
 
 		// Inject custom styles
 		injectSettingsStyles(this);
@@ -800,6 +835,23 @@ export default class HydratePlugin extends Plugin {
 		// Clean up when the plugin is disabled
 		this.deactivateView(); // This will also detach leaves
 		this.view = null; // Ensure reference is cleared
+
+		// Clean up MCP Server Manager
+		if (this.mcpManager) {
+			console.log("Shutting down MCP Server Manager...");
+			try {
+				// Stop all servers
+				this.mcpManager.stopAllServers();
+				this.mcpManager = null;
+				console.log("MCP Server Manager shut down successfully");
+			} catch (error) {
+				console.error(
+					"Error during MCP Server Manager shutdown:",
+					error
+				);
+			}
+		}
+
 		console.log("Hydrate Plugin Unloaded");
 	}
 

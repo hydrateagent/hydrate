@@ -57,11 +57,18 @@ interface ChatMessage {
 	content: string;
 }
 
+interface MCPToolInfo {
+	server_id: string;
+	server_name: string;
+	is_mcp_tool: boolean;
+}
+
 interface BackendToolCall {
 	action: "tool_call";
 	tool: string;
 	params: any;
 	id: string; // Tool call ID from the agent
+	mcp_info?: MCPToolInfo; // Optional MCP routing information
 }
 
 interface BackendResponse {
@@ -201,581 +208,435 @@ export class HydrateView extends ItemView {
 		}
 	}
 
+	// --- File Change Handling ---
+
 	public handleActiveFileChange(newFilePath: string | null) {
-		if (!this.containerEl.isShown()) {
-			console.log(
-				"Hydrate [handleActiveFileChange]: View not visible, ignoring file change."
-			);
-			return;
-		}
+		// Determine the key for tracking this file's content inclusion
+		const trackingKey = this.conversationId
+			? `${this.conversationId}:${newFilePath}`
+			: null;
 
-		console.log(
-			"Hydrate [handleActiveFileChange]: Received new file path:",
-			newFilePath
-		);
-		console.log(
-			"Hydrate [handleActiveFileChange]: Current attachedFiles:",
-			[...this.attachedFiles]
-		);
-		console.log(
-			"Hydrate [handleActiveFileChange]: wasInitiallyAttached:",
-			this.wasInitiallyAttached
-		);
-		console.log(
-			"Hydrate [handleActiveFileChange]: initialFilePathFromState:",
-			this.initialFilePathFromState
-		);
-
+		// Only auto-attach if:
+		// 1. A file is active (newFilePath is not null)
+		// 2. No files are currently attached (empty array)
+		// 3. The file content hasn't been sent for this conversation yet
 		if (
-			this.attachedFiles.length === 1 &&
-			this.wasInitiallyAttached &&
-			this.attachedFiles[0] === this.initialFilePathFromState
+			newFilePath &&
+			this.attachedFiles.length === 0 &&
+			trackingKey &&
+			!this.sentFileContentRegistry.has(trackingKey)
 		) {
-			if (newFilePath && newFilePath !== this.initialFilePathFromState) {
-				const fileExists =
-					this.app.vault.getAbstractFileByPath(newFilePath) instanceof
-					TFile;
-				if (fileExists) {
-					console.log(
-						`Hydrate [handleActiveFileChange]: Replacing ${this.initialFilePathFromState} with ${newFilePath}`
-					);
-					this.attachedFiles = [newFilePath];
-					this.initialFilePathFromState = newFilePath;
-					this.wasInitiallyAttached = true;
-					// Call the aliased dom util function
-					renderDomFilePills(this); // Pass the view instance
-				} else {
-					console.warn(
-						`Hydrate [handleActiveFileChange]: New file path '${newFilePath}' does not exist. Not replacing.`
-					);
-				}
-			} else if (!newFilePath) {
-				console.log(
-					"Hydrate [handleActiveFileChange]: Switched to view without a file. Removing initial attachment."
-				);
-				this.attachedFiles = [];
-				this.initialFilePathFromState = null;
-				this.wasInitiallyAttached = false;
+			console.log(
+				`Hydrate [handleActiveFileChange]: Auto-attaching active file: ${newFilePath}`
+			);
+			this.attachedFiles = [newFilePath];
+
+			if (this.filePillsContainer) {
 				// Call the aliased dom util function
 				renderDomFilePills(this); // Pass the view instance
-			} else {
+			}
+		} else if (newFilePath) {
+			// Log why we didn't auto-attach
+			if (this.attachedFiles.length > 0) {
 				console.log(
-					"Hydrate [handleActiveFileChange]: New file path is the same as the current attached file. No change."
+					`Hydrate [handleActiveFileChange]: Not auto-attaching ${newFilePath} because files are already attached: ${this.attachedFiles}`
+				);
+			} else if (
+				trackingKey &&
+				this.sentFileContentRegistry.has(trackingKey)
+			) {
+				console.log(
+					`Hydrate [handleActiveFileChange]: Not auto-attaching ${newFilePath} because its content was already sent in this conversation`
 				);
 			}
 		} else {
 			console.log(
-				"Hydrate [handleActiveFileChange]: Conditions not met for following active file. Stopping."
+				"Hydrate [handleActiveFileChange]: No active file to auto-attach."
 			);
 		}
 	}
 
+	// --- UI Creation and Event Binding ---
+
 	async onOpen(): Promise<void> {
+		console.log("HydrateView opening...");
+
 		const container = this.containerEl.children[1];
 		container.empty();
-		container.addClasses([
-			"hydrate-view-container",
-			"p-3",
-			"flex",
-			"flex-col",
-			"h-full",
-		]);
+		container.addClass("hydrate-view");
 
-		// Assign DOM elements to class properties
-		this.chatContainer = container.createEl("div", {
-			cls: "hydrate-chat-container flex-grow overflow-y-auto p-2 space-y-3",
-		});
+		// Apply pane styles
+		const styleEl = document.createElement("style");
+		styleEl.textContent = `
+			.hydrate-view {
+				display: flex;
+				flex-direction: column;
+				height: 100%;
+				padding: 10px;
+				box-sizing: border-box;
+			}
+			.hydrate-chat-container {
+				flex: 1;
+				overflow-y: auto;
+				margin-bottom: 10px;
+				border: 1px solid var(--background-modifier-border);
+				border-radius: 5px;
+				padding: 10px;
+				background: var(--background-primary);
+			}
+			.hydrate-input-section {
+				display: flex;
+				flex-direction: column;
+				gap: 10px;
+			}
+			.hydrate-file-pills {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 5px;
+				min-height: 20px;
+			}
+			.hydrate-input-container {
+				display: flex;
+				gap: 10px;
+				align-items: flex-end;
+			}
+			.hydrate-textarea {
+				flex: 1;
+				min-height: 40px;
+				max-height: 200px;
+				resize: vertical;
+				padding: 8px;
+				border: 1px solid var(--background-modifier-border);
+				border-radius: 5px;
+				background: var(--background-primary);
+				color: var(--text-normal);
+				font-family: var(--font-text);
+			}
+			.hydrate-button {
+				padding: 8px 16px;
+				background: var(--interactive-accent);
+				color: var(--text-on-accent);
+				border: none;
+				border-radius: 5px;
+				cursor: pointer;
+				font-size: 14px;
+			}
+			.hydrate-button:hover {
+				background: var(--interactive-accent-hover);
+			}
+			.hydrate-button:disabled {
+				background: var(--background-modifier-border);
+				cursor: not-allowed;
+			}
+		`;
+		document.head.appendChild(styleEl);
 
-		const inputAreaContainer = container.createEl("div", {
-			cls: "hydrate-input-area-container relative pt-3 border-t border-[var(--background-modifier-border)] mb-4",
-		});
-
-		// Add Loading Indicator (initially hidden)
-		this.loadingIndicator = inputAreaContainer.createEl("div", {
-			cls: "hydrate-loading-indicator absolute inset-x-0 top-0 h-1 bg-blue-500 animate-pulse hidden",
-			attr: { role: "progressbar", "aria-busy": "false" },
-		});
-
-		this.suggestionsContainer = inputAreaContainer.createEl("div", {
-			cls: "hydrate-suggestions-container absolute bottom-full left-0 right-0 mb-1 p-1 bg-[var(--background-secondary)] border border-[var(--background-modifier-border)] rounded-md shadow-lg z-10 hidden max-h-40 overflow-y-auto",
-		});
-
-		this.filePillsContainer = inputAreaContainer.createEl("div", {
-			cls: "hydrate-file-pills-container flex flex-wrap gap-1 pb-2",
-		});
-
-		const inputControlsArea = inputAreaContainer.createEl("div", {
-			cls: "hydrate-input-controls-area flex items-end gap-2",
-		});
-
-		this.textInput = inputControlsArea.createEl("textarea", {
-			cls: "hydrate-textarea flex-grow p-2 border border-[var(--background-modifier-border)] rounded-md bg-[var(--background-primary)] text-[var(--text-normal)] focus:border-[var(--interactive-accent)] focus:outline-none resize-none",
-			attr: {
-				placeholder:
-					"Enter your prompt, drop files, or type / for commands...",
-				rows: "3", // Start with 3 rows
-			},
-		});
-
-		// Auto-Resizing Logic
+		// Auto-adjust textarea height based on content
 		const adjustTextareaHeight = () => {
-			const minRows = 3; // Minimum 3 rows
-			const maxRows = 15;
-			const inputEl = this.textInput;
-			inputEl.style.height = "auto";
-			const scrollHeight = inputEl.scrollHeight;
-			const computedStyle = getComputedStyle(inputEl);
-			const lineHeight = parseFloat(computedStyle.lineHeight) || 18;
-			const padding =
-				parseFloat(computedStyle.paddingTop) +
-				parseFloat(computedStyle.paddingBottom);
-			const border =
-				parseFloat(computedStyle.borderTopWidth) +
-				parseFloat(computedStyle.borderBottomWidth);
-			const minHeight = lineHeight * minRows + padding + border;
-			const maxHeight = lineHeight * maxRows + padding + border;
-			const targetHeight = Math.max(
-				minHeight,
-				Math.min(maxHeight, scrollHeight)
-			);
-			inputEl.style.height = `${targetHeight}px`;
-			inputEl.style.overflowY =
-				scrollHeight > maxHeight ? "auto" : "hidden";
+			this.textInput.style.height = "auto";
+			this.textInput.style.height = this.textInput.scrollHeight + "px";
 		};
-		this.textInput.addEventListener("input", adjustTextareaHeight);
-		setTimeout(adjustTextareaHeight, 0);
 
-		// Buttons
-		const buttonContainer = inputControlsArea.createEl("div", {
-			cls: "hydrate-button-container flex flex-col gap-1 flex-shrink-0",
+		// Create chat container
+		this.chatContainer = container.createEl("div", {
+			cls: "hydrate-chat-container",
 		});
-		const clearButton = buttonContainer.createEl("button", {
-			text: "Clear",
-			cls: "hydrate-button hydrate-clear-button px-3 py-1.5 rounded-md bg-[var(--background-modifier-border)] text-[var(--text-muted)] hover:bg-[var(--background-modifier-hover)] transition-colors duration-150",
+
+		// Create input section
+		const inputSection = container.createEl("div", {
+			cls: "hydrate-input-section",
 		});
-		const sendButton = buttonContainer.createEl("button", {
+
+		// Create file pills container
+		this.filePillsContainer = inputSection.createEl("div", {
+			cls: "hydrate-file-pills",
+		});
+
+		// Create input container
+		const inputContainer = inputSection.createEl("div", {
+			cls: "hydrate-input-container",
+		});
+
+		// Create textarea
+		this.textInput = inputContainer.createEl("textarea", {
+			cls: "hydrate-textarea",
+			attr: { placeholder: "Ask a question or request an action..." },
+		});
+
+		// Create send button
+		const sendButton = inputContainer.createEl("button", {
+			cls: "hydrate-button",
 			text: "Send",
-			cls: "hydrate-button hydrate-send-button px-3 py-1.5 rounded-md bg-[var(--interactive-accent)] text-[var(--text-on-accent)] hover:bg-[var(--interactive-accent-hover)] transition-colors duration-150",
 		});
-		this.stopButton = buttonContainer.createEl("button", {
+
+		// Create stop button (initially hidden)
+		this.stopButton = inputContainer.createEl("button", {
+			cls: "hydrate-button",
 			text: "Stop",
-			cls: "hydrate-button hydrate-stop-button px-3 py-1.5 rounded-md bg-red-700 text-white hover:bg-red-600 transition-colors duration-150",
 		});
 		this.stopButton.style.display = "none";
 
-		// Event Listeners (use imported handlers)
-		clearButton.addEventListener("click", () => handleClear(this));
-		sendButton.addEventListener("click", () => handleSend(this));
-		this.stopButton.addEventListener("click", () => handleStop(this));
-		this.textInput.addEventListener("input", () => handleInputChange(this));
+		// Create clear button
+		const clearButton = inputContainer.createEl("button", {
+			cls: "hydrate-button",
+			text: "Clear",
+		});
+
+		// Create loading indicator
+		this.loadingIndicator = this.chatContainer.createEl("div", {
+			cls: "hydrate-loading",
+			text: "Processing...",
+		});
+		this.loadingIndicator.style.display = "none";
+
+		// Bind event handlers using imported functions
+		this.textInput.addEventListener("input", (e) =>
+			handleInputChange(this, e)
+		);
 		this.textInput.addEventListener("keydown", (e) =>
 			handleInputKeydown(this, e)
 		);
-		this.textInput.addEventListener("click", () => handleInputChange(this));
-		this.textInput.addEventListener("keyup", (e) => {
-			if (
-				[
-					"ArrowUp",
-					"ArrowDown",
-					"ArrowLeft",
-					"ArrowRight",
-					"Escape",
-				].includes(e.key)
-			) {
-				handleInputChange(this);
-			}
-		});
-		this.registerDomEvent(document, "click", (event) => {
-			if (
-				this.suggestionsContainer &&
-				!inputAreaContainer.contains(event.target as Node)
-			) {
-				setDomSuggestions(this, []);
-			}
-		});
+		sendButton.addEventListener("click", () => handleSend(this));
+		clearButton.addEventListener("click", () => handleClear(this));
+		this.stopButton.addEventListener("click", () => handleStop(this));
 
-		// Drag and Drop (use imported handler)
-		this.registerDomEvent(
-			inputAreaContainer,
-			"dragover",
-			(event: DragEvent) => {
-				if (event.dataTransfer) {
-					event.preventDefault();
-					inputAreaContainer.addClass("hydrate-drag-over");
-				}
-			}
-		);
-		this.registerDomEvent(inputAreaContainer, "dragleave", () => {
-			inputAreaContainer.removeClass("hydrate-drag-over");
-		});
-		this.registerDomEvent(inputAreaContainer, "drop", (e) =>
-			handleDrop(this, e)
-		);
+		// Add drag and drop support
+		container.addEventListener("dragover", (e) => e.preventDefault());
+		container.addEventListener("drop", (e) => handleDrop(this, e));
 
-		// Initial UI setup using imported functions
-		addMessageToChat(this, "system", "Agent Ready"); // Pass view instance now
-		renderDomFilePills(this); // Use aliased function
+		// Auto-adjust textarea height on input
+		this.textInput.addEventListener("input", adjustTextareaHeight);
 
-		// Focus the text input after the next frame renders
-		requestAnimationFrame(() => {
-			this.textInput.focus();
-		});
-	}
-
-	// --- Event Handlers (REMOVED - now in eventHandlers.ts) ---
-
-	// --- Backend Communication (Remains in the class, simplified) ---
-	async callBackend(endpoint: string, payload: any) {
-		console.log(`Hydrate: Calling ${endpoint} with payload:`, payload);
-		setDomLoadingState(this, true); // Use aliased function
-
-		// If there's an existing request, abort it first
-		if (this.abortController) {
-			console.log(
-				"Hydrate: Aborting previous request before starting new one..."
-			);
-			this.abortController.abort();
-			// No need to nullify here, the finally block will handle it
+		// Initialize with current active file if available
+		const activeFile = this.app.workspace.getActiveFile();
+		if (activeFile) {
+			this.handleActiveFileChange(activeFile.path);
 		}
 
-		// Create a new AbortController for THIS request
+		console.log("HydrateView opened successfully");
+	}
+
+	// --- Backend Communication ---
+
+	async callBackend(endpoint: string, payload: any) {
+		console.log(`Calling backend: ${endpoint}`, payload);
+
+		// Cancel any existing request
+		if (this.abortController) {
+			this.abortController.abort();
+		}
+
+		// Create new abort controller for this request
 		this.abortController = new AbortController();
-		const signal = this.abortController.signal;
 
 		try {
-			// --- Retrieve API Key ---
-			const apiKey = this.plugin.settings.apiKey;
-			if (!apiKey) {
-				console.error("Hydrate: API Key is missing in settings.");
-				addMessageToChat(
-					this,
-					"system",
-					"Error: API Key is missing. Please configure it in the Hydrate plugin settings.",
-					true
-				);
-				// No need for finally block here as controller wasn't fully used yet
-				this.abortController = null;
-				setDomLoadingState(this, false);
-				return; // Stop execution if key is missing
-			}
-			// --- End Retrieve API Key ---
-
 			const response = await requestUrl({
 				url: `${this.plugin.settings.backendUrl}${endpoint}`,
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
-					"X-API-Key": apiKey, // <<< ADDED API Key Header
+					"X-API-Key": this.plugin.settings.apiKey,
 				},
 				body: JSON.stringify(payload),
-				throw: false,
-				// signal: signal, // Pass the signal (even if potentially ignored by requestUrl)
+				throw: false, // Don't throw on HTTP errors, handle them manually
 			});
 
-			// Check if the request was aborted *during* the await
-			if (signal.aborted) {
-				console.log("Hydrate: Request aborted during await.");
-				// The handleStop function already adds a message, so just return
-				return;
-			}
+			// Reset abort controller after successful completion
+			this.abortController = null;
 
 			if (response.status >= 400) {
 				throw new Error(
-					`Backend error (${response.status}): ${response.text}`
+					`HTTP ${response.status}: ${
+						response.text || "Unknown error"
+					}`
 				);
 			}
 
 			const responseData: BackendResponse = response.json;
-			this.conversationId = responseData.conversation_id;
 
-			// --- Handle Agent Message --- //
-			if (responseData.agent_message) {
-				const agentContent = responseData.agent_message.content;
-				const hasToolCalls =
-					responseData.tool_calls_prepared &&
-					responseData.tool_calls_prepared.length > 0;
+			console.log("Backend response:", responseData);
 
-				if (agentContent && agentContent.trim() !== "") {
-					// Display content if it's not empty
-					addMessageToChat(this, "agent", agentContent);
-				} else if (hasToolCalls) {
-					// If content is empty but there are tools, show a placeholder
-					addMessageToChat(
-						this,
-						"agent",
-						"_(Performing requested action(s)...)_"
-					);
-				}
-				// If content is empty and no tools, nothing is displayed for the agent turn
+			// Update conversation ID from response
+			if (responseData.conversation_id) {
+				this.conversationId = responseData.conversation_id;
 			}
 
-			// --- Handle Tool Calls --- //
+			// Check for tool calls that need to be processed
 			if (
 				responseData.tool_calls_prepared &&
 				responseData.tool_calls_prepared.length > 0
 			) {
+				console.log(
+					"Tool calls detected:",
+					responseData.tool_calls_prepared
+				);
 				await this.processToolCalls(responseData.tool_calls_prepared);
 			} else {
-				// If no tool calls, the interaction might be done, stop loading
+				// No tool calls, just display the agent message
+				if (responseData.agent_message) {
+					addMessageToChat(this, responseData.agent_message, "agent");
+				}
 				setDomLoadingState(this, false);
 			}
 		} catch (error: any) {
-			// Check if the error is due to the request being aborted
-			if (error.name === "AbortError" || signal.aborted) {
-				console.log("Hydrate: Backend request was aborted by user.");
-				// UI state (loading, message) is handled by handleStop
-			} else {
-				// Handle other errors
-				console.error("Hydrate: Error calling backend:", error);
+			// Reset abort controller on error
+			this.abortController = null;
+
+			if (error.name === "AbortError") {
+				console.log("Request was cancelled");
 				addMessageToChat(
 					this,
-					"system",
-					`Error: ${error.message}`,
-					true
+					{ type: "ai", content: "Request cancelled by user." },
+					"agent"
 				);
-				setDomLoadingState(this, false); // Stop loading on error
+			} else {
+				console.error("Backend call failed:", error);
+				new Notice(`Backend error: ${error.message}`);
+				addMessageToChat(
+					this,
+					{
+						type: "ai",
+						content: `Error: ${error.message}`,
+					},
+					"agent"
+				);
 			}
-		} finally {
-			// Ensure the controller for *this* request is cleared after completion/error/abort
-			// Check if the current controller is the one we created for this specific call
-			if (
-				this.abortController &&
-				this.abortController.signal === signal
-			) {
-				this.abortController = null;
-			}
-			// Don't turn off loading here if tool calls are being processed
-			// setDomLoadingState(this, false); // Moved earlier or handled by processToolCalls
+			setDomLoadingState(this, false);
 		}
 	}
 
 	private async sendToolResults(results: ToolResult[]) {
-		// Construct payload for /tool_result
 		const payload: any = {
 			tool_results: results,
 			conversation_id: this.conversationId,
-			// Model is determined by the ongoing conversation state on the backend,
-			// no need to send it again here unless we want to support overriding mid-turn.
 		};
-
 		await this.callBackend("/tool_result", payload);
 	}
 
 	private async processToolCalls(
 		toolCalls: BackendToolCall[]
 	): Promise<void> {
-		const results: ToolResult[] = [];
-		// Identify all tools that require review (edits or replacements)
-		const reviewToolCalls = toolCalls.filter(
-			(tc) =>
-				tc.tool === "editFile" ||
-				tc.tool === "replaceSelectionInFile" ||
-				tc.tool === "applyPatchesToFile"
+		console.log(`Processing ${toolCalls.length} tool call(s)`);
+
+		// Separate tool calls that need review from those that can execute directly
+		const editToolCalls = toolCalls.filter((call) =>
+			[
+				"editFile",
+				"replaceSelectionInFile",
+				"applyPatchesToFile",
+			].includes(call.tool)
 		);
-		// Identify other tools that run directly
 		const otherToolCalls = toolCalls.filter(
-			(tc) =>
-				tc.tool !== "editFile" &&
-				tc.tool !== "replaceSelectionInFile" &&
-				tc.tool !== "applyPatchesToFile"
+			(call) =>
+				![
+					"editFile",
+					"replaceSelectionInFile",
+					"applyPatchesToFile",
+				].includes(call.tool)
 		);
 
-		addMessageToChat(
-			this,
-			"system",
-			`Agent requests ${toolCalls.length} action(s)...`
-		);
+		const results: ToolResult[] = [];
 
-		// Execute non-edit tools first
-		for (const toolCall of otherToolCalls) {
+		// Process edit tools through review modal
+		if (editToolCalls.length > 0) {
+			console.log(
+				`Processing ${editToolCalls.length} edit tool call(s) through review modal`
+			);
 			try {
-				addMessageToChat(
-					this,
-					"system",
-					`Executing ${toolCall.tool}...`
-				);
-				const result = await this.executeSingleTool(toolCall);
-				results.push({ id: toolCall.id, result });
-				addMessageToChat(
-					this,
-					"system",
-					`Result for ${toolCall.tool}: ${JSON.stringify(
-						result
-					).substring(0, 100)}...`
-				);
-			} catch (error) {
-				console.error(`Error executing tool ${toolCall.tool}:`, error);
-				const errorMsg = `Failed to execute tool ${toolCall.tool}: ${error.message}`;
-				results.push({
-					id: toolCall.id,
-					result: { error: errorMsg },
-				});
-				addMessageToChat(this, "system", errorMsg, true);
-			}
-		}
-
-		// Handle tools requiring review
-		if (reviewToolCalls.length > 0) {
-			try {
-				addMessageToChat(
-					this,
-					"system",
-					`Review required for changes to ${reviewToolCalls
-						.map((tc) => tc.params.path)
-						.join(", ")}`
-				);
 				const editResults = await this.reviewAndExecuteEdits(
-					reviewToolCalls
+					editToolCalls
 				);
 				results.push(...editResults);
 			} catch (error) {
-				console.error("Error processing file edits:", error);
-				const errorMsg = `Failed to process edits: ${error.message}`;
-				reviewToolCalls.forEach((tc) => {
+				console.error("Error processing edit tools:", error);
+				// Add error results for failed edit tools
+				for (const call of editToolCalls) {
 					results.push({
-						id: tc.id,
-						result: { error: errorMsg },
+						id: call.id,
+						result: `Error: ${
+							error instanceof Error
+								? error.message
+								: String(error)
+						}`,
 					});
-				});
-				addMessageToChat(this, "system", errorMsg, true);
+				}
 			}
 		}
 
-		// Send all results back if any were generated
-		if (results.length > 0) {
-			await this.sendToolResults(results);
-		} else {
-			setDomLoadingState(this, false); // Stop loading if no results to send
+		// Process other tools directly
+		for (const toolCall of otherToolCalls) {
+			try {
+				console.log(`Executing tool: ${toolCall.tool}`);
+				const result = await this.executeSingleTool(toolCall);
+				results.push({ id: toolCall.id, result });
+				console.log(`Tool ${toolCall.tool} completed successfully`);
+			} catch (error) {
+				console.error(`Error executing tool ${toolCall.tool}:`, error);
+				results.push({
+					id: toolCall.id,
+					result: `Error: ${
+						error instanceof Error ? error.message : String(error)
+					}`,
+				});
+			}
 		}
-	}
 
-	// --- Tool Execution (Uses imported tool implementations) ---
+		// Send all results back to backend
+		console.log(`Sending ${results.length} tool result(s) to backend`);
+		await this.sendToolResults(results);
+	}
 
 	private async reviewAndExecuteEdits(
 		pendingEdits: BackendToolCall[]
 	): Promise<ToolResult[]> {
 		const results: ToolResult[] = [];
+
 		for (const toolCall of pendingEdits) {
 			try {
+				console.log(`Reviewing edit for tool: ${toolCall.tool}`);
+
+				// Show diff modal for review
 				const reviewResult = await this.displayDiffModalForReview(
 					toolCall
 				);
 
-				// Check the 'applied' property from DiffReviewResult
 				if (reviewResult.applied) {
-					let executionResult: any;
-					if (toolCall.tool === "editFile") {
-						// Use the 'finalContent' property if available for editFile
-						if (reviewResult.finalContent !== undefined) {
-							addMessageToChat(
-								this,
-								"system",
-								`Applying changes to ${toolCall.params.path}... (editFile)`
-							);
-							executionResult = await toolEditFile(
-								this.app,
-								toolCall.params.path,
-								reviewResult.finalContent,
-								toolCall.params.instructions
-							);
-						} else {
-							throw new Error(
-								"Edit applied but final content was missing."
-							);
-						}
-					} else if (toolCall.tool === "replaceSelectionInFile") {
-						addMessageToChat(
-							this,
-							"system",
-							`Applying changes to ${toolCall.params.path}... (replaceSelectionInFile)`
-						);
-						// For replaceSelection, call the specific tool with its required params
-						// It handles finding the selection and replacing internally
-						executionResult = await toolReplaceSelectionInFile(
-							this.app,
-							toolCall.params.path,
-							toolCall.params.original_selection,
-							toolCall.params.new_content
-						);
-					} else if (toolCall.tool === "applyPatchesToFile") {
-						// If approved, apply the finalContent generated during the successful simulation
-						if (reviewResult.finalContent !== undefined) {
-							addMessageToChat(
-								this,
-								"system",
-								`Applying changes to ${toolCall.params.path}... (applyPatchesToFile)`
-							);
-							const file = this.app.vault.getAbstractFileByPath(
-								toolCall.params.path
-							);
-							if (file instanceof TFile) {
-								try {
-									await this.app.vault.modify(
-										file,
-										reviewResult.finalContent
-									);
-									executionResult = `Successfully applied patches to ${toolCall.params.path}`;
-									new Notice(executionResult);
-								} catch (e) {
-									console.error(
-										"Error applying simulated patch content:",
-										e
-									);
-									executionResult = {
-										error: `Failed to write patched file: ${e.message}`,
-									};
-								}
-							} else {
-								executionResult = {
-									error: `Target file not found or invalid: ${toolCall.params.path}`,
-								};
-							}
-						} else {
-							// This shouldn't happen if simulation succeeded, but handle defensively
-							executionResult = {
-								error: "Edit applied but final patch content was missing.",
-							};
-							console.error(
-								"Patch review approved, but finalContent missing from reviewResult."
-							);
-						}
-					} else {
-						// Should not happen if filtering in processToolCalls is correct
-						throw new Error(
-							`Unhandled tool type in reviewAndExecuteEdits: ${toolCall.tool}`
-						);
-					}
-
-					// Common result handling
-					results.push({
-						id: toolCall.id,
-						result: executionResult,
-					});
-					new Notice(
-						`File ${toolCall.params.path} updated via ${toolCall.tool}.`
+					console.log(
+						`Edit approved and applied for tool: ${toolCall.tool}`
 					);
-				} else {
+					// If the modal applied the changes, use the final content as the result
 					results.push({
 						id: toolCall.id,
-						result: { message: reviewResult.message }, // Use message from result
+						result: `Successfully applied changes to ${
+							toolCall.params.path
+						}. ${reviewResult.message || ""}`,
 					});
-					addMessageToChat(this, "system", reviewResult.message);
-					new Notice("Edit rejected.");
+				} else {
+					console.log(
+						`Edit rejected for tool: ${toolCall.tool}. Reason: ${reviewResult.message}`
+					);
+					// If the user rejected the changes, return an error result
+					results.push({
+						id: toolCall.id,
+						result: `Edit rejected: ${
+							reviewResult.message || "User declined changes"
+						}`,
+					});
 				}
 			} catch (error) {
 				console.error(
-					`Error processing edit for ${toolCall.params.path}:`,
+					`Error in review process for ${toolCall.tool}:`,
 					error
 				);
-				const errorMsg = `Failed to apply edit: ${error.message}`;
 				results.push({
 					id: toolCall.id,
-					result: { error: errorMsg },
+					result: `Error during review: ${
+						error instanceof Error ? error.message : String(error)
+					}`,
 				});
-				addMessageToChat(this, "system", errorMsg, true);
-				new Notice(`Error applying edit to ${toolCall.params.path}.`);
 			}
 		}
+
 		return results;
 	}
 
@@ -783,16 +644,22 @@ export class HydrateView extends ItemView {
 		toolCall: BackendToolCall
 	): Promise<DiffReviewResult> {
 		return new Promise(async (resolve) => {
-			// Extract common parameters
-			const { path, instructions } = toolCall.params;
-			const targetPath = path.startsWith("./") ? path.substring(2) : path;
-			let proposedContent = "";
+			console.log(`Preparing diff modal for tool: ${toolCall.tool}`);
+
+			// Determine the target file path
+			const targetPath = toolCall.params.path;
+			const instructions =
+				toolCall.params.instructions ||
+				`Apply ${toolCall.tool} to ${targetPath}`;
+
+			// Prepare content based on tool type
 			let originalContent = "";
-			const file = this.app.vault.getAbstractFileByPath(targetPath);
-			let simulationErrors: string[] = []; // Store simulation errors
+			let proposedContent = "";
+			const simulationErrors: string[] = [];
 
 			try {
 				// Wrap file reading and content generation in try-catch
+				const file = this.app.vault.getAbstractFileByPath(targetPath);
 				if (file instanceof TFile) {
 					originalContent = await this.app.vault.read(file);
 				} else {
@@ -945,6 +812,12 @@ export class HydrateView extends ItemView {
 	}
 
 	private async executeSingleTool(toolCall: BackendToolCall): Promise<any> {
+		// Check if this is an MCP tool
+		if (toolCall.mcp_info && toolCall.mcp_info.is_mcp_tool) {
+			return await this.executeMCPTool(toolCall);
+		}
+
+		// Handle native tools
 		switch (toolCall.tool) {
 			case "readFile": // Match tool name from backend
 				return await toolReadFile(this.app, toolCall.params.path);
@@ -979,9 +852,74 @@ export class HydrateView extends ItemView {
 		}
 	}
 
+	private async executeMCPTool(toolCall: BackendToolCall): Promise<any> {
+		console.log(`Executing MCP tool: ${toolCall.tool}`, toolCall.mcp_info);
+
+		if (!toolCall.mcp_info) {
+			throw new Error("MCP tool call missing routing information");
+		}
+
+		// Check if MCPServerManager is available
+		if (!this.plugin.mcpManager) {
+			throw new Error("MCP Server Manager not available");
+		}
+
+		try {
+			// Validate parameters
+			if (!toolCall.params || typeof toolCall.params !== "object") {
+				throw new Error("Invalid parameters for MCP tool call");
+			}
+
+			// Execute the tool via MCPServerManager
+			const result = await this.plugin.mcpManager.executeToolCall(
+				toolCall.mcp_info.server_id,
+				toolCall.tool,
+				toolCall.params
+			);
+
+			console.log(
+				`MCP tool ${toolCall.tool} executed successfully:`,
+				result
+			);
+			return result;
+		} catch (error) {
+			console.error(
+				`MCP tool execution failed for ${toolCall.tool}:`,
+				error
+			);
+
+			// Provide more specific error messages
+			if (error instanceof Error) {
+				if (error.message.includes("Server not found")) {
+					throw new Error(
+						`MCP server '${toolCall.mcp_info.server_name}' (${toolCall.mcp_info.server_id}) is not available. Please check server configuration.`
+					);
+				} else if (error.message.includes("Tool not found")) {
+					throw new Error(
+						`Tool '${toolCall.tool}' not found on MCP server '${toolCall.mcp_info.server_name}'. The tool may have been removed or the server may need to be restarted.`
+					);
+				} else if (error.message.includes("timeout")) {
+					throw new Error(
+						`MCP tool '${toolCall.tool}' timed out. The operation may be taking longer than expected.`
+					);
+				}
+			}
+
+			throw new Error(
+				`MCP tool execution failed: ${
+					error instanceof Error ? error.message : String(error)
+				}`
+			);
+		}
+	}
+
 	// --- Lifecycle Methods ---
 
 	async onClose() {
+		// Cancel any pending requests
+		if (this.abortController) {
+			this.abortController.abort();
+		}
 		// Any cleanup needed when the view is closed
 	}
 

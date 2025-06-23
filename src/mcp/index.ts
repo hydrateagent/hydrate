@@ -26,6 +26,14 @@ export {
 export { MCPServer } from "./MCPServer";
 export type { MCPServerEvents } from "./MCPServer";
 
+// MCP Server Manager
+export { MCPServerManager } from "./MCPServerManager";
+export type {
+	MCPServerManagerEvents,
+	MCPManagerStats,
+	MCPConfigStorage,
+} from "./MCPServerManager";
+
 // MCP Tool Discovery
 export { MCPToolDiscovery, DEFAULT_DISCOVERY_CONFIG } from "./MCPToolDiscovery";
 export type {
@@ -38,3 +46,4 @@ export type {
 export { testMCPClient } from "./test-mcp-client";
 export { testMCPServer } from "./test-mcp-server";
 export { testToolDiscovery } from "./test-tool-discovery";
+export { testMCPServerManager } from "./test-server-manager";
