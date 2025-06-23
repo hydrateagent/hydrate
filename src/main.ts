@@ -108,6 +108,9 @@ export interface HydratePluginSettings {
 	remoteEmbeddingModelName: string;
 	indexFileExtensions: string; // New setting for file extensions
 	mcpServers: any[]; // Added mcpServers property
+
+	// --- MCP PATH Configuration ---
+	mcpCustomPaths: string; // Comma-separated list of paths to add to PATH for MCP servers
 }
 
 // Default content for the /issue command
@@ -174,6 +177,7 @@ const DEFAULT_SETTINGS: HydratePluginSettings = {
 	remoteEmbeddingModelName: "text-embedding-3-small", // Default to OpenAI's model
 	indexFileExtensions: "md", // Default to only markdown
 	mcpServers: [], // Initialize mcpServers
+	mcpCustomPaths: "/usr/local/bin,/opt/homebrew/bin", // Default common paths
 };
 
 export const REACT_HOST_VIEW_TYPE = "hydrate-react-host"; // Define type for React host
@@ -230,6 +234,17 @@ export default class HydratePlugin extends Plugin {
 
 			this.mcpManager = new MCPServerManager();
 			this.mcpManager.setStorage(configStorage);
+
+			// Set custom paths from settings
+			if (this.settings.mcpCustomPaths) {
+				const paths = this.settings.mcpCustomPaths
+					.split(",")
+					.map((p) => p.trim())
+					.filter((p) => p.length > 0);
+				this.mcpManager.setCustomPaths(paths);
+				console.log("MCP Custom paths set:", paths);
+			}
+
 			console.log("MCP Server Manager initialized successfully");
 		} catch (error) {
 			console.error("Failed to initialize MCP Server Manager:", error);

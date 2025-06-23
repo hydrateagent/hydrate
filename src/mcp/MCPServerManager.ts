@@ -75,6 +75,7 @@ export class MCPServerManager extends EventEmitter {
 	private autoSaveEnabled = true;
 	private autoSaveDelay = 1000; // 1 second debounce
 	private autoSaveTimeout: NodeJS.Timeout | null = null;
+	private customPaths: string[] = [];
 
 	constructor(toolDiscovery?: MCPToolDiscovery) {
 		super();
@@ -87,6 +88,13 @@ export class MCPServerManager extends EventEmitter {
 	 */
 	setStorage(storage: MCPConfigStorage): void {
 		this.storage = storage;
+	}
+
+	/**
+	 * Set custom PATH directories for MCP servers
+	 */
+	setCustomPaths(paths: string[]): void {
+		this.customPaths = paths;
 	}
 
 	/**
@@ -120,7 +128,7 @@ export class MCPServerManager extends EventEmitter {
 		}
 
 		const fullConfig = MCPServerConfigValidator.withDefaults(configWithId);
-		const server = new MCPServer(fullConfig);
+		const server = new MCPServer(fullConfig, this.customPaths);
 
 		// Set up event forwarding
 		this.setupServerEventHandlers(serverId, server);
@@ -502,6 +510,42 @@ export class MCPServerManager extends EventEmitter {
 	}
 
 	/**
+	 * Execute a tool call on a specific server
+	 */
+	async executeToolCall(
+		serverId: string,
+		toolName: string,
+		parameters: any
+	): Promise<any> {
+		const entry = this.servers.get(serverId);
+		if (!entry) {
+			throw new Error(`Server with ID '${serverId}' not found`);
+		}
+
+		if (entry.server.getStatus() !== MCPServerStatus.RUNNING) {
+			throw new Error(
+				`Server '${serverId}' is not running (status: ${entry.server.getStatus()})`
+			);
+		}
+
+		const client = entry.server.getClient();
+		if (!client) {
+			throw new Error(`Server '${serverId}' has no active client`);
+		}
+
+		try {
+			const result = await client.callTool(toolName, parameters);
+			return result;
+		} catch (error) {
+			throw new Error(
+				`Tool execution failed: ${
+					error instanceof Error ? error.message : String(error)
+				}`
+			);
+		}
+	}
+
+	/**
 	 * Test server connection without adding it to the registry
 	 */
 	async testServerConnection(config: MCPServerConfig): Promise<{
@@ -523,7 +567,7 @@ export class MCPServerManager extends EventEmitter {
 			}
 
 			// Create a temporary server instance
-			const testServer = new MCPServer(config);
+			const testServer = new MCPServer(config, this.customPaths);
 
 			try {
 				// Start the server

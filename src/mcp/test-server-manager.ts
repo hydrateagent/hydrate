@@ -24,25 +24,27 @@ import { MCPToolDiscovery } from "./MCPToolDiscovery";
  * Mock storage implementation for testing
  */
 class MockConfigStorage implements MCPConfigStorage {
-	private data: Record<string, MCPServerConfig> = {};
+	private data: any = {};
 	private shouldFail = false;
 
-	async save(configs: Record<string, MCPServerConfig>): Promise<void> {
+	async saveConfig(config: any): Promise<void> {
 		if (this.shouldFail) {
 			throw new Error("Mock storage save failure");
 		}
-		this.data = { ...configs };
+		this.data = { ...config };
 		console.log(
-			`📁 Saved ${Object.keys(configs).length} server configurations`
+			`📁 Saved configuration with ${config.servers?.length || 0} servers`
 		);
 	}
 
-	async load(): Promise<Record<string, MCPServerConfig>> {
+	async loadConfig(): Promise<any> {
 		if (this.shouldFail) {
 			throw new Error("Mock storage load failure");
 		}
 		console.log(
-			`📁 Loaded ${Object.keys(this.data).length} server configurations`
+			`📁 Loaded configuration with ${
+				this.data.servers?.length || 0
+			} servers`
 		);
 		return { ...this.data };
 	}
@@ -56,7 +58,7 @@ class MockConfigStorage implements MCPConfigStorage {
 		this.shouldFail = fail;
 	}
 
-	getData(): Record<string, MCPServerConfig> {
+	getData(): any {
 		return { ...this.data };
 	}
 
@@ -76,7 +78,7 @@ const TEST_CONFIGS = {
 		args: ["@modelcontextprotocol/server-echo"],
 		enabled: true,
 		autoStart: false,
-		transport: "stdio" as const,
+		transport: { type: "stdio" as const },
 	},
 	filesystem_server: {
 		name: "Filesystem Server",
@@ -85,13 +87,14 @@ const TEST_CONFIGS = {
 		args: ["@modelcontextprotocol/server-filesystem", "/tmp"],
 		enabled: true,
 		autoStart: true,
-		transport: "stdio" as const,
+		transport: { type: "stdio" as const },
 	},
 	web_server: {
 		name: "Web Server",
 		description: "Web search and browsing",
-		transport: "websocket" as const,
-		websocketUrl: "ws://localhost:8080/mcp",
+		command: "npx",
+		args: ["@modelcontextprotocol/server-web"],
+		transport: { type: "sse" as const, url: "http://localhost:8080/sse" },
 		enabled: false,
 		autoStart: false,
 	},

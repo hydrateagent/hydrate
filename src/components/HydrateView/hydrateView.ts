@@ -390,9 +390,7 @@ export class HydrateView extends ItemView {
 		this.loadingIndicator.style.display = "none";
 
 		// Bind event handlers using imported functions
-		this.textInput.addEventListener("input", (e) =>
-			handleInputChange(this, e)
-		);
+		this.textInput.addEventListener("input", () => handleInputChange(this));
 		this.textInput.addEventListener("keydown", (e) =>
 			handleInputKeydown(this, e)
 		);
@@ -402,7 +400,9 @@ export class HydrateView extends ItemView {
 
 		// Add drag and drop support
 		container.addEventListener("dragover", (e) => e.preventDefault());
-		container.addEventListener("drop", (e) => handleDrop(this, e));
+		container.addEventListener("drop", (e) =>
+			handleDrop(this, e as DragEvent)
+		);
 
 		// Auto-adjust textarea height on input
 		this.textInput.addEventListener("input", adjustTextareaHeight);
@@ -474,7 +474,11 @@ export class HydrateView extends ItemView {
 			} else {
 				// No tool calls, just display the agent message
 				if (responseData.agent_message) {
-					addMessageToChat(this, responseData.agent_message, "agent");
+					addMessageToChat(
+						this,
+						"agent",
+						responseData.agent_message.content
+					);
 				}
 				setDomLoadingState(this, false);
 			}
@@ -484,22 +488,11 @@ export class HydrateView extends ItemView {
 
 			if (error.name === "AbortError") {
 				console.log("Request was cancelled");
-				addMessageToChat(
-					this,
-					{ type: "ai", content: "Request cancelled by user." },
-					"agent"
-				);
+				addMessageToChat(this, "agent", "Request cancelled by user.");
 			} else {
 				console.error("Backend call failed:", error);
 				new Notice(`Backend error: ${error.message}`);
-				addMessageToChat(
-					this,
-					{
-						type: "ai",
-						content: `Error: ${error.message}`,
-					},
-					"agent"
-				);
+				addMessageToChat(this, "agent", `Error: ${error.message}`);
 			}
 			setDomLoadingState(this, false);
 		}

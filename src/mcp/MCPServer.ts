@@ -40,8 +40,9 @@ export class MCPServer extends EventEmitter {
 	private startupTimeout: NodeJS.Timeout | null = null;
 	private shutdownTimeout: NodeJS.Timeout | null = null;
 	private restartDelay: NodeJS.Timeout | null = null;
+	private customPaths: string[] = [];
 
-	constructor(config: Partial<MCPServerConfig>) {
+	constructor(config: Partial<MCPServerConfig>, customPaths?: string[]) {
 		super();
 
 		// Validate configuration
@@ -53,6 +54,7 @@ export class MCPServer extends EventEmitter {
 		}
 
 		this.config = MCPServerConfigValidator.withDefaults(config);
+		this.customPaths = customPaths || [];
 		this.stats = this.initializeStats();
 
 		this.setupEventHandlers();
@@ -110,14 +112,12 @@ export class MCPServer extends EventEmitter {
 
 		try {
 			// Create MCP client with appropriate transport
-			if (this.config.transport === "websocket") {
-				if (!this.config.websocketUrl) {
-					throw new Error(
-						"WebSocket URL required for websocket transport"
-					);
+			if (this.config.transport.type === "sse") {
+				if (!this.config.transport.url) {
+					throw new Error("URL required for SSE transport");
 				}
 				const transport = new WebSocketTransport(
-					this.config.websocketUrl
+					this.config.transport.url
 				);
 				this.client = new MCPClient(transport);
 			} else {
@@ -128,6 +128,17 @@ export class MCPServer extends EventEmitter {
 					if (value !== undefined) {
 						envVars[key] = value;
 					}
+				}
+
+				// Add custom paths to PATH environment variable
+				if (this.customPaths.length > 0) {
+					const currentPath = envVars.PATH || process.env.PATH || "";
+					const newPaths = this.customPaths.join(":");
+					envVars.PATH =
+						newPaths + (currentPath ? ":" + currentPath : "");
+					console.log(
+						`[${this.config.id}] Using custom PATH: ${envVars.PATH}`
+					);
 				}
 
 				// Add config environment variables (these are already strings)
@@ -501,7 +512,7 @@ export class MCPServer extends EventEmitter {
 
 	private getPid(): number | undefined {
 		// Try to get PID from the transport if it's stdio
-		if (this.client && this.config.transport === "stdio") {
+		if (this.client && this.config.transport.type === "stdio") {
 			const transport = (this.client as any).transport;
 			if (transport && transport.process) {
 				return transport.process.pid;

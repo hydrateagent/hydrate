@@ -7,6 +7,7 @@ import {
 	DropdownComponent,
 	ToggleComponent,
 	ButtonComponent,
+	TextAreaComponent,
 } from "obsidian";
 import HydratePlugin from "../main";
 import {
@@ -15,502 +16,286 @@ import {
 	MCPServerConfigValidator,
 } from "../mcp/MCPServerConfig";
 
-export class MCPServerEditModal extends Modal {
-	plugin: HydratePlugin;
-	config: Partial<MCPServerConfig>;
-	isEditing: boolean;
-	onSave: (config: MCPServerConfig) => void;
-
-	// Form elements
-	private idInput: TextComponent;
-	private nameInput: TextComponent;
-	private descriptionInput: TextComponent;
-	private commandInput: TextComponent;
-	private argsInput: TextComponent;
-	private cwdInput: TextComponent;
-	private envInput: TextComponent;
-	private transportDropdown: DropdownComponent;
-	private websocketUrlInput: TextComponent;
-	private enabledToggle: ToggleComponent;
-	private autoRestartToggle: ToggleComponent;
-	private maxRestartsInput: TextComponent;
-	private startupTimeoutInput: TextComponent;
-	private shutdownTimeoutInput: TextComponent;
-	private tagsInput: TextComponent;
-	private versionInput: TextComponent;
-	private healthIntervalInput: TextComponent;
-	private healthTimeoutInput: TextComponent;
-	private healthFailureThresholdInput: TextComponent;
+export class MCPServersConfigModal extends Modal {
+	private onSave: (configs: MCPServerConfig[]) => void;
+	private jsonTextArea: TextAreaComponent;
+	private currentJson: string;
 
 	constructor(
 		app: App,
-		plugin: HydratePlugin,
-		config: MCPServerConfig | null,
-		onSave: (config: MCPServerConfig) => void
+		currentConfigs: MCPServerConfig[],
+		onSave: (configs: MCPServerConfig[]) => void
 	) {
 		super(app);
-		this.plugin = plugin;
-		this.config = config ? { ...config } : { ...DEFAULT_MCP_SERVER_CONFIG };
-		this.isEditing = config !== null;
 		this.onSave = onSave;
+		this.currentJson = this.configsToJson(currentConfigs);
 	}
 
 	onOpen() {
 		const { contentEl } = this;
 		contentEl.empty();
 
-		contentEl.createEl("h2", {
-			text: this.isEditing ? "Edit MCP Server" : "Add MCP Server",
+		contentEl.createEl("h2", { text: "MCP Servers Configuration" });
+
+		contentEl.createEl("p", {
+			text: "Configure all your MCP servers using JSON format. This will replace your current server configuration.",
+			cls: "setting-item-description",
 		});
 
-		// Basic Information Section
-		contentEl.createEl("h3", { text: "Basic Information" });
-
+		// JSON Configuration
 		new Setting(contentEl)
-			.setName("Server ID")
-			.setDesc(
-				"Unique identifier for this server (alphanumeric, hyphens, underscores only)"
-			)
-			.addText((text) => {
-				this.idInput = text;
-				text.setPlaceholder("my-mcp-server")
-					.setValue(this.config.id || "")
-					.setDisabled(this.isEditing) // Can't change ID when editing
-					.onChange((value) => {
-						this.config.id = value.trim();
-					});
+			.setName("MCP Servers JSON")
+			.setDesc("Paste your complete MCP servers configuration")
+			.addTextArea((text) => {
+				this.jsonTextArea = text;
+				text.inputEl.rows = 20;
+				text.inputEl.style.width = "100%";
+				text.inputEl.style.fontFamily = "monospace";
+				text.inputEl.style.fontSize = "14px";
+
+				text.setValue(this.currentJson).setPlaceholder(
+					this.getExampleJson()
+				);
 			});
 
-		new Setting(contentEl)
-			.setName("Server Name")
-			.setDesc("Human-readable name for the server")
-			.addText((text) => {
-				this.nameInput = text;
-				text.setPlaceholder("My MCP Server")
-					.setValue(this.config.name || "")
-					.onChange((value) => {
-						this.config.name = value.trim();
-					});
-			});
+		// Example section
+		const exampleEl = contentEl.createDiv({ cls: "mcp-config-example" });
+		exampleEl.createEl("h3", { text: "Example Configuration:" });
 
-		new Setting(contentEl)
-			.setName("Description")
-			.setDesc("Optional description of what this server provides")
-			.addText((text) => {
-				this.descriptionInput = text;
-				text.setPlaceholder("Provides file system tools...")
-					.setValue(this.config.description || "")
-					.onChange((value) => {
-						this.config.description = value.trim();
-					});
-			});
+		const exampleCode = exampleEl.createEl("pre");
+		exampleCode.createEl("code", { text: this.getExampleJson() });
 
-		// Command Configuration Section
-		contentEl.createEl("h3", { text: "Command Configuration" });
-
-		new Setting(contentEl)
-			.setName("Command")
-			.setDesc("Command to execute to start the server")
-			.addText((text) => {
-				this.commandInput = text;
-				text.setPlaceholder("node")
-					.setValue(this.config.command || "")
-					.onChange((value) => {
-						this.config.command = value.trim();
-					});
-			});
-
-		new Setting(contentEl)
-			.setName("Arguments")
-			.setDesc("Command arguments (space-separated)")
-			.addText((text) => {
-				this.argsInput = text;
-				text.setPlaceholder("server.js --port 3000")
-					.setValue((this.config.args || []).join(" "))
-					.onChange((value) => {
-						this.config.args = value.trim()
-							? value.trim().split(/\s+/)
-							: [];
-					});
-			});
-
-		new Setting(contentEl)
-			.setName("Working Directory")
-			.setDesc("Working directory for the server process (optional)")
-			.addText((text) => {
-				this.cwdInput = text;
-				text.setPlaceholder("/path/to/server")
-					.setValue(this.config.cwd || "")
-					.onChange((value) => {
-						this.config.cwd = value.trim() || undefined;
-					});
-			});
-
-		new Setting(contentEl)
-			.setName("Environment Variables")
-			.setDesc("Environment variables as JSON object (optional)")
-			.addText((text) => {
-				this.envInput = text;
-				text.setPlaceholder('{"NODE_ENV": "production"}')
-					.setValue(
-						this.config.env ? JSON.stringify(this.config.env) : ""
-					)
-					.onChange((value) => {
-						try {
-							this.config.env = value.trim()
-								? JSON.parse(value)
-								: {};
-							text.inputEl.removeClass("hydrate-input-error");
-						} catch (e) {
-							text.inputEl.addClass("hydrate-input-error");
-						}
-					});
-			});
-
-		// Transport Configuration Section
-		contentEl.createEl("h3", { text: "Transport Configuration" });
-
-		new Setting(contentEl)
-			.setName("Transport Type")
-			.setDesc("Communication method with the server")
-			.addDropdown((dropdown) => {
-				this.transportDropdown = dropdown;
-				dropdown
-					.addOption("stdio", "Standard I/O")
-					.addOption("websocket", "WebSocket")
-					.setValue(this.config.transport || "stdio")
-					.onChange((value: "stdio" | "websocket") => {
-						this.config.transport = value;
-						this.updateWebSocketVisibility();
-					});
-			});
-
-		const websocketSetting = new Setting(contentEl)
-			.setName("WebSocket URL")
-			.setDesc(
-				"URL for WebSocket connection (required for WebSocket transport)"
-			)
-			.addText((text) => {
-				this.websocketUrlInput = text;
-				text.setPlaceholder("ws://localhost:3001")
-					.setValue(this.config.websocketUrl || "")
-					.onChange((value) => {
-						this.config.websocketUrl = value.trim() || undefined;
-					});
-			});
-
-		// Server Settings Section
-		contentEl.createEl("h3", { text: "Server Settings" });
-
-		new Setting(contentEl)
-			.setName("Enabled")
-			.setDesc("Whether this server should be started automatically")
-			.addToggle((toggle) => {
-				this.enabledToggle = toggle;
-				toggle
-					.setValue(this.config.enabled !== false)
-					.onChange((value) => {
-						this.config.enabled = value;
-					});
-			});
-
-		new Setting(contentEl)
-			.setName("Auto Restart")
-			.setDesc("Automatically restart the server if it crashes")
-			.addToggle((toggle) => {
-				this.autoRestartToggle = toggle;
-				toggle
-					.setValue(this.config.autoRestart !== false)
-					.onChange((value) => {
-						this.config.autoRestart = value;
-					});
-			});
-
-		new Setting(contentEl)
-			.setName("Max Restarts")
-			.setDesc("Maximum number of restart attempts")
-			.addText((text) => {
-				this.maxRestartsInput = text;
-				text.setPlaceholder("3")
-					.setValue(String(this.config.maxRestarts || 3))
-					.onChange((value) => {
-						const num = parseInt(value);
-						if (!isNaN(num) && num >= 0) {
-							this.config.maxRestarts = num;
-							text.inputEl.removeClass("hydrate-input-error");
-						} else {
-							text.inputEl.addClass("hydrate-input-error");
-						}
-					});
-			});
-
-		new Setting(contentEl)
-			.setName("Startup Timeout (ms)")
-			.setDesc("Timeout for server startup")
-			.addText((text) => {
-				this.startupTimeoutInput = text;
-				text.setPlaceholder("10000")
-					.setValue(String(this.config.startupTimeout || 10000))
-					.onChange((value) => {
-						const num = parseInt(value);
-						if (!isNaN(num) && num > 0) {
-							this.config.startupTimeout = num;
-							text.inputEl.removeClass("hydrate-input-error");
-						} else {
-							text.inputEl.addClass("hydrate-input-error");
-						}
-					});
-			});
-
-		new Setting(contentEl)
-			.setName("Shutdown Timeout (ms)")
-			.setDesc("Timeout for server shutdown")
-			.addText((text) => {
-				this.shutdownTimeoutInput = text;
-				text.setPlaceholder("5000")
-					.setValue(String(this.config.shutdownTimeout || 5000))
-					.onChange((value) => {
-						const num = parseInt(value);
-						if (!isNaN(num) && num > 0) {
-							this.config.shutdownTimeout = num;
-							text.inputEl.removeClass("hydrate-input-error");
-						} else {
-							text.inputEl.addClass("hydrate-input-error");
-						}
-					});
-			});
-
-		// Health Check Configuration Section
-		contentEl.createEl("h3", { text: "Health Check Configuration" });
-
-		new Setting(contentEl)
-			.setName("Health Check Interval (ms)")
-			.setDesc("Interval between health checks")
-			.addText((text) => {
-				this.healthIntervalInput = text;
-				text.setPlaceholder("30000")
-					.setValue(
-						String(this.config.healthCheck?.interval || 30000)
-					)
-					.onChange((value) => {
-						const num = parseInt(value);
-						if (!isNaN(num) && num > 0) {
-							if (!this.config.healthCheck) {
-								this.config.healthCheck = {
-									...DEFAULT_MCP_SERVER_CONFIG.healthCheck!,
-								};
-							}
-							this.config.healthCheck.interval = num;
-							text.inputEl.removeClass("hydrate-input-error");
-						} else {
-							text.inputEl.addClass("hydrate-input-error");
-						}
-					});
-			});
-
-		new Setting(contentEl)
-			.setName("Health Check Timeout (ms)")
-			.setDesc("Timeout for individual health check requests")
-			.addText((text) => {
-				this.healthTimeoutInput = text;
-				text.setPlaceholder("5000")
-					.setValue(String(this.config.healthCheck?.timeout || 5000))
-					.onChange((value) => {
-						const num = parseInt(value);
-						if (!isNaN(num) && num > 0) {
-							if (!this.config.healthCheck) {
-								this.config.healthCheck = {
-									...DEFAULT_MCP_SERVER_CONFIG.healthCheck!,
-								};
-							}
-							this.config.healthCheck.timeout = num;
-							text.inputEl.removeClass("hydrate-input-error");
-						} else {
-							text.inputEl.addClass("hydrate-input-error");
-						}
-					});
-			});
-
-		new Setting(contentEl)
-			.setName("Failure Threshold")
-			.setDesc("Number of failed checks before marking as unhealthy")
-			.addText((text) => {
-				this.healthFailureThresholdInput = text;
-				text.setPlaceholder("3")
-					.setValue(
-						String(this.config.healthCheck?.failureThreshold || 3)
-					)
-					.onChange((value) => {
-						const num = parseInt(value);
-						if (!isNaN(num) && num > 0) {
-							if (!this.config.healthCheck) {
-								this.config.healthCheck = {
-									...DEFAULT_MCP_SERVER_CONFIG.healthCheck!,
-								};
-							}
-							this.config.healthCheck.failureThreshold = num;
-							text.inputEl.removeClass("hydrate-input-error");
-						} else {
-							text.inputEl.addClass("hydrate-input-error");
-						}
-					});
-			});
-
-		// Optional Metadata Section
-		contentEl.createEl("h3", { text: "Optional Metadata" });
-
-		new Setting(contentEl)
-			.setName("Tags")
-			.setDesc("Comma-separated tags for categorizing this server")
-			.addText((text) => {
-				this.tagsInput = text;
-				text.setPlaceholder("filesystem, development, tools")
-					.setValue((this.config.tags || []).join(", "))
-					.onChange((value) => {
-						this.config.tags = value.trim()
-							? value
-									.split(",")
-									.map((tag) => tag.trim())
-									.filter((tag) => tag.length > 0)
-							: undefined;
-					});
-			});
-
-		new Setting(contentEl)
-			.setName("Version")
-			.setDesc("Version of the server (for updates/compatibility)")
-			.addText((text) => {
-				this.versionInput = text;
-				text.setPlaceholder("1.0.0")
-					.setValue(this.config.version || "")
-					.onChange((value) => {
-						this.config.version = value.trim() || undefined;
-					});
-			});
-
-		// Action Buttons
-		const buttonContainer = contentEl.createDiv("hydrate-modal-buttons");
-
-		const testButton = buttonContainer.createEl("button", {
-			text: "Test Connection",
-			cls: "mod-warning",
+		// Info section
+		const infoEl = contentEl.createDiv({ cls: "mcp-config-info" });
+		infoEl.createEl("h4", { text: "Supported Formats:" });
+		const infoList = infoEl.createEl("ul");
+		infoList.createEl("li", {
+			text: "STDIO servers: Use 'command' and 'args' fields",
 		});
-		testButton.addEventListener("click", () => this.testConnection());
+		infoList.createEl("li", { text: "SSE servers: Use 'url' field" });
+		infoList.createEl("li", {
+			text: "Environment variables: Use 'env' object",
+		});
+		infoList.createEl("li", {
+			text: "Server names will be generated from the keys",
+		});
+
+		// Buttons
+		const buttonContainer = contentEl.createDiv({
+			cls: "modal-button-container",
+		});
 
 		const saveButton = buttonContainer.createEl("button", {
-			text: this.isEditing ? "Update Server" : "Add Server",
+			text: "Save Configuration",
 			cls: "mod-cta",
 		});
-		saveButton.addEventListener("click", () => this.save());
+		saveButton.onclick = () => {
+			if (this.validateAndSave()) {
+				this.close();
+			}
+		};
 
 		const cancelButton = buttonContainer.createEl("button", {
 			text: "Cancel",
 		});
-		cancelButton.addEventListener("click", () => this.close());
+		cancelButton.onclick = () => this.close();
+	}
 
-		// Initial WebSocket visibility update
-		this.updateWebSocketVisibility();
+	private configsToJson(configs: MCPServerConfig[]): string {
+		const mcpServers: Record<string, any> = {};
 
-		// Focus the name input
-		setTimeout(() => {
-			if (!this.isEditing) {
-				this.idInput.inputEl.focus();
+		configs.forEach((config) => {
+			const serverConfig: any = {};
+
+			if (config.transport?.type === "sse" && config.transport.url) {
+				serverConfig.url = config.transport.url;
 			} else {
-				this.nameInput.inputEl.focus();
+				serverConfig.command = config.command;
+				if (config.args && config.args.length > 0) {
+					serverConfig.args = config.args;
+				}
 			}
-		}, 100);
+
+			if (config.env && Object.keys(config.env).length > 0) {
+				serverConfig.env = config.env;
+			}
+
+			mcpServers[config.id] = serverConfig;
+		});
+
+		return JSON.stringify({ mcpServers }, null, 2);
 	}
 
-	private updateWebSocketVisibility() {
-		const websocketSettings =
-			this.contentEl.querySelectorAll(".setting-item");
-		const websocketUrlSetting = Array.from(websocketSettings).find(
-			(setting) => setting.textContent?.includes("WebSocket URL")
-		) as HTMLElement;
-
-		if (websocketUrlSetting) {
-			websocketUrlSetting.style.display =
-				this.config.transport === "websocket" ? "flex" : "none";
-		}
-	}
-
-	private async testConnection() {
-		const errors = MCPServerConfigValidator.validate(this.config);
-		if (errors.length > 0) {
-			new Notice(`Configuration errors: ${errors.join(", ")}`);
-			return;
-		}
-
-		const completeConfig = MCPServerConfigValidator.withDefaults(
-			this.config
+	private getExampleJson(): string {
+		return JSON.stringify(
+			{
+				mcpServers: {
+					"browser-tools": {
+						command: "npx",
+						args: ["@agentdeskai/browser-tools-mcp@1.2.0"],
+					},
+					"sequential-thinking": {
+						command: "npx",
+						args: [
+							"-y",
+							"@modelcontextprotocol/server-sequential-thinking",
+						],
+					},
+					"tavily-mcp": {
+						command: "npx",
+						args: ["-y", "tavily-mcp@0.1.2"],
+						env: {
+							TAVILY_API_KEY: "your-api-key-here",
+						},
+					},
+					"documentor-sse": {
+						url: "http://localhost:3001/sse",
+					},
+				},
+			},
+			null,
+			2
 		);
+	}
+
+	private parseJsonToConfigs(jsonStr: string): MCPServerConfig[] {
+		try {
+			const parsed = JSON.parse(jsonStr);
+
+			if (!parsed.mcpServers || typeof parsed.mcpServers !== "object") {
+				throw new Error("JSON must contain 'mcpServers' object");
+			}
+
+			const configs: MCPServerConfig[] = [];
+
+			Object.entries(parsed.mcpServers).forEach(
+				([serverId, serverConfig]: [string, any]) => {
+					const config: MCPServerConfig = {
+						id: serverId,
+						name: serverId,
+						enabled: true,
+						transport: { type: "stdio" },
+						command: "",
+						args: [],
+						env: {},
+						autoRestart: true,
+						maxRestarts: 3,
+						startupTimeout: 10000,
+						shutdownTimeout: 5000,
+					};
+
+					// Infer transport type and set config
+					if (serverConfig.url) {
+						config.transport = {
+							type: "sse",
+							url: serverConfig.url,
+						};
+					} else if (serverConfig.command) {
+						config.transport = { type: "stdio" };
+						config.command = serverConfig.command;
+						config.args = serverConfig.args || [];
+					} else {
+						throw new Error(
+							`Server '${serverId}' must have either 'url' or 'command' field`
+						);
+					}
+
+					// Set environment variables
+					if (serverConfig.env) {
+						config.env = serverConfig.env;
+					}
+
+					// Generate a better display name
+					if (serverConfig.url) {
+						try {
+							config.name = new URL(serverConfig.url).hostname;
+						} catch {
+							config.name = serverId;
+						}
+					} else if (
+						serverConfig.args &&
+						serverConfig.args.length > 0
+					) {
+						const packageName = serverConfig.args[0];
+						config.name =
+							packageName
+								.split("@")[0]
+								.replace(/^@[^/]+\//, "") || serverId;
+					} else {
+						config.name = serverId;
+					}
+
+					configs.push(config);
+				}
+			);
+
+			return configs;
+		} catch (error) {
+			throw new Error(`Invalid JSON configuration: ${error.message}`);
+		}
+	}
+
+	private validateAndSave(): boolean {
+		const jsonStr = this.jsonTextArea.getValue().trim();
+
+		if (!jsonStr) {
+			this.showError("Configuration cannot be empty");
+			return false;
+		}
 
 		try {
-			new Notice("Testing server connection...");
+			const configs = this.parseJsonToConfigs(jsonStr);
 
-			// Test the connection using MCPServerManager
-			if (this.plugin.mcpManager) {
-				const testResult =
-					await this.plugin.mcpManager.testServerConnection(
-						completeConfig
-					);
-				if (testResult.success) {
-					new Notice(
-						`✅ Connection successful! Found ${
-							testResult.toolCount || 0
-						} tools.`
-					);
-				} else {
-					new Notice(`❌ Connection failed: ${testResult.error}`);
-				}
-			} else {
-				new Notice("❌ MCP Manager not available");
+			if (configs.length === 0) {
+				this.showError("No valid servers found in configuration");
+				return false;
 			}
-		} catch (error) {
-			console.error("Error testing MCP server connection:", error);
+
+			// Validate each server config
+			for (const config of configs) {
+				if (config.transport.type === "sse" && !config.transport.url) {
+					this.showError(
+						`Server '${config.id}': URL is required for SSE transport`
+					);
+					return false;
+				}
+				if (config.transport.type === "stdio" && !config.command) {
+					this.showError(
+						`Server '${config.id}': Command is required for STDIO transport`
+					);
+					return false;
+				}
+			}
+
+			this.onSave(configs);
 			new Notice(
-				`❌ Test failed: ${
-					error instanceof Error ? error.message : String(error)
+				`Successfully configured ${configs.length} MCP server${
+					configs.length === 1 ? "" : "s"
 				}`
 			);
+			return true;
+		} catch (error) {
+			this.showError(error.message);
+			return false;
 		}
 	}
 
-	private save() {
-		// Validate configuration
-		const errors = MCPServerConfigValidator.validate(this.config);
-		if (errors.length > 0) {
-			new Notice(`Configuration errors: ${errors.join(", ")}`);
-			return;
+	private showError(message: string) {
+		// Remove existing error
+		const existingError = this.contentEl.querySelector(".mcp-error");
+		if (existingError) {
+			existingError.remove();
 		}
 
-		// Check for duplicate IDs (only when adding new)
-		if (!this.isEditing) {
-			const existingServers = this.plugin.settings.mcpServers || [];
-			if (
-				existingServers.some((server) => server.id === this.config.id)
-			) {
-				new Notice(
-					"A server with this ID already exists. Please choose a different ID."
-				);
-				return;
-			}
-		}
+		// Add new error
+		const errorEl = this.contentEl.createDiv({ cls: "mcp-error" });
+		errorEl.style.color = "var(--text-error)";
+		errorEl.style.marginTop = "10px";
+		errorEl.style.padding = "8px";
+		errorEl.style.background = "var(--background-modifier-error)";
+		errorEl.style.borderRadius = "4px";
+		errorEl.textContent = message;
 
-		// Create complete configuration with defaults
-		const completeConfig = MCPServerConfigValidator.withDefaults(
-			this.config
-		);
-
-		// Call the save callback
-		this.onSave(completeConfig);
-
-		// Close the modal
-		this.close();
-	}
-
-	onClose() {
-		const { contentEl } = this;
-		contentEl.empty();
+		setTimeout(() => errorEl.remove(), 5000);
 	}
 }

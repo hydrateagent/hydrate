@@ -38,11 +38,11 @@ export interface MCPServerConfig {
 	/** Whether the server is enabled */
 	enabled: boolean;
 
-	/** Transport type for communication */
-	transport: "stdio" | "websocket";
-
-	/** WebSocket URL (only for websocket transport) */
-	websocketUrl?: string;
+	/** Transport configuration */
+	transport: {
+		type: "stdio" | "sse";
+		url?: string; // For SSE transport
+	};
 
 	/** Tags for categorizing servers */
 	tags?: string[];
@@ -70,7 +70,7 @@ export const DEFAULT_MCP_SERVER_CONFIG: Partial<MCPServerConfig> = {
 	startupTimeout: 10000, // 10 seconds
 	shutdownTimeout: 5000, // 5 seconds
 	enabled: true,
-	transport: "stdio",
+	transport: { type: "stdio" },
 	env: {},
 	args: [],
 	healthCheck: {
@@ -178,19 +178,21 @@ export class MCPServerConfigValidator {
 		}
 
 		// Transport validation
-		if (
-			config.transport &&
-			!["stdio", "websocket"].includes(config.transport)
-		) {
-			errors.push('Transport must be either "stdio" or "websocket"');
-		}
+		if (config.transport) {
+			if (!["stdio", "sse"].includes(config.transport.type)) {
+				errors.push('Transport type must be either "stdio" or "sse"');
+			}
 
-		if (config.transport === "websocket" && !config.websocketUrl) {
-			errors.push("WebSocket URL is required for websocket transport");
-		}
+			if (config.transport.type === "sse" && !config.transport.url) {
+				errors.push("URL is required for SSE transport");
+			}
 
-		if (config.websocketUrl && !this.isValidUrl(config.websocketUrl)) {
-			errors.push("WebSocket URL must be a valid URL");
+			if (
+				config.transport.url &&
+				!this.isValidUrl(config.transport.url)
+			) {
+				errors.push("Transport URL must be a valid URL");
+			}
 		}
 
 		// Numeric validations

@@ -124,6 +124,194 @@ export function injectSettingsStyles(plugin: HydratePlugin) {
             width: auto; /* Let buttons determine width */
             flex-grow: 0; /* Prevent it from growing */
         }
+    
+        /* MCP Server Configuration Styles */
+        .hydrate-mcp-server-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border: 1px solid var(--background-modifier-border);
+            border-radius: 6px;
+            margin-bottom: 8px;
+            background: var(--background-primary-alt);
+            min-height: 60px;
+        }
+
+        .hydrate-mcp-server-info {
+            flex: 1;
+            min-width: 0;
+            margin-right: 16px;
+        }
+
+        .hydrate-mcp-server-title {
+            font-weight: 500;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 16px;
+        }
+
+        .hydrate-mcp-health {
+            font-size: 14px;
+            cursor: help;
+        }
+
+        .hydrate-mcp-health.healthy {
+            color: var(--text-success, #22c55e);
+        }
+
+        .hydrate-mcp-health.unhealthy {
+            color: var(--text-error, #ef4444);
+        }
+
+        .hydrate-mcp-health.starting,
+        .hydrate-mcp-health.stopping,
+        .hydrate-mcp-health.unknown {
+            color: var(--text-warning, #f59e0b);
+        }
+
+        .hydrate-mcp-health.disabled,
+        .hydrate-mcp-health.stopped {
+            color: var(--text-muted, #6b7280);
+        }
+
+        .hydrate-mcp-server-details {
+            font-size: 0.85em;
+            color: var(--text-muted, #6b7280);
+        }
+
+        .hydrate-mcp-server-controls {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-shrink: 0;
+        }
+
+        .hydrate-mcp-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 80px;
+        }
+
+        .hydrate-mcp-checkbox {
+            margin: 0;
+        }
+
+        .hydrate-mcp-enabled {
+            color: var(--text-success, #22c55e);
+            font-weight: 500;
+        }
+
+        .hydrate-mcp-disabled {
+            color: var(--text-muted, #6b7280);
+        }
+
+        .hydrate-mcp-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .hydrate-mcp-action-btn {
+            padding: 6px 12px;
+            font-size: 0.9em;
+            border: 1px solid var(--background-modifier-border);
+            border-radius: 4px;
+            background: var(--background-primary);
+            color: var(--text-normal);
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .hydrate-mcp-action-btn:hover {
+            background: var(--background-modifier-hover);
+        }
+
+        /* Modal Configuration Styles */
+        .mcp-config-example {
+            margin-top: 16px;
+            padding: 12px;
+            background: var(--background-secondary);
+            border-radius: 6px;
+        }
+
+        .mcp-config-example h3 {
+            margin-top: 0;
+            margin-bottom: 12px;
+        }
+
+        .mcp-config-example pre {
+            margin: 4px 0;
+            padding: 8px;
+            background: var(--background-primary);
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+
+        .mcp-config-example code {
+            font-family: var(--font-monospace);
+            font-size: 0.9em;
+        }
+
+        .mcp-config-info {
+            margin-top: 16px;
+            padding: 12px;
+            background: var(--background-secondary);
+            border-radius: 6px;
+        }
+
+        .mcp-config-info h4 {
+            margin-top: 0;
+            margin-bottom: 8px;
+        }
+
+        .mcp-config-info ul {
+            margin: 0;
+            padding-left: 16px;
+        }
+
+        .mcp-config-info li {
+            margin-bottom: 4px;
+        }
+
+        .mcp-error {
+            padding: 8px;
+            background: var(--background-modifier-error);
+            border-radius: 4px;
+            border-left: 3px solid var(--text-error);
+        }
+
+        .modal-button-container {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            margin-top: 16px;
+        }
+
+        .modal-button-container button {
+            padding: 8px 16px;
+            border-radius: 4px;
+            border: 1px solid var(--background-modifier-border);
+            background: var(--background-primary);
+            color: var(--text-normal);
+            cursor: pointer;
+        }
+
+        .modal-button-container button:hover {
+            background: var(--background-modifier-hover);
+        }
+
+        .modal-button-container .mod-cta {
+            background: var(--interactive-accent);
+            color: var(--text-on-accent);
+            border-color: var(--interactive-accent);
+        }
+
+        .modal-button-container .mod-cta:hover {
+            background: var(--interactive-accent-hover);
+        }
 
     `;
 	// Use Obsidian's mechanism to add/remove styles
