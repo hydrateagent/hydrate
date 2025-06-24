@@ -545,6 +545,18 @@ export class HydrateView extends ItemView {
 	): Promise<void> {
 		console.log(`Processing ${toolCalls.length} tool call(s)`);
 
+		// Add tool call indication to chat for each tool being called
+		for (const toolCall of toolCalls) {
+			const toolDisplayName = toolCall.mcp_info?.server_name
+				? `${toolCall.tool} (${toolCall.mcp_info.server_name})`
+				: toolCall.tool;
+			addMessageToChat(
+				this,
+				"system",
+				`🔧 Calling tool: ${toolDisplayName}`
+			);
+		}
+
 		// Separate tool calls that need review from those that can execute directly
 		const editToolCalls = toolCalls.filter((call) =>
 			[
