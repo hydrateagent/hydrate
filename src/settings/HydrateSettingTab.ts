@@ -10,7 +10,7 @@ import HydratePlugin, { ALLOWED_MODELS, ModelName } from "../main"; // Corrected
 import { RegistryEditModal } from "./RegistryEditModal";
 import { RuleEditModal } from "./RuleEditModal"; // <<< IMPORT NEW MODAL
 import { MCPServersConfigModal } from "./MCPServerEditModal";
-import { MCPServerSettingsModal } from "./MCPServerSettingsModal"; // <<< IMPORT MCP SERVER MODAL
+// MCPServerSettingsModal removed - functionality integrated into main settings
 import { injectSettingsStyles } from "../styles/settingsStyles";
 import { RuleEntry } from "../types"; // <<< IMPORT RuleEntry
 import {
@@ -244,6 +244,12 @@ export class HydrateSettingTab extends PluginSettingTab {
 					this.app,
 					this.plugin.settings.mcpServers || [],
 					async (newServers) => {
+						// Debug: Log the server names being saved
+						console.log(
+							"Saving MCP servers:",
+							newServers.map((s) => ({ id: s.id, name: s.name }))
+						);
+
 						// Save to settings
 						this.plugin.settings.mcpServers = newServers;
 						await this.plugin.saveSettings();

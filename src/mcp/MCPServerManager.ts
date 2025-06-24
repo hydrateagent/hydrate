@@ -7,10 +7,24 @@ import {
 	MCPServerStats,
 	MCPServerConfigValidator,
 } from "./MCPServerConfig";
-import {
-	MCPToolDiscovery,
-	MCPToolSchemaWithMetadata,
-} from "./MCPToolDiscovery";
+// MCPToolDiscovery types - inline definitions
+export interface MCPToolSchemaWithMetadata {
+	name: string;
+	description: string;
+	inputSchema: any;
+	serverId: string;
+	serverName: string;
+	discoveredAt: Date;
+	lastUpdated: Date;
+	schemaHash: string;
+	available: boolean;
+	category?: string;
+	tags?: string[];
+	stats?: {
+		callCount: number;
+		successRate: number;
+	};
+}
 
 /**
  * Events emitted by MCPServerManager
@@ -69,7 +83,7 @@ export interface MCPConfigStorage {
  */
 export class MCPServerManager extends EventEmitter {
 	private servers = new Map<string, ServerEntry>();
-	private toolDiscovery: MCPToolDiscovery;
+	private discoveredTools = new Map<string, MCPToolSchemaWithMetadata[]>();
 	private storage: MCPConfigStorage | null = null;
 	private startTime = new Date();
 	private autoSaveEnabled = true;
@@ -77,10 +91,10 @@ export class MCPServerManager extends EventEmitter {
 	private autoSaveTimeout: NodeJS.Timeout | null = null;
 	private customPaths: string[] = [];
 
-	constructor(toolDiscovery?: MCPToolDiscovery) {
+	constructor() {
 		super();
-		this.toolDiscovery = toolDiscovery || new MCPToolDiscovery();
-		this.setupToolDiscoveryEvents();
+		this.setupServerEventHandlers =
+			this.setupServerEventHandlers.bind(this);
 	}
 
 	/**
@@ -95,14 +109,6 @@ export class MCPServerManager extends EventEmitter {
 	 */
 	setCustomPaths(paths: string[]): void {
 		this.customPaths = paths;
-	}
-
-	/**
-	 * Enable/disable automatic configuration saving
-	 */
-	setAutoSave(enabled: boolean, delayMs = 1000): void {
-		this.autoSaveEnabled = enabled;
-		this.autoSaveDelay = delayMs;
 	}
 
 	/**
@@ -173,7 +179,7 @@ export class MCPServerManager extends EventEmitter {
 		}
 
 		// Clear server cache from tool discovery
-		this.toolDiscovery.clearServerCache(serverId);
+		this.discoveredTools.delete(serverId);
 
 		// Clean up event listeners
 		entry.server.removeAllListeners();
@@ -369,7 +375,10 @@ export class MCPServerManager extends EventEmitter {
 			totalServers: this.servers.size,
 			runningServers,
 			healthyServers,
-			totalTools: this.toolDiscovery.getAllTools().length,
+			totalTools: Array.from(this.discoveredTools.values()).reduce(
+				(total, tools) => total + tools.length,
+				0
+			),
 			uptime: Date.now() - this.startTime.getTime(),
 			lastConfigSave: this.storage ? new Date() : null,
 		};
@@ -379,14 +388,26 @@ export class MCPServerManager extends EventEmitter {
 	 * Get all discovered tools
 	 */
 	getAllTools(): MCPToolSchemaWithMetadata[] {
-		return this.toolDiscovery.getAllTools();
+		const allTools: MCPToolSchemaWithMetadata[] = [];
+		for (const tools of this.discoveredTools.values()) {
+			allTools.push(...tools);
+		}
+		return allTools;
 	}
 
 	/**
 	 * Get tools from a specific server
 	 */
-	getServerTools(serverId: string): MCPToolSchemaWithMetadata[] {
-		return this.toolDiscovery.getToolsFromServer(serverId);
+	getToolsFromServer(serverId: string): MCPToolSchemaWithMetadata[] {
+		console.log(
+			`MCPServerManager: getToolsFromServer called for ${serverId}`
+		);
+		const tools = this.discoveredTools.get(serverId) || [];
+		console.log(
+			`MCPServerManager: getToolsFromServer(${serverId}) returned:`,
+			tools
+		);
+		return tools;
 	}
 
 	/**
@@ -398,15 +419,12 @@ export class MCPServerManager extends EventEmitter {
 		for (const [serverId, entry] of this.servers) {
 			if (entry.server.getStatus() === MCPServerStatus.RUNNING) {
 				refreshPromises.push(
-					this.toolDiscovery
-						.refreshTools(entry.server)
-						.catch((error) => {
-							console.warn(
-								`Failed to refresh tools for server '${serverId}':`,
-								error
-							);
-						})
-						.then(() => {})
+					this.refreshServerTools(serverId).catch((error) => {
+						console.warn(
+							`Failed to refresh tools for server '${serverId}':`,
+							error
+						);
+					})
 				);
 			}
 		}
@@ -424,7 +442,40 @@ export class MCPServerManager extends EventEmitter {
 		}
 
 		if (entry.server.getStatus() === MCPServerStatus.RUNNING) {
-			await this.toolDiscovery.refreshTools(entry.server);
+			// Simple tool discovery - just get tools from the server
+			try {
+				const client = entry.server.getClient();
+				if (client) {
+					const tools = await client.listTools();
+					const toolsWithMetadata: MCPToolSchemaWithMetadata[] =
+						tools.map((tool) => ({
+							name: tool.name,
+							description: tool.description || "",
+							inputSchema: tool.inputSchema || {},
+							serverId: serverId,
+							serverName: entry.config.name,
+							discoveredAt: new Date(),
+							lastUpdated: new Date(),
+							schemaHash: JSON.stringify(tool).substring(0, 8),
+							available: true,
+							category: "general",
+							tags: [],
+							stats: { callCount: 0, successRate: 1 },
+						}));
+					this.discoveredTools.set(serverId, toolsWithMetadata);
+					this.emit(
+						"tools-discovered",
+						serverId,
+						toolsWithMetadata.length
+					);
+				}
+			} catch (error) {
+				console.warn(
+					`Failed to discover tools for server '${serverId}':`,
+					error
+				);
+				this.discoveredTools.set(serverId, []);
+			}
 		} else {
 			throw new Error(`Server '${serverId}' is not running`);
 		}
@@ -588,9 +639,7 @@ export class MCPServerManager extends EventEmitter {
 				// Try to discover tools
 				let toolCount = 0;
 				try {
-					const tools = await this.toolDiscovery.discoverTools(
-						testServer
-					);
+					const tools = this.getToolsFromServer(config.id);
 					toolCount = tools.length;
 				} catch (toolError) {
 					console.warn(
@@ -648,7 +697,7 @@ export class MCPServerManager extends EventEmitter {
 		this.servers.clear();
 
 		// Dispose tool discovery
-		this.toolDiscovery.dispose();
+		this.discoveredTools.clear();
 
 		// Remove all listeners
 		this.removeAllListeners();
@@ -661,7 +710,26 @@ export class MCPServerManager extends EventEmitter {
 		serverId: string,
 		server: MCPServer
 	): void {
-		server.on("status-changed", (status, previousStatus) => {
+		server.on("status-changed", async (status, previousStatus) => {
+			console.log(
+				`MCPServerManager: Server ${serverId} status changed from ${previousStatus} to ${status}`
+			);
+
+			// Trigger tool discovery when server becomes running
+			if (status === "running" && previousStatus !== "running") {
+				console.log(
+					`MCPServerManager: Triggering tool discovery for newly running server ${serverId}`
+				);
+				try {
+					await this.refreshServerTools(serverId);
+				} catch (error) {
+					console.error(
+						`MCPServerManager: Tool discovery failed for server ${serverId}:`,
+						error
+					);
+				}
+			}
+
 			this.emit(
 				"server-status-changed",
 				serverId,
@@ -689,15 +757,6 @@ export class MCPServerManager extends EventEmitter {
 	}
 
 	/**
-	 * Set up tool discovery event handlers
-	 */
-	private setupToolDiscoveryEvents(): void {
-		this.toolDiscovery.on("error", (error) => {
-			this.emit("error", error);
-		});
-	}
-
-	/**
 	 * Schedule automatic configuration save
 	 */
 	private scheduleAutoSave(): void {
@@ -719,5 +778,73 @@ export class MCPServerManager extends EventEmitter {
 				this.emit("error", error as Error);
 			}
 		}, this.autoSaveDelay);
+	}
+
+	/**
+	 * Get all discovered MCP tools from running servers
+	 */
+	async getAllDiscoveredTools(): Promise<any[]> {
+		console.log(
+			`MCPServerManager: Starting tool collection from ${this.servers.size} servers`
+		);
+		console.log(
+			`MCPServerManager: Server IDs:`,
+			Array.from(this.servers.keys())
+		);
+
+		const allTools: any[] = [];
+		let serverCount = 0;
+		let toolCount = 0;
+
+		for (const [serverId, server] of this.servers) {
+			try {
+				console.log(
+					`MCPServerManager: Getting tools from server ${serverId}...`
+				);
+				const tools = this.getToolsFromServer(serverId);
+				console.log(
+					`MCPServerManager: Server ${serverId} provided ${tools.length} tools`
+				);
+				allTools.push(...tools);
+				serverCount++;
+				toolCount += tools.length;
+			} catch (error) {
+				console.error(
+					`MCPServerManager: Failed to get tools from server ${serverId}:`,
+					error
+				);
+			}
+		}
+
+		console.log(
+			`MCPServerManager: Collected ${toolCount} tools from ${serverCount} servers`
+		);
+		return allTools;
+	}
+
+	/**
+	 * Enable/disable automatic configuration saving
+	 */
+	setAutoSave(enabled: boolean, delayMs = 1000): void {
+		this.autoSaveEnabled = enabled;
+		this.autoSaveDelay = delayMs;
+	}
+
+	/**
+	 * Get the number of servers managed
+	 */
+	getServerCount(): number {
+		return this.servers.size;
+	}
+
+	/**
+	 * Get server statuses for debugging
+	 */
+	getServerStatuses(): Record<string, string> {
+		const statuses: Record<string, string> = {};
+		for (const [serverId, entry] of this.servers.entries()) {
+			statuses[serverId] = entry.server.getStatus();
+		}
+		return statuses;
 	}
 }

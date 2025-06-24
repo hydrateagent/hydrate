@@ -499,10 +499,44 @@ export class HydrateView extends ItemView {
 	}
 
 	private async sendToolResults(results: ToolResult[]) {
+		// Collect MCP tools from running servers
+		let mcpTools: any[] = [];
+		if (this.plugin.mcpManager) {
+			try {
+				console.log(
+					"[sendToolResults] MCP Manager found, checking servers..."
+				);
+				console.log(
+					"[sendToolResults] Number of servers:",
+					this.plugin.mcpManager.getServerCount()
+				);
+				console.log(
+					"[sendToolResults] Server statuses:",
+					this.plugin.mcpManager.getServerStatuses()
+				);
+
+				mcpTools = await this.plugin.mcpManager.getAllDiscoveredTools();
+				console.log(
+					`[sendToolResults] Collected ${mcpTools.length} MCP tools for backend:`,
+					mcpTools
+				);
+			} catch (error) {
+				console.warn(
+					"Error collecting MCP tools for tool result:",
+					error
+				);
+			}
+		} else {
+			console.warn("[sendToolResults] No MCP Manager found!");
+		}
+
 		const payload: any = {
 			tool_results: results,
 			conversation_id: this.conversationId,
+			mcp_tools: mcpTools, // Include MCP tools in tool result request
 		};
+
+		console.log("[sendToolResults] Calling backend: /tool_result", payload);
 		await this.callBackend("/tool_result", payload);
 	}
 

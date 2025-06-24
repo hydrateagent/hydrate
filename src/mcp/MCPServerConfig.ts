@@ -171,10 +171,13 @@ export class MCPServerConfigValidator {
 			errors.push("Server name cannot be empty");
 		}
 
-		if (!config.command) {
-			errors.push("Server command is required");
-		} else if (config.command.trim().length === 0) {
-			errors.push("Server command cannot be empty");
+		// Command is only required for STDIO transport
+		if (config.transport?.type === "stdio") {
+			if (!config.command) {
+				errors.push("Server command is required for STDIO transport");
+			} else if (config.command.trim().length === 0) {
+				errors.push("Server command cannot be empty");
+			}
 		}
 
 		// Transport validation
@@ -290,8 +293,12 @@ export class MCPServerConfigValidator {
 	private static isValidUrl(url: string): boolean {
 		try {
 			const parsedUrl = new URL(url);
+			// Accept HTTP/HTTPS for SSE transport and WS/WSS for WebSocket transport
 			return (
-				parsedUrl.protocol === "ws:" || parsedUrl.protocol === "wss:"
+				parsedUrl.protocol === "http:" ||
+				parsedUrl.protocol === "https:" ||
+				parsedUrl.protocol === "ws:" ||
+				parsedUrl.protocol === "wss:"
 			);
 		} catch {
 			return false;

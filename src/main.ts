@@ -50,8 +50,7 @@ import { handleSearchProject } from "./toolHandlers"; // <<< ADD IMPORT
 import { ManifestFile, DirectoryManifest } from "./manifestUtils"; // Assuming manifestUtils.ts is in the same directory
 
 // MCP imports
-import { MCPServerManager } from "./mcp/MCPServerManager";
-import { MCPConfigStorage } from "./mcp/index";
+import { MCPServerManager, MCPConfigStorage } from "./mcp/MCPServerManager";
 
 // Remember to rename these classes and interfaces!
 
@@ -217,17 +216,18 @@ export default class HydratePlugin extends Plugin {
 		// --- Initialize MCP Server Manager ---
 		console.log("Initializing MCP Server Manager...");
 		try {
-			// Create a simple config storage implementation
+			// Create MCP server manager
+			const plugin = this; // Capture reference for use in config storage
 			const configStorage: MCPConfigStorage = {
 				async saveConfig(config: any): Promise<void> {
 					// Store MCP config in plugin settings
-					this.settings.mcpServers = config.servers || [];
-					await this.saveSettings();
+					plugin.settings.mcpServers = config.servers || [];
+					await plugin.saveSettings();
 				},
 				async loadConfig(): Promise<any> {
 					// Load MCP config from plugin settings
 					return {
-						servers: this.settings.mcpServers || [],
+						servers: plugin.settings.mcpServers || [],
 					};
 				},
 			};
@@ -243,6 +243,88 @@ export default class HydratePlugin extends Plugin {
 					.filter((p) => p.length > 0);
 				this.mcpManager.setCustomPaths(paths);
 				console.log("MCP Custom paths set:", paths);
+			}
+
+			// Debug: Check what MCP servers are in settings
+			console.log("MCP servers from settings:", this.settings.mcpServers);
+			console.log(
+				"Number of MCP servers in settings:",
+				this.settings.mcpServers?.length || 0
+			);
+
+			// Load existing MCP servers from settings
+			if (
+				this.settings.mcpServers &&
+				this.settings.mcpServers.length > 0
+			) {
+				console.log("Loading existing MCP servers from settings...");
+				let loadedCount = 0;
+				let failedCount = 0;
+
+				for (const serverConfig of this.settings.mcpServers) {
+					try {
+						console.log(
+							`Attempting to load server: ${serverConfig.id} (${serverConfig.name})`
+						);
+						await this.mcpManager.addServer(
+							serverConfig.id,
+							serverConfig
+						);
+						console.log(
+							`✓ Successfully loaded MCP server: ${serverConfig.id} (${serverConfig.name})`
+						);
+						loadedCount++;
+					} catch (error) {
+						console.error(
+							`✗ Failed to load server ${serverConfig.id} (${serverConfig.name}):`,
+							error
+						);
+						failedCount++;
+					}
+				}
+				console.log(
+					`MCP Server loading complete: ${loadedCount} loaded, ${failedCount} failed out of ${this.settings.mcpServers.length} total`
+				);
+
+				// Verify servers are actually in the manager
+				const managerServerIds = this.mcpManager.getServerIds();
+				console.log(
+					`MCPServerManager now contains ${managerServerIds.length} servers:`,
+					managerServerIds
+				);
+
+				// Trigger tool discovery for any servers that are already running
+				console.log(
+					"Triggering tool discovery for already-running servers..."
+				);
+				let discoveryCount = 0;
+				for (const serverId of managerServerIds) {
+					const server = this.mcpManager.getServer(serverId);
+					const status = this.mcpManager.getServerStatus(serverId);
+					if (server && status === "running") {
+						try {
+							console.log(
+								`Discovering tools for running server: ${serverId}`
+							);
+							const tools =
+								await this.mcpManager.refreshServerTools(
+									serverId
+								);
+							console.log(`✓ Discovered tools for ${serverId}`);
+							discoveryCount++;
+						} catch (error) {
+							console.error(
+								`✗ Tool discovery failed for ${serverId}:`,
+								error
+							);
+						}
+					}
+				}
+				console.log(
+					`Tool discovery complete: ${discoveryCount} servers processed`
+				);
+			} else {
+				console.log("No MCP servers configured in settings");
 			}
 
 			console.log("MCP Server Manager initialized successfully");

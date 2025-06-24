@@ -177,10 +177,10 @@ export class MCPClient extends EventEmitter {
 		return response.tools || [];
 	}
 
-	async callTool(name: string, toolArguments: any): Promise<any> {
+	async callTool(name: string, parameters: any): Promise<any> {
 		const response = await this.request("tools/call", {
 			name,
-			arguments: toolArguments,
+			arguments: parameters,
 		});
 		return response.content;
 	}

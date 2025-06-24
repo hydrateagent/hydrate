@@ -200,29 +200,18 @@ export class MCPServersConfigModal extends Modal {
 						);
 					}
 
+					// Generate a better display name
+					config.name = serverId;
+
 					// Set environment variables
 					if (serverConfig.env) {
-						config.env = serverConfig.env;
-					}
-
-					// Generate a better display name
-					if (serverConfig.url) {
-						try {
-							config.name = new URL(serverConfig.url).hostname;
-						} catch {
-							config.name = serverId;
+						config.env = {};
+						// Convert all environment variable values to strings
+						for (const [key, value] of Object.entries(
+							serverConfig.env
+						)) {
+							config.env[key] = String(value);
 						}
-					} else if (
-						serverConfig.args &&
-						serverConfig.args.length > 0
-					) {
-						const packageName = serverConfig.args[0];
-						config.name =
-							packageName
-								.split("@")[0]
-								.replace(/^@[^/]+\//, "") || serverId;
-					} else {
-						config.name = serverId;
 					}
 
 					configs.push(config);

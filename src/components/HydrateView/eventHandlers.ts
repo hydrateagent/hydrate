@@ -569,10 +569,37 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 	);
 	// --- END: Apply diff for conditional send and user message ---
 
+	// Collect MCP tools from running servers
+	let mcpTools: any[] = [];
+	if (view.plugin.mcpManager) {
+		try {
+			console.log("[handleSend] MCP Manager found, checking servers...");
+			console.log(
+				"[handleSend] Number of servers:",
+				view.plugin.mcpManager.getServerCount()
+			);
+			console.log(
+				"[handleSend] Server statuses:",
+				view.plugin.mcpManager.getServerStatuses()
+			);
+
+			mcpTools = await view.plugin.mcpManager.getAllDiscoveredTools();
+			console.log(
+				`[handleSend] Collected ${mcpTools.length} MCP tools for backend:`,
+				mcpTools
+			);
+		} catch (error) {
+			console.warn("[handleSend] Error collecting MCP tools:", error);
+		}
+	} else {
+		console.warn("[handleSend] No MCP Manager found!");
+	}
+
 	const payload: any = {
 		message: combinedPayload, // Use the carefully constructed combinedPayload
 		conversation_id: view.conversationId,
 		model: view.plugin.getSelectedModel(),
+		mcp_tools: mcpTools, // Include MCP tools in the request
 	};
 
 	// --- START: Apply diff debug log for payload ---

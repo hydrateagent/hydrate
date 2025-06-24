@@ -383,7 +383,7 @@ class MCPServerManagerTests {
 
 			// Test server-specific tool retrieval
 			for (const serverId of this.manager.getServerIds()) {
-				const serverTools = this.manager.getServerTools(serverId);
+				const serverTools = this.manager.getToolsFromServer(serverId);
 				console.log(
 					`📋 Server ${serverId} has ${serverTools.length} tools`
 				);
