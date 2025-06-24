@@ -22,10 +22,71 @@ import {
 export class HydrateSettingTab extends PluginSettingTab {
 	plugin: HydratePlugin;
 	startIndexingButton: ButtonComponent | null = null;
+	private mcpServersContainer: HTMLElement | null = null;
+	private serverStatusListeners = new Map<string, (...args: any[]) => void>();
 
 	constructor(app: App, plugin: HydratePlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
+	}
+
+	hide(): void {
+		this.removeStatusListeners();
+		super.hide();
+	}
+
+	private setupStatusListeners(): void {
+		if (!this.plugin.mcpManager) return;
+
+		// Store event handlers so we can remove them properly
+		const statusChangeHandler = (
+			serverId: string,
+			status: MCPServerStatus,
+			previousStatus: MCPServerStatus
+		) => {
+			if (this.mcpServersContainer) {
+				this.renderMCPServersList(this.mcpServersContainer);
+			}
+		};
+
+		const healthChangeHandler = (
+			serverId: string,
+			health: MCPServerHealth,
+			previousHealth: MCPServerHealth
+		) => {
+			if (this.mcpServersContainer) {
+				this.renderMCPServersList(this.mcpServersContainer);
+			}
+		};
+
+		// Listen for server status changes and update UI
+		this.plugin.mcpManager.on("server-status-changed", statusChangeHandler);
+		this.plugin.mcpManager.on("server-health-changed", healthChangeHandler);
+
+		// Store handlers for cleanup
+		this.serverStatusListeners.set("status", statusChangeHandler);
+		this.serverStatusListeners.set("health", healthChangeHandler);
+	}
+
+	private removeStatusListeners(): void {
+		if (this.plugin.mcpManager) {
+			const statusHandler = this.serverStatusListeners.get("status");
+			const healthHandler = this.serverStatusListeners.get("health");
+
+			if (statusHandler) {
+				this.plugin.mcpManager.off(
+					"server-status-changed",
+					statusHandler
+				);
+			}
+			if (healthHandler) {
+				this.plugin.mcpManager.off(
+					"server-health-changed",
+					healthHandler
+				);
+			}
+		}
+		this.serverStatusListeners.clear();
 	}
 
 	display(): void {
@@ -310,7 +371,9 @@ export class HydrateSettingTab extends PluginSettingTab {
 		const mcpServersListEl = mcpServersSection.createDiv(
 			"hydrate-registry-list"
 		);
+		this.mcpServersContainer = mcpServersListEl;
 		this.renderMCPServersList(mcpServersListEl);
+		this.setupStatusListeners();
 
 		// --- MCP PATH Configuration ---
 		new Setting(containerEl)
@@ -712,17 +775,72 @@ export class HydrateSettingTab extends PluginSettingTab {
 			});
 			toggle.checked = server.enabled !== false;
 			toggle.onchange = async () => {
+				// Prevent double-clicks during operation
+				if (toggle.disabled) return;
+
+				const originalChecked = !toggle.checked;
 				server.enabled = toggle.checked;
 				await this.plugin.saveSettings();
-				// Restart server if it was running
-				if (this.plugin.mcpManager) {
-					if (toggle.checked) {
-						this.plugin.mcpManager.startServer(server.id);
-					} else {
-						this.plugin.mcpManager.stopServer(server.id);
+
+				// Disable toggle during operation
+				toggle.disabled = true;
+				const label = toggleContainer.querySelector("label");
+				if (label)
+					label.textContent = toggle.checked
+						? "Starting..."
+						: "Stopping...";
+
+				try {
+					// Update the server configuration in the MCP manager
+					if (
+						this.plugin.mcpManager &&
+						this.plugin.mcpManager.hasServer(server.id)
+					) {
+						await this.plugin.mcpManager.updateServerConfig(
+							server.id,
+							{
+								enabled: server.enabled,
+							}
+						);
 					}
+
+					// Start or stop server based on new state
+					if (this.plugin.mcpManager) {
+						if (toggle.checked) {
+							await this.plugin.mcpManager.startServer(server.id);
+						} else {
+							await this.plugin.mcpManager.stopServer(server.id);
+						}
+					}
+				} catch (error) {
+					console.error(
+						`Failed to ${
+							toggle.checked ? "start" : "stop"
+						} server ${server.id}:`,
+						error
+					);
+					// Revert the toggle state on error
+					toggle.checked = originalChecked;
+					server.enabled = originalChecked;
+					await this.plugin.saveSettings();
+
+					// Update the server config in manager to match reverted state
+					if (
+						this.plugin.mcpManager &&
+						this.plugin.mcpManager.hasServer(server.id)
+					) {
+						await this.plugin.mcpManager.updateServerConfig(
+							server.id,
+							{
+								enabled: server.enabled,
+							}
+						);
+					}
+				} finally {
+					// Re-enable toggle
+					toggle.disabled = false;
+					// Don't immediately re-render - let event listeners handle UI updates
 				}
-				this.renderMCPServersList(containerEl);
 			};
 			toggleContainer.createEl("label", {
 				text: toggle.checked ? "Enabled" : "Disabled",
