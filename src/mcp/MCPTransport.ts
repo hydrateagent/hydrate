@@ -97,16 +97,21 @@ export class StdioTransport extends EventEmitter implements MCPTransport {
 				resolve();
 			};
 
+			// Store reference to process before cleanup might null it
+			const processRef = this.process;
+
 			// Try graceful shutdown first
-			this.process.kill("SIGTERM");
+			processRef?.kill("SIGTERM");
 
 			const timeout = setTimeout(() => {
 				// Force kill if graceful shutdown fails
-				this.process?.kill("SIGKILL");
+				if (processRef && !processRef.killed) {
+					processRef.kill("SIGKILL");
+				}
 				cleanup();
 			}, 3000);
 
-			this.process.on("exit", () => {
+			processRef?.on("exit", () => {
 				clearTimeout(timeout);
 				cleanup();
 			});

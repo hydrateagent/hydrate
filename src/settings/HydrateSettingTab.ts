@@ -10,7 +10,7 @@ import HydratePlugin, { ALLOWED_MODELS, ModelName } from "../main"; // Corrected
 import { RegistryEditModal } from "./RegistryEditModal";
 import { RuleEditModal } from "./RuleEditModal"; // <<< IMPORT NEW MODAL
 import { MCPServersConfigModal } from "./MCPServerEditModal";
-// MCPServerSettingsModal removed - functionality integrated into main settings
+import { MCPServerSettingsModal } from "./MCPServerSettingsModal"; // <<< IMPORT MCP SERVER MODAL
 import { injectSettingsStyles } from "../styles/settingsStyles";
 import { RuleEntry } from "../types"; // <<< IMPORT RuleEntry
 import {

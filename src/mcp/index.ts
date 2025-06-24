@@ -6,23 +6,19 @@
  */
 
 // Transport layer
-export {
-	MCPTransport,
-	StdioTransport,
-	WebSocketTransport,
-} from "./MCPTransport";
+export type { MCPTransport } from "./MCPTransport";
+export { StdioTransport, WebSocketTransport } from "./MCPTransport";
 
 // Client layer
-export {
-	MCPClient,
+export type {
 	MCPRequest,
 	MCPResponse,
 	MCPNotification,
 	MCPMessage,
 	MCPToolSchema,
+} from "./MCPClient";
+export {
+	MCPClient,
 	createStdioMCPClient,
 	createWebSocketMCPClient,
 } from "./MCPClient";
-
-// Test utilities
-export { testMCPClient } from "./test-mcp-client";
