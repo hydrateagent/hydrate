@@ -319,21 +319,54 @@ export class HydrateView extends ItemView {
 				min-height: 20px;
 			}
 			.hydrate-input-container {
-				display: flex;
-				gap: 10px;
-				align-items: flex-end;
+				position: relative;
+				width: 100%;
 			}
 			.hydrate-textarea {
-				flex: 1;
-				min-height: 40px;
-				max-height: 200px;
+				width: 100%;
+				min-height: 120px;
+				max-height: 300px;
 				resize: vertical;
-				padding: 8px;
+				padding: 12px 120px 12px 12px;
 				border: 1px solid var(--background-modifier-border);
-				border-radius: 5px;
+				border-radius: 8px;
 				background: var(--background-primary);
 				color: var(--text-normal);
 				font-family: var(--font-text);
+				font-size: 14px;
+				line-height: 1.4;
+				box-sizing: border-box;
+			}
+			.hydrate-button-overlay {
+				position: absolute;
+				bottom: 8px;
+				right: 8px;
+				display: flex;
+				gap: 4px;
+				align-items: center;
+			}
+			.hydrate-overlay-button {
+				background: var(--background-secondary);
+				border: none;
+				color: var(--text-muted);
+				padding: 6px 12px;
+				border-radius: 6px;
+				font-size: 12px;
+				cursor: pointer;
+				transition: all 0.2s;
+				opacity: 0.8;
+				box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+				white-space: nowrap;
+			}
+			.hydrate-overlay-button:hover {
+				background: var(--background-modifier-hover);
+				color: var(--text-normal);
+				opacity: 1;
+				box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+			}
+			.hydrate-overlay-button:active {
+				transform: translateY(1px);
+				box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 			}
 			.hydrate-button {
 				padding: 8px 16px;
@@ -399,7 +432,11 @@ export class HydrateView extends ItemView {
 		// Auto-adjust textarea height based on content
 		const adjustTextareaHeight = () => {
 			this.textInput.style.height = "auto";
-			this.textInput.style.height = this.textInput.scrollHeight + "px";
+			const newHeight = Math.min(
+				Math.max(this.textInput.scrollHeight, 120), // min 120px
+				300 // max 300px
+			);
+			this.textInput.style.height = newHeight + "px";
 		};
 
 		// Create chat container
@@ -436,33 +473,38 @@ export class HydrateView extends ItemView {
 		});
 		chatHistoryButton.createEl("span", { text: "↺" });
 
-		// Create input container
+		// Create input container with relative positioning for button overlay
 		const inputContainer = inputSection.createEl("div", {
 			cls: "hydrate-input-container",
 		});
 
-		// Create textarea
+		// Create textarea that fills the container
 		this.textInput = inputContainer.createEl("textarea", {
 			cls: "hydrate-textarea",
 			attr: { placeholder: "Ask a question or request an action..." },
 		});
 
+		// Create button container positioned inside the textarea
+		const buttonContainer = inputContainer.createEl("div", {
+			cls: "hydrate-button-overlay",
+		});
+
 		// Create send button
-		const sendButton = inputContainer.createEl("button", {
-			cls: "hydrate-button",
+		const sendButton = buttonContainer.createEl("button", {
+			cls: "hydrate-button hydrate-overlay-button",
 			text: "Send",
 		});
 
 		// Create stop button (initially hidden)
-		this.stopButton = inputContainer.createEl("button", {
-			cls: "hydrate-button",
+		this.stopButton = buttonContainer.createEl("button", {
+			cls: "hydrate-button hydrate-overlay-button",
 			text: "Stop",
 		});
 		this.stopButton.style.display = "none";
 
 		// Create clear button
-		const clearButton = inputContainer.createEl("button", {
-			cls: "hydrate-button",
+		const clearButton = buttonContainer.createEl("button", {
+			cls: "hydrate-button hydrate-overlay-button",
 			text: "Clear",
 		});
 
