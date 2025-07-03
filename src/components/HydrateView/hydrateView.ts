@@ -339,31 +339,6 @@ export class HydrateView extends ItemView {
 				background: var(--background-modifier-border);
 				cursor: not-allowed;
 			}
-			.hydrate-suggestions-container {
-				position: absolute;
-				bottom: 100%;
-				left: 0;
-				right: 0;
-				background: var(--background-primary);
-				border: 1px solid var(--background-modifier-border);
-				border-radius: 5px;
-				max-height: 200px;
-				overflow-y: auto;
-				z-index: 1000;
-				display: none;
-			}
-			.hydrate-suggestion-item {
-				padding: 8px 12px;
-				cursor: pointer;
-				border-bottom: 1px solid var(--background-modifier-border);
-			}
-			.hydrate-suggestion-item:last-child {
-				border-bottom: none;
-			}
-			.hydrate-suggestion-item:hover,
-			.hydrate-suggestion-item.is-selected {
-				background: var(--background-modifier-hover);
-			}
 		`;
 		document.head.appendChild(styleEl);
 
@@ -391,12 +366,6 @@ export class HydrateView extends ItemView {
 		// Create input container
 		const inputContainer = inputSection.createEl("div", {
 			cls: "hydrate-input-container",
-		});
-		inputContainer.style.position = "relative"; // For absolute positioning of suggestions
-
-		// Create suggestions container
-		this.suggestionsContainer = inputContainer.createEl("div", {
-			cls: "hydrate-suggestions-container",
 		});
 
 		// Create textarea

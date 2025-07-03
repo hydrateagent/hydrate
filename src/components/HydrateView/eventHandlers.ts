@@ -15,6 +15,8 @@ import {
 	selectNoteSearchResult,
 	renderNoteSearchSuggestions,
 } from "./domUtils";
+import { NoteSearchModal } from "./NoteSearchModal";
+import { SlashCommandModal } from "./SlashCommandModal";
 
 // Define types for clarity if needed, e.g., for state or complex parameters
 
@@ -31,8 +33,6 @@ export const handleClear = (view: HydrateView): void => {
 	view.conversationId = null;
 	view.sentFileContentRegistry.clear();
 	view.appliedRuleIds.clear();
-	setDomSuggestions(view, []);
-	setNoteSearchResults(view, []);
 	view.chatContainer.innerHTML = "";
 	addMessageToChat(view, "system", "Chat cleared. New conversation started.");
 	view.textInput.style.height = "auto";
@@ -778,65 +778,64 @@ export const handleInputChange = (view: HydrateView): void => {
 			noteSearchMatch.index !== undefined ? noteSearchMatch.index : -1;
 
 		if (triggerStart !== -1) {
-			// Clear slash command suggestions
+			// Clear any existing suggestions
 			setDomSuggestions(view, []);
+			setNoteSearchResults(view, []);
 
-			// Get all files in the vault
-			const allFiles = view.app.vault.getMarkdownFiles();
+			// Open note search modal
+			const modal = new NoteSearchModal(
+				view.app,
+				view,
+				(selectedFile: TFile) => {
+					// Add the file to attached files if not already present
+					if (!view.attachedFiles.includes(selectedFile.path)) {
+						view.attachedFiles.push(selectedFile.path);
+						renderDomFilePills(view);
+					}
 
-			// Filter files based on query
-			let matchingFiles = allFiles;
-			if (query.trim().length > 0) {
-				const lowerQuery = query.toLowerCase();
-				matchingFiles = allFiles.filter(
-					(file) =>
-						file.basename.toLowerCase().includes(lowerQuery) ||
-						file.path.toLowerCase().includes(lowerQuery)
-				);
-			}
+					// Remove the [[ from the input
+					const currentValue = view.textInput.value;
+					const beforeTrigger = currentValue.substring(
+						0,
+						triggerStart
+					);
+					const afterCursor = currentValue.substring(cursorPos);
 
-			// Sort by relevance (basename matches first, then path matches)
-			matchingFiles.sort((a, b) => {
-				const aBasenameMatch = a.basename
-					.toLowerCase()
-					.includes(query.toLowerCase());
-				const bBasenameMatch = b.basename
-					.toLowerCase()
-					.includes(query.toLowerCase());
+					const newValue = beforeTrigger + afterCursor;
+					setDomTextContent(view, newValue);
 
-				if (aBasenameMatch && !bBasenameMatch) return -1;
-				if (!aBasenameMatch && bBasenameMatch) return 1;
+					// Position cursor
+					const newCursorPos = beforeTrigger.length;
+					view.textInput.focus();
+					requestAnimationFrame(() => {
+						view.textInput.setSelectionRange(
+							newCursorPos,
+							newCursorPos
+						);
+					});
+				}
+			);
 
-				// If both or neither match basename, sort alphabetically
-				return a.basename.localeCompare(b.basename);
-			});
-
-			// Limit results to prevent overwhelming UI
-			const limitedResults = matchingFiles.slice(0, 10);
-
-			// Update note search state
-			(view as any).noteSearchQuery = query;
-			(view as any).noteSearchStartIndex = triggerStart;
-
-			setNoteSearchResults(view, limitedResults);
+			modal.open();
 			return;
 		}
 	}
 
-	// Clear note search if no [[ pattern
-	setNoteSearchResults(view, []);
-
 	// Check for slash command pattern
 	const slashMatch = textBeforeCursor.match(/(?:\s|^)(\/([a-zA-Z0-9_-]*))$/);
-
 	if (slashMatch) {
 		const trigger = slashMatch[1];
+		const partialCommand = slashMatch[2];
 		const triggerStart =
 			slashMatch.index !== undefined
 				? slashMatch.index + (slashMatch[0].startsWith("/") ? 0 : 1)
 				: -1;
 
 		if (triggerStart !== -1) {
+			// Clear any existing suggestions
+			setDomSuggestions(view, []);
+			setNoteSearchResults(view, []);
+
 			const allEntries = view.plugin.getRegistryEntries();
 			let matchingEntries = allEntries.filter(
 				(entry: any) =>
@@ -845,18 +844,47 @@ export const handleInputChange = (view: HydrateView): void => {
 			);
 
 			if (matchingEntries.length > 0) {
-				view.currentTrigger = trigger;
-				view.triggerStartIndex = triggerStart;
-				setDomSuggestions(view, matchingEntries);
-			} else {
-				setDomSuggestions(view, []);
+				// Open slash command modal
+				const modal = new SlashCommandModal(
+					view.app,
+					view,
+					matchingEntries,
+					partialCommand,
+					(selectedEntry: RegistryEntry) => {
+						const currentValue = view.textInput.value;
+						const triggerEndIndex = triggerStart + trigger.length;
+
+						const newValue =
+							currentValue.substring(0, triggerStart) +
+							selectedEntry.slashCommandTrigger +
+							" " +
+							currentValue.substring(triggerEndIndex);
+
+						setDomTextContent(view, newValue);
+
+						const newCursorPos =
+							triggerStart +
+							(selectedEntry.slashCommandTrigger?.length || 0) +
+							1;
+						view.textInput.focus();
+						requestAnimationFrame(() => {
+							view.textInput.setSelectionRange(
+								newCursorPos,
+								newCursorPos
+							);
+						});
+					}
+				);
+
+				modal.open();
+				return;
 			}
-		} else {
-			setDomSuggestions(view, []);
 		}
-	} else {
-		setDomSuggestions(view, []);
 	}
+
+	// Clear all suggestions if no patterns match
+	setDomSuggestions(view, []);
+	setNoteSearchResults(view, []);
 };
 
 /**
@@ -866,78 +894,8 @@ export const handleInputKeydown = (
 	view: HydrateView,
 	event: KeyboardEvent
 ): void => {
-	const slashSuggestionsVisible =
-		view.suggestions.length > 0 &&
-		view.suggestionsContainer?.style.display !== "none";
-
-	const noteSearchActive = (view as any).noteSearchActive as boolean;
-	const noteSearchResults = (view as any).noteSearchResults as any[];
-
-	const anySuggestionsVisible = slashSuggestionsVisible || noteSearchActive;
-
-	if (anySuggestionsVisible) {
-		const currentResults = noteSearchActive
-			? noteSearchResults
-			: view.suggestions;
-
-		switch (event.key) {
-			case "ArrowUp":
-				event.preventDefault();
-				view.activeSuggestionIndex =
-					(view.activeSuggestionIndex - 1 + currentResults.length) %
-					currentResults.length;
-				if (noteSearchActive) {
-					renderNoteSearchSuggestions(view);
-				} else {
-					renderDomSuggestions(view);
-				}
-				break;
-			case "ArrowDown":
-				event.preventDefault();
-				view.activeSuggestionIndex =
-					(view.activeSuggestionIndex + 1) % currentResults.length;
-				if (noteSearchActive) {
-					renderNoteSearchSuggestions(view);
-				} else {
-					renderDomSuggestions(view);
-				}
-				break;
-			case "Enter":
-			case "Tab":
-				if (view.activeSuggestionIndex !== -1) {
-					event.preventDefault();
-					if (noteSearchActive) {
-						selectNoteSearchResult(
-							view,
-							view.activeSuggestionIndex
-						);
-					} else {
-						handleSuggestionSelect(
-							view,
-							view.activeSuggestionIndex
-						);
-					}
-				} else {
-					if (event.key === "Enter" && !event.shiftKey) {
-						event.preventDefault();
-						setDomSuggestions(view, []);
-						setNoteSearchResults(view, []);
-						handleSend(view);
-					} else if (event.key === "Tab") {
-						setDomSuggestions(view, []);
-						setNoteSearchResults(view, []);
-					}
-				}
-				break;
-			case "Escape":
-				event.preventDefault();
-				setDomSuggestions(view, []);
-				setNoteSearchResults(view, []);
-				break;
-			default:
-				break;
-		}
-	} else if (event.key === "Enter" && !event.shiftKey) {
+	// Since we're using modals for suggestions, we only need to handle Enter for sending
+	if (event.key === "Enter" && !event.shiftKey) {
 		event.preventDefault();
 		handleSend(view);
 	}
