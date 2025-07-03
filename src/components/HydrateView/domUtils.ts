@@ -252,21 +252,18 @@ export function renderFilePills(view: HydrateView): void {
 
 	attachedFiles.forEach((filePath) => {
 		const pill = filePillsContainer.createDiv({
-			cls: "hydrate-file-pill flex items-center !px-1.5 !py-0 bg-[var(--background-modifier-border)] rounded-md text-xs text-[var(--text-muted)]",
+			cls: "hydrate-file-pill",
 		});
 		const fileName = filePath.split("/").pop() || filePath;
 		pill.createSpan({
 			text: fileName,
-			cls: "hydrate-pill-text leading-none",
+			cls: "hydrate-pill-text",
 		});
 
 		const removeBtn = pill.createEl("button", {
 			text: "✕",
-			cls: "hydrate-pill-remove ml-1 !p-0 !border-none !bg-transparent !appearance-none text-[var(--text-muted)] hover:text-[var(--text-normal)] cursor-pointer text-xs",
+			cls: "hydrate-pill-remove",
 		});
-		removeBtn.style.height = "auto";
-		removeBtn.style.minHeight = "unset";
-		removeBtn.style.boxShadow = "none";
 		removeBtn.addEventListener("click", () =>
 			removeEventHandlerFilePill(view, filePath)
 		);

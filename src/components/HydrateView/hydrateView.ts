@@ -146,6 +146,7 @@ export class HydrateView extends ItemView {
 		[];
 	suggestionPillsContainer: HTMLDivElement | null = null;
 	lastSuggestionRefresh: number = 0; // Timestamp to avoid too frequent refreshes
+	activePopup: HTMLDivElement | null = null; // Track active popup
 	// --- End Chat History State ---
 
 	constructor(leaf: WorkspaceLeaf, plugin: HydratePlugin) {
@@ -322,8 +323,65 @@ export class HydrateView extends ItemView {
 			.hydrate-file-pills {
 				display: flex;
 				flex-wrap: wrap;
-				gap: 5px;
+				gap: 6px;
 				min-height: 20px;
+			}
+			.hydrate-file-pill {
+				background: linear-gradient(135deg, var(--color-blue-rgb), var(--color-cyan-rgb));
+				color: var(--text-normal);
+				padding: 3px 8px;
+				border-radius: 12px;
+				font-size: 11px;
+				border: none;
+				transition: all 0.2s ease;
+				box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+				position: relative;
+				overflow: hidden;
+				line-height: 1.2;
+				display: flex;
+				align-items: center;
+				gap: 4px;
+				height: 20px;
+			}
+			.hydrate-file-pill:hover {
+				transform: translateY(-1px);
+				box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+				filter: brightness(1.1);
+			}
+			.hydrate-pill-text {
+				flex: 1;
+			}
+			.hydrate-pill-remove {
+				background: transparent !important;
+				border: none !important;
+				outline: none !important;
+				box-shadow: none !important;
+				color: var(--text-normal);
+				padding: 1px 4px;
+				border-radius: 0 !important;
+				font-size: 10px;
+				cursor: pointer;
+				transition: all 0.2s ease;
+				line-height: 1;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				min-width: 14px;
+				height: 14px;
+			}
+			.hydrate-pill-remove:hover {
+				background: transparent !important;
+				outline: none !important;
+				box-shadow: none !important;
+				border: none !important;
+				transform: scale(1.1);
+				opacity: 0.7;
+			}
+			.hydrate-pill-remove:focus {
+				background: transparent !important;
+				outline: none !important;
+				box-shadow: none !important;
+				border: none !important;
 			}
 			.hydrate-suggestion-pills {
 				display: flex;
@@ -340,21 +398,24 @@ export class HydrateView extends ItemView {
 			}
 			.hydrate-suggestion-pill {
 				background: linear-gradient(135deg, var(--color-blue-rgb), var(--color-cyan-rgb));
-				color: white;
-				padding: 6px 12px;
-				border-radius: 16px;
-				font-size: 12px;
+				color: var(--text-normal);
+				padding: 3px 8px;
+				border-radius: 12px;
+				font-size: 11px;
 				cursor: pointer;
 				border: none;
 				transition: all 0.2s ease;
 				box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 				position: relative;
 				overflow: hidden;
+				line-height: 1.2;
+				display: flex;
+				align-items: center;
+				height: 20px;
 			}
 			.hydrate-suggestion-pill:before {
-				content: "💡";
-				margin-right: 4px;
-				font-size: 11px;
+				content: "";
+				margin-right: 0;
 			}
 			.hydrate-suggestion-pill:hover {
 				transform: translateY(-1px);
@@ -522,6 +583,42 @@ export class HydrateView extends ItemView {
 			}
 			
 			/* Fix headings */
+			
+			/* Reusable popup component */
+			.hydrate-popup {
+				position: absolute;
+				background: var(--background-primary);
+				border: 1px solid var(--background-modifier-border);
+				border-radius: 8px;
+				box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+				z-index: 1000;
+				padding: 8px;
+				display: flex;
+				gap: 8px;
+				min-width: 200px;
+			}
+			
+			.hydrate-popup-button {
+				background: var(--background-secondary);
+				border: 1px solid var(--background-modifier-border);
+				color: var(--text-normal);
+				padding: 8px 12px;
+				border-radius: 4px;
+				cursor: pointer;
+				font-size: 12px;
+				transition: all 0.2s;
+				flex: 1;
+				text-align: center;
+			}
+			
+			.hydrate-popup-button:hover {
+				background: var(--background-modifier-hover);
+				border-color: var(--text-accent);
+			}
+			
+			.hydrate-popup-button:active {
+				transform: translateY(1px);
+			}
 			.hydrate-agent-message h1,
 			.hydrate-agent-message h2,
 			.hydrate-agent-message h3,
@@ -552,14 +649,14 @@ export class HydrateView extends ItemView {
 			this.textInput.style.height = newHeight + "px";
 		};
 
+		// Create suggestion pills container (above chat area)
+		this.suggestionPillsContainer = container.createEl("div", {
+			cls: "hydrate-suggestion-pills",
+		});
+
 		// Create chat container
 		this.chatContainer = container.createEl("div", {
 			cls: "hydrate-chat-container",
-		});
-
-		// Create suggestion pills container (above input section)
-		this.suggestionPillsContainer = container.createEl("div", {
-			cls: "hydrate-suggestion-pills",
 		});
 
 		// Create input section
@@ -1279,6 +1376,10 @@ export class HydrateView extends ItemView {
 		if (this.abortController) {
 			this.abortController.abort();
 		}
+
+		// Close any active popup
+		this.closeActivePopup();
+
 		// Any cleanup needed when the view is closed
 	}
 
@@ -1647,13 +1748,74 @@ export class HydrateView extends ItemView {
 	}
 
 	/**
+	 * Creates a reusable popup with custom buttons
+	 */
+	private createPopup(
+		anchorElement: HTMLElement,
+		buttons: Array<{ text: string; action: () => void }>
+	): HTMLDivElement {
+		// Close any existing popup
+		this.closeActivePopup();
+
+		const popup = document.createElement("div");
+		popup.className = "hydrate-popup";
+
+		// Add buttons first
+		buttons.forEach((button) => {
+			const btn = popup.createEl("button", {
+				cls: "hydrate-popup-button",
+				text: button.text,
+			});
+			btn.addEventListener("click", () => {
+				button.action();
+				this.closeActivePopup();
+			});
+		});
+
+		// Add to document body for proper positioning
+		document.body.appendChild(popup);
+		this.activePopup = popup;
+
+		// Position popup near the anchor element after adding to DOM
+		const rect = anchorElement.getBoundingClientRect();
+		popup.style.position = "fixed";
+		popup.style.top = `${rect.bottom + 5}px`;
+		popup.style.left = `${rect.left}px`;
+		popup.style.zIndex = "9999";
+
+		// Close on outside click
+		const closeOnOutsideClick = (e: MouseEvent) => {
+			if (!popup.contains(e.target as Node)) {
+				this.closeActivePopup();
+				document.removeEventListener("click", closeOnOutsideClick);
+			}
+		};
+		setTimeout(() => {
+			document.addEventListener("click", closeOnOutsideClick);
+		}, 0);
+
+		return popup;
+	}
+
+	/**
+	 * Closes the active popup if it exists
+	 */
+	private closeActivePopup(): void {
+		if (this.activePopup) {
+			this.activePopup.remove();
+			this.activePopup = null;
+		}
+	}
+
+	/**
 	 * Renders the suggestion pills in the UI
 	 */
 	private renderSuggestionPills(): void {
 		if (!this.suggestionPillsContainer) return;
 
-		// Clear existing pills
+		// Clear existing pills and close any popup
 		this.suggestionPillsContainer.empty();
+		this.closeActivePopup();
 
 		if (this.suggestedNotes.length === 0) {
 			return; // Container will be hidden by CSS when empty
@@ -1675,9 +1837,20 @@ export class HydrateView extends ItemView {
 				suggestion.filePath;
 			pill.createEl("span", { text: filename });
 
-			// Add click handler to add to context
-			pill.addEventListener("click", () => {
-				this.addSuggestionToContext(suggestion.filePath);
+			// Add click handler to show popup with options
+			pill.addEventListener("click", (e) => {
+				e.stopPropagation();
+				this.createPopup(pill, [
+					{
+						text: "Add to Chat",
+						action: () =>
+							this.addSuggestionToContext(suggestion.filePath),
+					},
+					{
+						text: "Navigate to Note",
+						action: () => this.navigateToNote(suggestion.filePath),
+					},
+				]);
 			});
 		});
 	}
@@ -1706,6 +1879,21 @@ export class HydrateView extends ItemView {
 		this.renderSuggestionPills();
 
 		new Notice(`Added ${filePath.split("/").pop()} to context`);
+	}
+
+	/**
+	 * Navigates to a note in the main Obsidian view
+	 */
+	private async navigateToNote(filePath: string): Promise<void> {
+		const file = this.app.vault.getAbstractFileByPath(filePath);
+		if (!file || !(file instanceof TFile)) {
+			new Notice(`Could not find file: ${filePath}`);
+			return;
+		}
+
+		// Open the file in the main workspace
+		await this.app.workspace.getLeaf(false).openFile(file);
+		new Notice(`Opened ${file.name}`);
 	}
 
 	/**
