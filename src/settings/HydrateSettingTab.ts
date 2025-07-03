@@ -98,19 +98,6 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 		// --- General Settings ---
 		containerEl.createEl("h3", { text: "General" });
-		new Setting(containerEl)
-			.setName("Default Pane Orientation")
-			.setDesc("Choose where the Hydrate pane opens by default.")
-			.addDropdown((dropdown) => {
-				dropdown
-					.addOption("Bottom", "Bottom") // Horizontal split
-					.addOption("Right", "Right") // Vertical split
-					.setValue(this.plugin.settings.paneOrientation)
-					.onChange(async (value: "Bottom" | "Right") => {
-						this.plugin.settings.paneOrientation = value;
-						await this.plugin.saveSettings();
-					});
-			});
 
 		new Setting(containerEl)
 			.setName("Default LLM Model")

@@ -94,7 +94,6 @@ export interface HydratePluginSettings {
 	mySetting: string;
 	developmentPath: string;
 	backendUrl: string;
-	paneOrientation: "Bottom" | "Right";
 	registryEntries: RegistryEntry[]; // Existing registry
 	rulesRegistryEntries: RuleEntry[]; // <<< ADDED rules registry
 	selectedModel: ModelName; // Add setting for selected LLM
@@ -163,7 +162,6 @@ const DEFAULT_SETTINGS: HydratePluginSettings = {
 	mySetting: "default",
 	developmentPath: ".obsidian/plugins/hydrate",
 	backendUrl: "http://localhost:8000",
-	paneOrientation: "Bottom",
 	registryEntries: [], // Existing initialization
 	rulesRegistryEntries: [], // <<< Initialized as empty
 	selectedModel: "gpt-4.1-mini", // Set default model
@@ -664,14 +662,8 @@ export default class HydratePlugin extends Plugin {
 			return;
 		}
 
-		// Determine split direction based on setting
-		const direction =
-			this.settings.paneOrientation === "Right"
-				? "vertical"
-				: "horizontal";
-
-		// Open the view in a new leaf
-		const leaf = workspace.getLeaf("split", direction);
+		// Open the view in the right sidebar
+		const leaf = workspace.getRightLeaf(false);
 
 		// Pass the source file path in the state when opening the view
 		const viewStateToSet: any = {
