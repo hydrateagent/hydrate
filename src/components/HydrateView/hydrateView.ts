@@ -342,6 +342,7 @@ export class HydrateView extends ItemView {
 				align-items: center;
 				gap: 4px;
 				height: 20px;
+				max-width: 200px;
 			}
 			.hydrate-file-pill:hover {
 				transform: translateY(-1px);
@@ -350,6 +351,9 @@ export class HydrateView extends ItemView {
 			}
 			.hydrate-pill-text {
 				flex: 1;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
 			}
 			.hydrate-pill-remove {
 				background: transparent !important;
@@ -412,6 +416,9 @@ export class HydrateView extends ItemView {
 				display: flex;
 				align-items: center;
 				height: 20px;
+				max-width: 200px;
+				white-space: nowrap;
+				text-overflow: ellipsis;
 			}
 			.hydrate-suggestion-pill:before {
 				content: "";
@@ -930,7 +937,7 @@ export class HydrateView extends ItemView {
 			addMessageToChat(
 				this,
 				"system",
-				`🔧 Calling tool: ${toolDisplayName}`
+				`Calling tool: ${toolDisplayName}`
 			);
 		}
 
@@ -1326,11 +1333,21 @@ export class HydrateView extends ItemView {
 				throw new Error("Invalid parameters for MCP tool call");
 			}
 
+			// Unwrap kwargs if present (LangChain wraps MCP tool parameters in kwargs)
+			let actualParams = toolCall.params;
+			if (
+				toolCall.params.kwargs &&
+				typeof toolCall.params.kwargs === "object"
+			) {
+				console.log("Unwrapping kwargs for MCP tool:", toolCall.tool);
+				actualParams = toolCall.params.kwargs;
+			}
+
 			// Execute the tool via MCPServerManager
 			const result = await this.plugin.mcpManager.executeToolCall(
 				toolCall.mcp_info.server_id,
 				toolCall.tool,
-				toolCall.params
+				actualParams
 			);
 
 			console.log(
