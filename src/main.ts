@@ -85,10 +85,12 @@ export function getReactViewComponent(
 export const ALLOWED_MODELS = [
 	"gpt-4.1-mini", // Default
 	"gpt-4.1",
+	"o4-mini",
 	"claude-3-7-sonnet-latest",
 	"claude-3-5-haiku-latest",
-	"gemini-2.5-flash-preview-04-17",
-	"gemini-2.5-pro-exp-03-25",
+	"claude-sonnet-4-0",
+	"gemini-2.5-flash-preview-05-20",
+	"gemini-2.5-pro-preview-05-06",
 ] as const; // Use const assertion for stricter typing
 
 export type ModelName = (typeof ALLOWED_MODELS)[number]; // Create type from array values
