@@ -140,6 +140,12 @@ export class HydrateView extends ItemView {
 	currentChatTurns: ChatTurn[] = []; // Track current conversation turns
 	currentChatId: string | null = null; // ID of current saved chat if loaded from history
 	isRestoringFromHistory: boolean = false; // Flag to prevent duplicate tracking during restoration
+
+	// Chat Context Suggestions Properties
+	suggestedNotes: Array<{ filePath: string; score: number; reason: string }> =
+		[];
+	suggestionPillsContainer: HTMLDivElement | null = null;
+	lastSuggestionRefresh: number = 0; // Timestamp to avoid too frequent refreshes
 	// --- End Chat History State ---
 
 	constructor(leaf: WorkspaceLeaf, plugin: HydratePlugin) {
@@ -318,6 +324,46 @@ export class HydrateView extends ItemView {
 				flex-wrap: wrap;
 				gap: 5px;
 				min-height: 20px;
+			}
+			.hydrate-suggestion-pills {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 8px;
+				margin-bottom: 10px;
+				padding: 8px 0;
+				border-bottom: 1px solid var(--background-modifier-border);
+				min-height: 0;
+				transition: all 0.2s ease;
+			}
+			.hydrate-suggestion-pills:empty {
+				display: none;
+			}
+			.hydrate-suggestion-pill {
+				background: linear-gradient(135deg, var(--color-blue-rgb), var(--color-cyan-rgb));
+				color: white;
+				padding: 6px 12px;
+				border-radius: 16px;
+				font-size: 12px;
+				cursor: pointer;
+				border: none;
+				transition: all 0.2s ease;
+				box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+				position: relative;
+				overflow: hidden;
+			}
+			.hydrate-suggestion-pill:before {
+				content: "💡";
+				margin-right: 4px;
+				font-size: 11px;
+			}
+			.hydrate-suggestion-pill:hover {
+				transform: translateY(-1px);
+				box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+				filter: brightness(1.1);
+			}
+			.hydrate-suggestion-pill:active {
+				transform: translateY(0);
+				box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 			}
 			.hydrate-input-container {
 				position: relative;
@@ -509,6 +555,11 @@ export class HydrateView extends ItemView {
 		// Create chat container
 		this.chatContainer = container.createEl("div", {
 			cls: "hydrate-chat-container",
+		});
+
+		// Create suggestion pills container (above input section)
+		this.suggestionPillsContainer = container.createEl("div", {
+			cls: "hydrate-suggestion-pills",
 		});
 
 		// Create input section
@@ -1369,6 +1420,10 @@ export class HydrateView extends ItemView {
 
 		// Update UI
 		renderDomFilePills(this);
+
+		// Clear suggestions
+		this.suggestedNotes = [];
+		this.renderSuggestionPills();
 	}
 
 	/**
@@ -1391,6 +1446,11 @@ export class HydrateView extends ItemView {
 
 		// Update file pills
 		renderDomFilePills(this);
+
+		// Refresh suggestions based on loaded conversation
+		setTimeout(() => {
+			this.refreshContextSuggestions();
+		}, 2000);
 	}
 
 	/**
@@ -1398,6 +1458,254 @@ export class HydrateView extends ItemView {
 	 */
 	private generateChatId(): string {
 		return `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+	}
+
+	// --- Chat Context Suggestions Methods ---
+
+	/**
+	 * Generates search queries from recent chat content and finds relevant notes
+	 */
+	private async refreshContextSuggestions(): Promise<void> {
+		// Throttle calls to avoid excessive API usage
+		const now = Date.now();
+		const timeSinceLastRefresh = now - this.lastSuggestionRefresh;
+		if (timeSinceLastRefresh < 5000) {
+			// Wait at least 5 seconds between refreshes
+			return;
+		}
+		this.lastSuggestionRefresh = now;
+
+		// Check if remote embeddings are enabled and configured
+		if (!this.plugin.settings.enableRemoteEmbeddings) {
+			this.suggestedNotes = [];
+			this.renderSuggestionPills();
+			return;
+		}
+
+		if (
+			!this.plugin.settings.remoteEmbeddingUrl ||
+			!this.plugin.settings.remoteEmbeddingApiKey ||
+			!this.plugin.settings.remoteEmbeddingModelName
+		) {
+			this.suggestedNotes = [];
+			this.renderSuggestionPills();
+			return;
+		}
+
+		// Get recent chat content to generate search queries
+		const searchQueries = this.generateSearchQueriesFromChat();
+		if (searchQueries.length === 0) {
+			this.suggestedNotes = [];
+			this.renderSuggestionPills();
+			return;
+		}
+
+		try {
+			// Search for relevant content using each query
+			const allSuggestions = new Map<
+				string,
+				{ filePath: string; score: number; reason: string }
+			>();
+
+			for (const queryInfo of searchQueries) {
+				try {
+					const { searchIndexRemote } = await import(
+						"../../vectorIndex"
+					);
+					const searchResults = await searchIndexRemote(
+						queryInfo.query,
+						this.plugin.settings as any, // VectorIndexSettings compatible
+						3 // Limit results per query
+					);
+
+					for (const result of searchResults) {
+						// Skip files that are already attached
+						if (this.attachedFiles.includes(result.filePath)) {
+							continue;
+						}
+
+						// Use the highest score if file appears in multiple queries
+						const existingSuggestion = allSuggestions.get(
+							result.filePath
+						);
+						if (
+							!existingSuggestion ||
+							result.score! > existingSuggestion.score
+						) {
+							allSuggestions.set(result.filePath, {
+								filePath: result.filePath,
+								score: result.score || 0,
+								reason: queryInfo.reason,
+							});
+						}
+					}
+				} catch (error) {
+					console.warn(
+						`Search failed for query "${queryInfo.query}":`,
+						error
+					);
+				}
+			}
+
+			// Convert to array and sort by score
+			this.suggestedNotes = Array.from(allSuggestions.values())
+				.sort((a, b) => b.score - a.score)
+				.slice(0, 5); // Limit to top 5 suggestions
+
+			this.renderSuggestionPills();
+		} catch (error) {
+			console.error("Error refreshing context suggestions:", error);
+			this.suggestedNotes = [];
+			this.renderSuggestionPills();
+		}
+	}
+
+	/**
+	 * Generates search queries from recent chat turns
+	 */
+	private generateSearchQueriesFromChat(): Array<{
+		query: string;
+		reason: string;
+	}> {
+		const queries: Array<{ query: string; reason: string }> = [];
+
+		// Get the last few chat turns (recent context)
+		const recentTurns = this.currentChatTurns.slice(-6); // Last 6 turns
+
+		if (recentTurns.length === 0) {
+			return queries;
+		}
+
+		// Extract text from recent user messages
+		const userMessages = recentTurns
+			.filter((turn) => turn.role === "user")
+			.map((turn) => turn.content)
+			.slice(-3); // Last 3 user messages
+
+		// Extract text from recent agent messages
+		const agentMessages = recentTurns
+			.filter((turn) => turn.role === "agent")
+			.map((turn) => turn.content)
+			.slice(-2); // Last 2 agent messages
+
+		// Generate queries from user messages
+		userMessages.forEach((message, index) => {
+			if (message.length > 10) {
+				// Skip very short messages
+				queries.push({
+					query: message.substring(0, 200), // Limit query length
+					reason: `Related to recent question`,
+				});
+			}
+		});
+
+		// Generate queries from agent messages (extract key topics)
+		agentMessages.forEach((message, index) => {
+			// Extract key phrases/topics from agent responses
+			const topics = this.extractTopicsFromText(message);
+			topics.forEach((topic) => {
+				if (topic.length > 5) {
+					queries.push({
+						query: topic,
+						reason: `Related to discussed topic`,
+					});
+				}
+			});
+		});
+
+		return queries.slice(0, 4); // Limit total queries to avoid too many API calls
+	}
+
+	/**
+	 * Simple topic extraction from text (could be improved with NLP)
+	 */
+	private extractTopicsFromText(text: string): string[] {
+		// Simple approach: extract phrases with important words
+		const importantWords =
+			/\b(implement|create|build|design|analyze|explain|configure|setup|install|debug|fix|optimize|improve|manage|handle|process|generate|develop|code|function|method|class|component|feature|system|application|service|tool|library|framework|api|database|file|project|workflow|automation|integration|testing|deployment|performance|security|authentication|authorization|validation|error|exception|logging|monitoring|documentation|tutorial|guide|example|pattern|best|practice|solution|approach|strategy|architecture|structure|organization|planning|requirement|specification|design|interface|user|experience|frontend|backend|server|client|browser|mobile|web|app|software|hardware|network|cloud|infrastructure|devops|ci|cd|git|repository|version|control|branch|merge|commit|pull|request|issue|bug|task|ticket|milestone|release|deploy|environment|staging|production|development|test|unit|integration|end|to|end|manual|automated|script|command|terminal|shell|bash|powershell|linux|windows|macos|docker|kubernetes|aws|azure|gcp|terraform|ansible|jenkins|github|gitlab|bitbucket|jira|confluence|slack|teams|email|notification|alert|dashboard|metrics|analytics|report|chart|graph|visualization|data|analysis|machine|learning|ai|artificial|intelligence|natural|language|processing|computer|vision|deep|learning|neural|network|algorithm|model|training|inference|prediction|classification|regression|clustering|recommendation|search|query|filter|sort|pagination|cache|session|cookie|token|jwt|oauth|saml|ldap|active|directory|role|permission|access|control|audit|compliance|gdpr|hipaa|sox|iso|pci|dss)\b/gi;
+
+		const matches = text.match(importantWords) || [];
+		const topics = new Set<string>();
+
+		// Add individual important words
+		matches.forEach((match) => {
+			if (match.length > 3) {
+				topics.add(match.toLowerCase());
+			}
+		});
+
+		// Extract noun phrases (simple pattern matching)
+		const nounPhrases =
+			text.match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b/g) || [];
+		nounPhrases.forEach((phrase) => {
+			if (phrase.length > 5 && phrase.length < 50) {
+				topics.add(phrase);
+			}
+		});
+
+		return Array.from(topics).slice(0, 8); // Return top 8 topics
+	}
+
+	/**
+	 * Renders the suggestion pills in the UI
+	 */
+	private renderSuggestionPills(): void {
+		if (!this.suggestionPillsContainer) return;
+
+		// Clear existing pills
+		this.suggestionPillsContainer.empty();
+
+		if (this.suggestedNotes.length === 0) {
+			return; // Container will be hidden by CSS when empty
+		}
+
+		this.suggestedNotes.forEach((suggestion) => {
+			const pill = this.suggestionPillsContainer!.createEl("button", {
+				cls: "hydrate-suggestion-pill",
+				attr: {
+					title: `${
+						suggestion.reason
+					} (score: ${suggestion.score.toFixed(3)})`,
+				},
+			});
+
+			// Get just the filename for display
+			const filename =
+				suggestion.filePath.split("/").pop()?.replace(/\.md$/, "") ||
+				suggestion.filePath;
+			pill.createEl("span", { text: filename });
+
+			// Add click handler to add to context
+			pill.addEventListener("click", () => {
+				this.addSuggestionToContext(suggestion.filePath);
+			});
+		});
+	}
+
+	/**
+	 * Adds a suggested note to the attached files context
+	 */
+	private addSuggestionToContext(filePath: string): void {
+		// Check if already attached
+		if (this.attachedFiles.includes(filePath)) {
+			new Notice(`${filePath} is already attached`);
+			return;
+		}
+
+		// Add to attached files
+		this.attachedFiles.push(filePath);
+		this.wasInitiallyAttached = false; // User manually added
+
+		// Update file pills display
+		renderDomFilePills(this);
+
+		// Remove from suggestions since it's now attached
+		this.suggestedNotes = this.suggestedNotes.filter(
+			(s) => s.filePath !== filePath
+		);
+		this.renderSuggestionPills();
+
+		new Notice(`Added ${filePath.split("/").pop()} to context`);
 	}
 
 	/**

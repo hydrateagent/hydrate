@@ -42,8 +42,10 @@ import { injectPaneStyles } from "./styles/paneStyles"; // <<< ADDED IMPORT
 import {
 	initializeVectorSystem, // Only loads local index now
 	addOrUpdateDocumentRemote, // Use this for create/modify
+	addOrUpdateDocumentsBatch, // Use this for bulk indexing
 	deleteDocumentFromIndex, // Use this for delete (no remote call needed)
 	searchIndexRemote, // Use this for search
+	clearVectorIndex, // Use this to clear corrupted index
 } from "./vectorIndex"; // Updated imports
 
 import { handleSearchProject } from "./toolHandlers"; // <<< ADD IMPORT
@@ -1110,7 +1112,7 @@ export default class HydratePlugin extends Plugin {
 	// --- End Chat History Helper functions ---
 
 	// --- Add Initial Indexing Function ---
-	async triggerInitialIndexing() {
+	async triggerInitialIndexing(forceRebuild: boolean = false) {
 		if (!this.settings.enableRemoteEmbeddings) {
 			new Notice(
 				"Remote embeddings are disabled in settings. Cannot start indexing."
@@ -1135,51 +1137,71 @@ export default class HydratePlugin extends Plugin {
 		}
 
 		this.isIndexing = true;
-		new Notice("Starting initial vault indexing... This may take a while.");
-		console.log("Starting initial vault indexing...");
 
-		// Fetch ALL files, not just markdown. Filtering will happen in addOrUpdateDocumentRemote.
-		const allFiles = this.app.vault.getFiles();
-		const totalFiles = allFiles.length;
-		let processedFilesCount = 0; // Count files actually sent to addOrUpdateDocumentRemote
-		let successfullyIndexedCount = 0; // Count files confirmed indexed by addOrUpdate (if we can track that)
-		let errorCount = 0;
-
-		console.log(
-			`Found ${totalFiles} total files to check for indexing based on extensions: '${this.settings.indexFileExtensions}'.`
-		);
-
-		for (const file of allFiles) {
-			// Check flag again in case user cancelled (though no UI for this yet)
-			if (!this.isIndexing) {
-				new Notice("Indexing cancelled by flag.");
-				console.log("Indexing cancelled by flag.");
-				break;
-			}
-			processedFilesCount++;
-			// console.log(  // Optional: verbose logging for each file being checked
-			//     `Checking file ${processedFilesCount}/${totalFiles}: ${file.path}`
-			// );
-			try {
-				// addOrUpdateDocumentRemote will use settings.indexFileExtensions to filter
-				// It will also handle console logging for skipped or indexed files.
-				await addOrUpdateDocumentRemote(this.app, file, this.settings);
-				// We can't easily tell from the return of addOrUpdateDocumentRemote if it *actually* indexed
-				// or just skipped due to extension. The logs within that function are the source of truth.
-			} catch (error) {
-				console.error(
-					`Error processing file ${file.path} during initial indexing:`,
-					error
-				);
-				errorCount++;
-			}
+		if (forceRebuild) {
+			new Notice("Rebuilding vector index from scratch...");
+			console.log("Force rebuilding vector index...");
+			// Reinitialize with force rebuild to clear corrupted data
+			await initializeVectorSystem(this.app, true);
+		} else {
+			new Notice(
+				"Starting vault indexing... This will be much faster with batch processing."
+			);
+			console.log("Starting vault indexing with batch processing...");
 		}
 
-		// The completion message should reflect that files were *checked*.
-		// The actual number indexed is best found by observing logs from addOrUpdateDocumentRemote.
-		const completionMessage = `Vault indexing check finished. Checked ${processedFilesCount} files. Errors: ${errorCount}. See console for details on skipped/indexed files.`;
-		new Notice(completionMessage);
-		console.log(completionMessage);
+		const allFiles = this.app.vault.getFiles();
+
+		// Pre-filter files to avoid processing obviously irrelevant files
+		const fileExtension = this.settings.indexFileExtensions || "";
+		const allowedExtensions = fileExtension
+			.split(",")
+			.map((ext) => ext.trim().toLowerCase())
+			.filter((ext) => ext.length > 0);
+
+		const filteredFiles = allFiles.filter((file) => {
+			// CRITICAL: Extension check is mandatory - only process configured extensions
+			if (allowedExtensions.length === 0) {
+				// If no extensions configured, don't process ANY files
+				return false;
+			}
+
+			const fileExt = file.extension.toLowerCase();
+			if (!allowedExtensions.includes(fileExt)) {
+				// File extension not in allowed list - skip
+				return false;
+			}
+
+			// Path filtering using shouldSkipPath (which blocks ALL hidden files)
+			const shouldSkip = this.shouldSkipPath(file.path);
+			return !shouldSkip;
+		});
+
+		console.log(
+			`Found ${allFiles.length} total files, ${filteredFiles.length} files match criteria for extensions: '${this.settings.indexFileExtensions}'.`
+		);
+
+		try {
+			const result = await addOrUpdateDocumentsBatch(
+				this.app,
+				filteredFiles,
+				this.settings
+			);
+
+			const completionMessage = `Vault indexing completed! Processed: ${result.processed}, Indexed: ${result.indexed}, Skipped: ${result.skipped}, Errors: ${result.errors}`;
+
+			if (result.errors > 0) {
+				console.warn(completionMessage);
+			} else {
+				console.log(completionMessage);
+			}
+
+			new Notice(completionMessage);
+		} catch (error) {
+			console.error("Vault indexing failed:", error);
+			new Notice("Vault indexing failed. Check console for details.");
+		}
+
 		this.isIndexing = false;
 	}
 
@@ -1189,6 +1211,121 @@ export default class HydratePlugin extends Plugin {
 			console.log("Requesting indexing stop...");
 			this.isIndexing = false; // Set flag to stop loop
 		}
+	}
+
+	/**
+	 * Check if a file path should be skipped during indexing
+	 * @param filePath The file path to check
+	 * @returns True if the file should be skipped
+	 */
+	private shouldSkipPath(filePath: string): boolean {
+		// Normalize path separators to forward slashes for consistent checking
+		const normalizedPath = filePath.replace(/\\/g, "/");
+
+		// CRITICAL: Skip ANY file or directory that starts with . (hidden files/directories)
+		// This must be checked first and is absolute - no exceptions
+		const pathParts = normalizedPath.split("/");
+		for (const part of pathParts) {
+			if (part.startsWith(".") && part.length > 1) {
+				return true; // Skip ALL hidden files and contents of hidden directories
+			}
+		}
+
+		// Skip common problematic directories (redundant with above but kept for clarity)
+		const skipDirectories = [
+			"node_modules/",
+			"venv/",
+			"env/",
+			"__pycache__/",
+			"dist/",
+			"build/",
+			"target/",
+			"bin/",
+			"obj/",
+			"vendor/",
+			"cache/",
+			"logs/",
+			"temp/",
+			"tmp/",
+		];
+
+		// Check if path contains any of the skip directories
+		for (const skipDir of skipDirectories) {
+			if (normalizedPath.includes(skipDir)) {
+				return true;
+			}
+		}
+
+		// Skip binary files and other non-text files
+		const binaryFilePatterns = [
+			/\.bin$/i,
+			/\.exe$/i,
+			/\.dll$/i,
+			/\.so$/i,
+			/\.dylib$/i,
+			/\.zip$/i,
+			/\.tar$/i,
+			/\.gz$/i,
+			/\.rar$/i,
+			/\.7z$/i,
+			/\.iso$/i,
+			/\.img$/i,
+			/\.dmg$/i,
+			/\.db$/i,
+			/\.sqlite$/i,
+			/\.sqlite3$/i,
+			/\.mdb$/i,
+			/\.accdb$/i,
+			/\.pdf$/i,
+			/\.doc$/i,
+			/\.docx$/i,
+			/\.xls$/i,
+			/\.xlsx$/i,
+			/\.ppt$/i,
+			/\.pptx$/i,
+			/\.jpg$/i,
+			/\.jpeg$/i,
+			/\.png$/i,
+			/\.gif$/i,
+			/\.bmp$/i,
+			/\.tiff$/i,
+			/\.webp$/i,
+			/\.svg$/i,
+			/\.ico$/i,
+			/\.mp3$/i,
+			/\.mp4$/i,
+			/\.avi$/i,
+			/\.mov$/i,
+			/\.wmv$/i,
+			/\.flv$/i,
+			/\.webm$/i,
+			/\.mkv$/i,
+			/\.wav$/i,
+			/\.flac$/i,
+			/\.ogg$/i,
+			/\.woff$/i,
+			/\.woff2$/i,
+			/\.ttf$/i,
+			/\.otf$/i,
+			/\.eot$/i,
+			// Python bytecode files
+			/\.pyc$/i,
+			/\.pyo$/i,
+			/\.pyd$/i,
+		];
+
+		for (const pattern of binaryFilePatterns) {
+			if (pattern.test(normalizedPath)) {
+				return true;
+			}
+		}
+
+		// Skip files with very long paths (likely to cause issues)
+		if (normalizedPath.length > 250) {
+			return true;
+		}
+
+		return false;
 	}
 
 	/**

@@ -180,6 +180,14 @@ export function addMessageToChat(
 		// Only add to history if we're not currently restoring from history
 		if (!(view as any).isRestoringFromHistory) {
 			(view as any).currentChatTurns.push(chatTurn);
+
+			// Refresh context suggestions after new messages (but not for system messages)
+			if (role === "user" || role === "agent") {
+				// Use setTimeout to avoid blocking the UI
+				setTimeout(() => {
+					(view as any).refreshContextSuggestions?.();
+				}, 1000);
+			}
 		}
 	}
 }

@@ -5,6 +5,7 @@ import {
 	Notice,
 	TextComponent,
 	ButtonComponent,
+	Modal,
 } from "obsidian";
 import HydratePlugin, { ALLOWED_MODELS, ModelName } from "../main"; // Corrected path & ADDED IMPORTS
 import { RegistryEditModal } from "./RegistryEditModal";
@@ -515,6 +516,104 @@ export class HydrateSettingTab extends PluginSettingTab {
 					if (this.plugin.isIndexing) {
 						button.setDisabled(true);
 						button.setButtonText("Indexing...");
+					}
+				})
+				.addButton((button) => {
+					button
+						.setButtonText("Rebuild Index")
+						.setWarning()
+						.setTooltip(
+							"Clear corrupted index and rebuild from scratch"
+						)
+						.onClick(async () => {
+							if (this.plugin.isIndexing) {
+								new Notice("Indexing is already in progress.");
+								return;
+							}
+
+							// Confirm before rebuilding
+							const confirmed = await new Promise<boolean>(
+								(resolve) => {
+									const modal = new (class extends Modal {
+										constructor(app: App) {
+											super(app);
+										}
+
+										onOpen() {
+											const { contentEl } = this;
+											contentEl.createEl("h2", {
+												text: "Rebuild Vector Index",
+											});
+											contentEl.createEl("p", {
+												text: "This will completely delete the existing index and rebuild it from scratch. This is useful if you're experiencing search errors due to corrupted index data.",
+											});
+											contentEl.createEl("p", {
+												text: "This operation cannot be undone and may take several minutes to complete.",
+											});
+
+											const buttonContainer =
+												contentEl.createDiv({
+													cls: "modal-button-container",
+												});
+											buttonContainer.createEl("button", {
+												text: "Cancel",
+												cls: "mod-cancel",
+											}).onclick = () => {
+												resolve(false);
+												this.close();
+											};
+
+											buttonContainer.createEl("button", {
+												text: "Rebuild Index",
+												cls: "mod-cta mod-warning",
+											}).onclick = () => {
+												resolve(true);
+												this.close();
+											};
+										}
+
+										onClose() {
+											const { contentEl } = this;
+											contentEl.empty();
+										}
+									})(this.app);
+									modal.open();
+								}
+							);
+
+							if (!confirmed) return;
+
+							if (this.startIndexingButton) {
+								this.startIndexingButton.setDisabled(true);
+								this.startIndexingButton.setButtonText(
+									"Rebuilding..."
+								);
+							}
+							button.setDisabled(true);
+							button.setButtonText("Rebuilding...");
+
+							try {
+								await this.plugin.triggerInitialIndexing(true); // Force rebuild
+								new Notice("Index rebuilt successfully!");
+							} catch (error) {
+								console.error("Index rebuild failed:", error);
+								new Notice(
+									"Failed to rebuild index. Check console for details."
+								);
+							} finally {
+								if (this.startIndexingButton) {
+									this.startIndexingButton.setDisabled(false);
+									this.startIndexingButton.setButtonText(
+										"Start Full Vault Indexing"
+									);
+								}
+								button.setDisabled(false);
+								button.setButtonText("Rebuild Index");
+							}
+						});
+					if (this.plugin.isIndexing) {
+						button.setDisabled(true);
+						button.setButtonText("Rebuilding...");
 					}
 				});
 		}

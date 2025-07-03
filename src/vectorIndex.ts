@@ -73,6 +73,123 @@ let localIndex: LocalIndex<VectraMetadata> | null = null;
 const INDEX_DIR_NAME = ".hydrate/index"; // Vectra will use this directory
 // const INDEX_FILE_NAME = "vector_index.json"; // No longer needed
 
+// --- Helper Functions ---
+
+/**
+ * Determines if a file path should be skipped during indexing
+ * @param filePath The file path to check
+ * @returns True if the file should be skipped
+ */
+function shouldSkipPath(filePath: string): boolean {
+	// Normalize path separators to forward slashes for consistent checking
+	const normalizedPath = filePath.replace(/\\/g, "/");
+
+	// CRITICAL: Skip ANY file or directory that starts with . (hidden files/directories)
+	// This must be checked first and is absolute - no exceptions
+	const pathParts = normalizedPath.split("/");
+	for (const part of pathParts) {
+		if (part.startsWith(".") && part.length > 1) {
+			return true; // Skip ALL hidden files and contents of hidden directories
+		}
+	}
+
+	// Skip common problematic directories (redundant with above but kept for clarity)
+	const skipDirectories = [
+		"node_modules/",
+		"venv/",
+		"env/",
+		"__pycache__/",
+		"dist/",
+		"build/",
+		"target/",
+		"bin/",
+		"obj/",
+		"vendor/",
+		"cache/",
+		"logs/",
+		"temp/",
+		"tmp/",
+	];
+
+	// Check if path contains any of the skip directories
+	for (const skipDir of skipDirectories) {
+		if (normalizedPath.includes(skipDir)) {
+			return true;
+		}
+	}
+
+	// Skip binary files and other non-text files
+	const binaryFilePatterns = [
+		/\.bin$/i,
+		/\.exe$/i,
+		/\.dll$/i,
+		/\.so$/i,
+		/\.dylib$/i,
+		/\.zip$/i,
+		/\.tar$/i,
+		/\.gz$/i,
+		/\.rar$/i,
+		/\.7z$/i,
+		/\.iso$/i,
+		/\.img$/i,
+		/\.dmg$/i,
+		/\.db$/i,
+		/\.sqlite$/i,
+		/\.sqlite3$/i,
+		/\.mdb$/i,
+		/\.accdb$/i,
+		/\.pdf$/i,
+		/\.doc$/i,
+		/\.docx$/i,
+		/\.xls$/i,
+		/\.xlsx$/i,
+		/\.ppt$/i,
+		/\.pptx$/i,
+		/\.jpg$/i,
+		/\.jpeg$/i,
+		/\.png$/i,
+		/\.gif$/i,
+		/\.bmp$/i,
+		/\.tiff$/i,
+		/\.webp$/i,
+		/\.svg$/i,
+		/\.ico$/i,
+		/\.mp3$/i,
+		/\.mp4$/i,
+		/\.avi$/i,
+		/\.mov$/i,
+		/\.wmv$/i,
+		/\.flv$/i,
+		/\.webm$/i,
+		/\.mkv$/i,
+		/\.wav$/i,
+		/\.flac$/i,
+		/\.ogg$/i,
+		/\.woff$/i,
+		/\.woff2$/i,
+		/\.ttf$/i,
+		/\.otf$/i,
+		/\.eot$/i,
+		// Python bytecode files
+		/\.pyc$/i,
+		/\.pyo$/i,
+		/\.pyd$/i,
+	];
+
+	for (const pattern of binaryFilePatterns) {
+		if (pattern.test(normalizedPath)) {
+			return true;
+		}
+	}
+
+	// Skip files with very long paths (likely to cause issues)
+	if (normalizedPath.length > 250) {
+		return true;
+	}
+
+	return false;
+}
+
 // --- Remote Embedding Function (Now with full implementation) ---
 
 /**
@@ -292,32 +409,29 @@ async function embedTextsViaRemoteApi(
 // }
 
 /**
- * Chunks a document's content into smaller pieces.
+ * Prepares document content for embedding (no chunking, whole document).
  * @param content The document content.
- * @param filePath The path of the file for chunk IDs.
- * @returns Array of text chunks.
+ * @param filePath The path of the file for the document ID.
+ * @returns Single document object or null if empty.
  */
-function chunkDocumentContent(
+function prepareDocumentContent(
 	content: string,
 	filePath: string
-): { id: string; text: string }[] {
+): { id: string; text: string } | null {
 	// Ensure content is not empty or just whitespace
 	const trimmedContent = content.trim();
 	if (trimmedContent.length === 0) {
 		console.log(
-			`[chunkDocumentContent] Content for ${filePath} is empty after trimming. Returning no chunks.`
+			`[prepareDocumentContent] Content for ${filePath} is empty after trimming. Returning null.`
 		);
-		return [];
+		return null;
 	}
 
-	// Return the entire trimmed content as a single chunk
-	// The ID uses '#0' to signify the single chunk for the whole file.
-	return [
-		{
-			id: `${filePath}#0`,
-			text: trimmedContent,
-		},
-	];
+	// Return the entire trimmed content as a single document
+	return {
+		id: `${filePath}#0`,
+		text: trimmedContent,
+	};
 }
 
 /**
@@ -336,7 +450,6 @@ export async function addOrUpdateDocumentRemote(
 		console.error(
 			"[addOrUpdateDocumentRemote] Vectra index not initialized. Cannot index document."
 		);
-		new Notice("Hydrate: Vector index not ready. Cannot index.");
 		return;
 	}
 
@@ -371,14 +484,45 @@ export async function addOrUpdateDocumentRemote(
 		return;
 	}
 
+	// Additional filtering: Skip problematic directories and file patterns
+	if (shouldSkipPath(file.path)) {
+		// Silently skip without trying to delete (to avoid spam)
+		return;
+	}
+
 	console.log(
 		`[addOrUpdateDocumentRemote] Starting indexing for: ${file.path} (type: ${fileExtension})`
 	);
 	try {
 		const content = await app.vault.cachedRead(file);
-		const textChunksForEmbedding = chunkDocumentContent(content, file.path);
 
-		if (textChunksForEmbedding.length === 0) {
+		// Additional safety check: Skip files that are too large or contain binary data
+		if (content.length > 1024 * 1024) {
+			// 1MB limit
+			console.log(
+				`[addOrUpdateDocumentRemote] File ${file.path} is too large (${content.length} chars). Skipping.`
+			);
+			return;
+		}
+
+		// Check if content contains mostly binary data (high ratio of non-printable characters)
+		const printableChars = content.match(/[\x20-\x7E\n\r\t]/g)?.length || 0;
+		const binaryRatio = 1 - printableChars / content.length;
+		if (binaryRatio > 0.3) {
+			// If more than 30% non-printable characters
+			console.log(
+				`[addOrUpdateDocumentRemote] File ${
+					file.path
+				} appears to be binary (${(binaryRatio * 100).toFixed(
+					1
+				)}% non-printable). Skipping.`
+			);
+			return;
+		}
+
+		const documentForEmbedding = prepareDocumentContent(content, file.path);
+
+		if (!documentForEmbedding) {
 			console.log(
 				`[addOrUpdateDocumentRemote] No content to index for ${file.path}. Ensuring it's removed.`
 			);
@@ -386,11 +530,10 @@ export async function addOrUpdateDocumentRemote(
 			return;
 		}
 
-		const chunkTextsApi = textChunksForEmbedding.map((c) => c.text);
 		let embeddings: number[][] = [];
 		try {
 			embeddings = await embedTextsViaRemoteApi(
-				chunkTextsApi,
+				[documentForEmbedding.text],
 				settings.remoteEmbeddingUrl,
 				settings.remoteEmbeddingApiKey,
 				settings.remoteEmbeddingModelName
@@ -400,52 +543,37 @@ export async function addOrUpdateDocumentRemote(
 				`[addOrUpdateDocumentRemote] Failed to get embeddings for ${file.path}:`,
 				embeddingError
 			);
-			// Optionally, attempt to remove the document from index if fetching embeddings fails,
-			// to prevent stale data if it was previously indexed.
-			// await deleteDocumentFromIndex(app, file.path);
 			return;
 		}
 
-		if (embeddings.length !== textChunksForEmbedding.length) {
+		if (embeddings.length !== 1) {
 			console.error(
-				`[addOrUpdateDocumentRemote] Mismatch: Got ${embeddings.length} embeddings for ${textChunksForEmbedding.length} chunks in ${file.path}. Aborting update.`
-			);
-			new Notice(
-				`Indexing error for ${file.path}: Embedding count mismatch.`
+				`[addOrUpdateDocumentRemote] Expected 1 embedding, got ${embeddings.length} for ${file.path}. Aborting update.`
 			);
 			return;
 		}
 
-		// Add/update items in Vectra index
-		for (let i = 0; i < textChunksForEmbedding.length; i++) {
-			const chunk = textChunksForEmbedding[i];
-			const embedding = embeddings[i];
+		// Add/update item in Vectra index
+		const vectraItem: VectraItem<VectraMetadata> = {
+			id: documentForEmbedding.id,
+			vector: embeddings[0],
+			metadata: {
+				filePath: file.path,
+				chunkId: documentForEmbedding.id,
+			},
+		};
 
-			const vectraItem: VectraItem<VectraMetadata> = {
-				id: chunk.id, // Ensure item ID is part of the object
-				vector: embedding,
-				metadata: {
-					filePath: file.path,
-					chunkId: chunk.id,
-				},
-			};
-			try {
-				// Use chunk.id as the item ID for Vectra for upsert operations
-				await localIndex.upsertItem(vectraItem); // Pass only the item object
-			} catch (vectraError) {
-				console.error(
-					`[addOrUpdateDocumentRemote] Error upserting item ${chunk.id} to Vectra for ${file.path}:`,
-					vectraError
-				);
-				new Notice(
-					`Error indexing chunk ${chunk.id} for ${file.path}.`
-				);
-				// Decide if to continue with other chunks or abort
-			}
+		try {
+			await localIndex.upsertItem(vectraItem);
+			console.log(
+				`[addOrUpdateDocumentRemote] Document ${file.path} indexed successfully.`
+			);
+		} catch (vectraError) {
+			console.error(
+				`[addOrUpdateDocumentRemote] Error upserting ${documentForEmbedding.id} for ${file.path}:`,
+				vectraError
+			);
 		}
-		console.log(
-			`[addOrUpdateDocumentRemote] Document ${file.path} processed with ${textChunksForEmbedding.length} chunks for Vectra index.`
-		);
 		// No explicit saveIndex(app) needed; Vectra manages its persistence.
 	} catch (error) {
 		console.error(
@@ -453,6 +581,195 @@ export async function addOrUpdateDocumentRemote(
 			error
 		);
 	}
+}
+
+/**
+ * Adds or updates multiple documents in batches using remote embeddings.
+ * This is more efficient for bulk operations as it batches API calls.
+ * @param app Obsidian App instance.
+ * @param files Array of TFiles to index.
+ * @param settings Plugin settings including remote embedding config and file extensions.
+ * @param batchSize Number of documents to process in each API call (default: 50).
+ */
+export async function addOrUpdateDocumentsBatch(
+	app: App,
+	files: TFile[],
+	settings: VectorIndexSettings,
+	batchSize: number = 50
+): Promise<{
+	processed: number;
+	indexed: number;
+	skipped: number;
+	errors: number;
+}> {
+	if (!localIndex) {
+		console.error(
+			"[addOrUpdateDocumentsBatch] Vectra index not initialized. Cannot index documents."
+		);
+		return { processed: 0, indexed: 0, skipped: 0, errors: 0 };
+	}
+
+	if (!settings.enableRemoteEmbeddings) {
+		console.log(
+			`[addOrUpdateDocumentsBatch] Remote embeddings disabled. Removing ${files.length} files from index.`
+		);
+		for (const file of files) {
+			await deleteDocumentFromIndex(app, file.path);
+		}
+		return {
+			processed: files.length,
+			indexed: 0,
+			skipped: files.length,
+			errors: 0,
+		};
+	}
+
+	const fileExtension = settings.indexFileExtensions || "";
+	const allowedExtensions = fileExtension
+		.split(",")
+		.map((ext) => ext.trim().toLowerCase())
+		.filter((ext) => ext.length > 0);
+
+	if (allowedExtensions.length === 0) {
+		console.log(
+			`[addOrUpdateDocumentsBatch] No file extensions configured. Cannot index any files.`
+		);
+		return {
+			processed: 0,
+			indexed: 0,
+			skipped: files.length,
+			errors: 0,
+		};
+	}
+
+	let processed = 0;
+	let indexed = 0;
+	let skipped = 0;
+	let errors = 0;
+
+	// Filter and prepare documents
+	const documentsToEmbed: Array<{
+		file: TFile;
+		document: { id: string; text: string };
+	}> = [];
+
+	for (const file of files) {
+		processed++;
+
+		// Check file extension
+		const fileExt = file.extension.toLowerCase();
+		if (!allowedExtensions.includes(fileExt)) {
+			await deleteDocumentFromIndex(app, file.path);
+			skipped++;
+			continue;
+		}
+
+		// Check path filtering
+		if (shouldSkipPath(file.path)) {
+			skipped++;
+			continue;
+		}
+
+		try {
+			const content = await app.vault.cachedRead(file);
+
+			// Size and binary checks
+			if (content.length > 1024 * 1024) {
+				skipped++;
+				continue;
+			}
+
+			const printableChars =
+				content.match(/[\x20-\x7E\n\r\t]/g)?.length || 0;
+			const binaryRatio = 1 - printableChars / content.length;
+			if (binaryRatio > 0.3) {
+				skipped++;
+				continue;
+			}
+
+			const document = prepareDocumentContent(content, file.path);
+			if (!document) {
+				await deleteDocumentFromIndex(app, file.path);
+				skipped++;
+				continue;
+			}
+
+			documentsToEmbed.push({ file, document });
+		} catch (error) {
+			console.error(
+				`[addOrUpdateDocumentsBatch] Error reading ${file.path}:`,
+				error
+			);
+			errors++;
+		}
+	}
+
+	if (documentsToEmbed.length === 0) {
+		return { processed, indexed, skipped, errors };
+	}
+
+	// Process documents in batches
+	const totalBatches = Math.ceil(documentsToEmbed.length / batchSize);
+	for (let i = 0; i < documentsToEmbed.length; i += batchSize) {
+		const batch = documentsToEmbed.slice(i, i + batchSize);
+		const batchTexts = batch.map((item) => item.document.text);
+		const batchNumber = Math.floor(i / batchSize) + 1;
+
+		console.log(
+			`[addOrUpdateDocumentsBatch] Processing batch ${batchNumber}/${totalBatches} with ${batch.length} documents`
+		);
+
+		try {
+			const embeddings = await embedTextsViaRemoteApi(
+				batchTexts,
+				settings.remoteEmbeddingUrl,
+				settings.remoteEmbeddingApiKey,
+				settings.remoteEmbeddingModelName
+			);
+
+			if (embeddings.length !== batch.length) {
+				console.error(
+					`[addOrUpdateDocumentsBatch] Embedding mismatch: expected ${batch.length}, got ${embeddings.length}. Skipping batch.`
+				);
+				errors += batch.length;
+				continue;
+			}
+
+			// Store embeddings in Vectra index
+			for (let j = 0; j < batch.length; j++) {
+				const { file, document } = batch[j];
+				const embedding = embeddings[j];
+
+				const vectraItem: VectraItem<VectraMetadata> = {
+					id: document.id,
+					vector: embedding,
+					metadata: {
+						filePath: file.path,
+						chunkId: document.id,
+					},
+				};
+
+				try {
+					await localIndex.upsertItem(vectraItem);
+					indexed++;
+				} catch (vectraError) {
+					console.error(
+						`[addOrUpdateDocumentsBatch] Error upserting ${document.id}:`,
+						vectraError
+					);
+					errors++;
+				}
+			}
+		} catch (embeddingError) {
+			console.error(
+				`[addOrUpdateDocumentsBatch] Batch embedding failed:`,
+				embeddingError
+			);
+			errors += batch.length;
+		}
+	}
+
+	return { processed, indexed, skipped, errors };
 }
 
 /**
@@ -482,11 +799,24 @@ export async function deleteDocumentFromIndex(
 		// Note: Vectra's deleteItem doesn't explicitly confirm success/failure if item not found in same way.
 		// It will throw an error if the deletion fails for other reasons.
 	} catch (error) {
+		// Handle JSON parsing errors more gracefully
+		if (error instanceof SyntaxError && error.message.includes("JSON")) {
+			console.warn(
+				`[deleteDocumentFromIndex] JSON parsing error when deleting ${chunkIdToDelete}. This may indicate corrupted index data. Skipping deletion.`
+			);
+			// Don't show a notice for JSON errors as they're often not critical
+			return;
+		}
+
 		console.error(
 			`[deleteDocumentFromIndex] Error removing document chunk ${chunkIdToDelete} (for file ${filePath}) from Vectra index:`,
 			error
 		);
-		new Notice(`Error deleting ${filePath} from index. Check console.`);
+
+		// Only show notice for non-JSON errors
+		if (!(error instanceof SyntaxError)) {
+			new Notice(`Error deleting ${filePath} from index. Check console.`);
+		}
 	}
 }
 
@@ -615,15 +945,65 @@ export async function searchIndexRemote(
 // Removed cosineSimilarity function as Vectra handles this.
 
 /**
+ * Clears the existing vector index completely by deleting the index directory.
+ * @param app Obsidian App instance
+ */
+export async function clearVectorIndex(app: App): Promise<void> {
+	console.log("[clearVectorIndex] Clearing existing vector index...");
+
+	try {
+		const adapter = app.vault.adapter;
+		if (!(adapter instanceof FileSystemAdapter)) {
+			console.error(
+				"[clearVectorIndex] Vault adapter is not a FileSystemAdapter."
+			);
+			return;
+		}
+
+		const indexDirVaultPath = normalizePath(INDEX_DIR_NAME);
+
+		if (await adapter.exists(indexDirVaultPath)) {
+			// Remove the entire index directory
+			await adapter.rmdir(indexDirVaultPath, true); // true = recursive
+			console.log(
+				`[clearVectorIndex] Deleted index directory: ${indexDirVaultPath}`
+			);
+		} else {
+			console.log(
+				"[clearVectorIndex] Index directory does not exist, nothing to clear."
+			);
+		}
+
+		// Clear the in-memory reference
+		localIndex = null;
+	} catch (error) {
+		console.error("[clearVectorIndex] Error clearing vector index:", error);
+		throw error;
+	}
+}
+
+/**
  * Main initialization function for the vector indexing system using Vectra.
  * Creates or loads the Vectra local index.
  * @param app Obsidian App instance
+ * @param forceRebuild If true, clears existing index and creates a new one
  */
-export async function initializeVectorSystem(app: App) {
+export async function initializeVectorSystem(
+	app: App,
+	forceRebuild: boolean = false
+) {
 	console.log(
 		"[initializeVectorSystem] Initializing Vectra vector system..."
 	);
 	try {
+		// If forceRebuild is requested, clear the existing index first
+		if (forceRebuild) {
+			console.log(
+				"[initializeVectorSystem] Force rebuild requested, clearing existing index..."
+			);
+			await clearVectorIndex(app);
+		}
+
 		// Correctly get base path using FileSystemAdapter
 		const adapter = app.vault.adapter;
 		if (!(adapter instanceof FileSystemAdapter)) {
@@ -655,9 +1035,9 @@ export async function initializeVectorSystem(app: App) {
 
 		localIndex = new LocalIndex<VectraMetadata>(absoluteIndexDirPath); // Specify metadata type
 
-		if (!(await localIndex.isIndexCreated())) {
+		if (!(await localIndex.isIndexCreated()) || forceRebuild) {
 			console.log(
-				"[initializeVectorSystem] Vectra index not found. Creating new index..."
+				"[initializeVectorSystem] Creating new Vectra index..."
 			);
 			await localIndex.createIndex();
 			console.log(
