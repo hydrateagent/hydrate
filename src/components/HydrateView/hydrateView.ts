@@ -872,13 +872,53 @@ export class HydrateView extends ItemView {
 					console.log(
 						`Edit approved and applied for tool: ${toolCall.tool}`
 					);
-					// If the modal applied the changes, use the final content as the result
-					results.push({
-						id: toolCall.id,
-						result: `Successfully applied changes to ${
+
+					// Actually apply the changes to the file
+					try {
+						const file = this.app.vault.getAbstractFileByPath(
 							toolCall.params.path
-						}. ${reviewResult.message || ""}`,
-					});
+						);
+						if (file instanceof TFile) {
+							await this.app.vault.modify(
+								file,
+								reviewResult.finalContent || ""
+							);
+							console.log(
+								`Successfully wrote changes to ${toolCall.params.path}`
+							);
+						} else {
+							// File doesn't exist, create it
+							await this.app.vault.create(
+								toolCall.params.path,
+								reviewResult.finalContent || ""
+							);
+							console.log(
+								`Successfully created new file ${toolCall.params.path}`
+							);
+						}
+
+						results.push({
+							id: toolCall.id,
+							result: `Successfully applied changes to ${
+								toolCall.params.path
+							}. ${reviewResult.message || ""}`,
+						});
+					} catch (writeError) {
+						console.error(
+							`Failed to write changes to ${toolCall.params.path}:`,
+							writeError
+						);
+						results.push({
+							id: toolCall.id,
+							result: `Error writing changes to ${
+								toolCall.params.path
+							}: ${
+								writeError instanceof Error
+									? writeError.message
+									: String(writeError)
+							}`,
+						});
+					}
 				} else {
 					console.log(
 						`Edit rejected for tool: ${toolCall.tool}. Reason: ${reviewResult.message}`
