@@ -51,18 +51,16 @@ export class SlashCommandModal extends FuzzySuggestModal<RegistryEntry> {
 
 	renderSuggestion(item: FuzzyMatch<RegistryEntry>, el: HTMLElement): void {
 		const entry = item.item;
-		const titleEl = el.createEl("div", {
+		el.createEl("div", {
 			text: entry.slashCommandTrigger || "",
 			cls: "suggestion-title",
 		});
-		titleEl.style.color = "#000000 !important"; // Force black text
 
 		if (entry.description) {
-			const noteEl = el.createEl("small", {
+			el.createEl("small", {
 				text: entry.description,
 				cls: "suggestion-note",
 			});
-			noteEl.style.color = "#666666 !important"; // Force gray text
 		}
 	}
 

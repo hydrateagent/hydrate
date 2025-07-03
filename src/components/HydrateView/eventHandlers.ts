@@ -763,25 +763,25 @@ export const handleInputChange = (view: HydrateView): void => {
 	const value = view.textInput.value;
 	const cursorPos = view.textInput.selectionStart;
 
+	// Track if user is deleting (shorter input than before)
+	const currentLength = value.length;
+	const isDeleting = currentLength < (view as any).lastInputLength;
+	(view as any).lastInputLength = currentLength;
+	(view as any).isDeleting = isDeleting;
+
 	if (cursorPos === null) {
-		setDomSuggestions(view, []);
-		setNoteSearchResults(view, []);
 		return;
 	}
 	const textBeforeCursor = value.substring(0, cursorPos);
 
-	// Check for note search pattern [[ first
+	// Check for note search pattern [[ first (but not if deleting)
 	const noteSearchMatch = textBeforeCursor.match(/\[\[([^\]]*?)$/);
-	if (noteSearchMatch) {
+	if (noteSearchMatch && !isDeleting) {
 		const query = noteSearchMatch[1];
 		const triggerStart =
 			noteSearchMatch.index !== undefined ? noteSearchMatch.index : -1;
 
 		if (triggerStart !== -1) {
-			// Clear any existing suggestions
-			setDomSuggestions(view, []);
-			setNoteSearchResults(view, []);
-
 			// Open note search modal
 			const modal = new NoteSearchModal(
 				view.app,
@@ -821,9 +821,9 @@ export const handleInputChange = (view: HydrateView): void => {
 		}
 	}
 
-	// Check for slash command pattern
+	// Check for slash command pattern (but not if deleting)
 	const slashMatch = textBeforeCursor.match(/(?:\s|^)(\/([a-zA-Z0-9_-]*))$/);
-	if (slashMatch) {
+	if (slashMatch && !isDeleting) {
 		const trigger = slashMatch[1];
 		const partialCommand = slashMatch[2];
 		const triggerStart =
@@ -832,10 +832,6 @@ export const handleInputChange = (view: HydrateView): void => {
 				: -1;
 
 		if (triggerStart !== -1) {
-			// Clear any existing suggestions
-			setDomSuggestions(view, []);
-			setNoteSearchResults(view, []);
-
 			const allEntries = view.plugin.getRegistryEntries();
 			let matchingEntries = allEntries.filter(
 				(entry: any) =>
@@ -881,10 +877,6 @@ export const handleInputChange = (view: HydrateView): void => {
 			}
 		}
 	}
-
-	// Clear all suggestions if no patterns match
-	setDomSuggestions(view, []);
-	setNoteSearchResults(view, []);
 };
 
 /**

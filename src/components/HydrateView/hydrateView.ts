@@ -113,6 +113,11 @@ export class HydrateView extends ItemView {
 	noteSearchStartIndex: number = -1;
 	// --- End Note Search State ---
 
+	// --- Input State Tracking ---
+	lastInputLength: number = 0;
+	isDeleting: boolean = false;
+	// --- End Input State Tracking ---
+
 	// --- Captured Selection State ---
 	// capturedSelection: string | null = null; // <<< REMOVED
 	capturedSelections: string[] = []; // <<< CHANGED to array
