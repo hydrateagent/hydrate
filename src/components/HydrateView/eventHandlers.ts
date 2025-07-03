@@ -33,6 +33,11 @@ export const handleClear = (view: HydrateView): void => {
 	view.conversationId = null;
 	view.sentFileContentRegistry.clear();
 	view.appliedRuleIds.clear();
+
+	// Clear chat history state
+	(view as any).currentChatTurns = [];
+	(view as any).currentChatId = null;
+
 	view.chatContainer.innerHTML = "";
 	addMessageToChat(view, "system", "Chat cleared. New conversation started.");
 	view.textInput.style.height = "auto";
@@ -47,11 +52,9 @@ export const handleDrop = (view: HydrateView, event: DragEvent): void => {
 	event.preventDefault();
 	event.stopPropagation();
 	const containerEl = view.containerEl;
-	const inputAreaContainer = containerEl.querySelector(
-		".hydrate-input-area-container"
-	);
-	if (!inputAreaContainer) return;
-	inputAreaContainer.classList.remove("hydrate-drag-over");
+	const inputSection = containerEl.querySelector(".hydrate-input-section");
+	if (!inputSection) return;
+	inputSection.classList.remove("hydrate-drag-over");
 
 	let pathData = "";
 	if (event.dataTransfer?.types.includes("text/uri-list")) {

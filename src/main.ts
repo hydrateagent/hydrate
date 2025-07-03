@@ -31,6 +31,7 @@ import {
 	RegistryEntry,
 	RegistryEntryContentType, // Keep this as it's used in settings default
 	RuleEntry, // <<< ADDED IMPORT
+	ChatHistory, // Added for chat history feature
 } from "./types"; // Corrected path
 import { ReactViewHost } from "./ReactViewHost"; // Corrected path
 import IssueBoardView from "./components/IssueBoardView"; // Corrected path
@@ -96,6 +97,7 @@ export interface HydratePluginSettings {
 	backendUrl: string;
 	registryEntries: RegistryEntry[]; // Existing registry
 	rulesRegistryEntries: RuleEntry[]; // <<< ADDED rules registry
+	chatHistories: ChatHistory[]; // Chat history storage
 	selectedModel: ModelName; // Add setting for selected LLM
 	apiKey: string; // <<< ADDED default empty API Key
 
@@ -164,6 +166,7 @@ const DEFAULT_SETTINGS: HydratePluginSettings = {
 	backendUrl: "http://localhost:8000",
 	registryEntries: [], // Existing initialization
 	rulesRegistryEntries: [], // <<< Initialized as empty
+	chatHistories: [], // Initialize chat histories as empty
 	selectedModel: "gpt-4.1-mini", // Set default model
 	apiKey: "", // <<< ADDED default empty API Key
 
@@ -1006,6 +1009,18 @@ export default class HydratePlugin extends Plugin {
 			}
 		}
 		// --- End Initialize Default Rules Registry Entry ---
+
+		// --- Initialize Chat Histories Array ---
+		if (
+			!this.settings.chatHistories ||
+			!Array.isArray(this.settings.chatHistories)
+		) {
+			console.log(
+				"Hydrate: Chat Histories empty or invalid, initializing as empty array."
+			);
+			this.settings.chatHistories = [];
+		}
+		// --- End Initialize Chat Histories Array ---
 	}
 
 	async saveSettings() {
@@ -1053,6 +1068,46 @@ export default class HydratePlugin extends Plugin {
 			: "gpt-4.1-mini";
 	}
 	// --- End Helper function --- // <<< ADDED
+
+	// --- Helper functions for Chat History Management ---
+	getChatHistories(): ChatHistory[] {
+		return this.settings.chatHistories || [];
+	}
+
+	getChatHistoryById(id: string): ChatHistory | undefined {
+		return this.settings.chatHistories?.find((chat) => chat.id === id);
+	}
+
+	async saveChatHistory(chatHistory: ChatHistory): Promise<void> {
+		if (!this.settings.chatHistories) {
+			this.settings.chatHistories = [];
+		}
+
+		const existingIndex = this.settings.chatHistories.findIndex(
+			(chat) => chat.id === chatHistory.id
+		);
+
+		if (existingIndex >= 0) {
+			// Update existing chat
+			this.settings.chatHistories[existingIndex] = chatHistory;
+		} else {
+			// Add new chat
+			this.settings.chatHistories.push(chatHistory);
+		}
+
+		await this.saveSettings();
+	}
+
+	async deleteChatHistory(id: string): Promise<void> {
+		if (!this.settings.chatHistories) return;
+
+		this.settings.chatHistories = this.settings.chatHistories.filter(
+			(chat) => chat.id !== id
+		);
+
+		await this.saveSettings();
+	}
+	// --- End Chat History Helper functions ---
 
 	// --- Add Initial Indexing Function ---
 	async triggerInitialIndexing() {

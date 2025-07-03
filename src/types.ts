@@ -49,3 +49,25 @@ export interface Patch {
 }
 
 // --- END Patch Type ---
+
+// --- Chat History Types ---
+
+/** Represents a single turn in a chat conversation */
+export interface ChatTurn {
+	role: "user" | "agent";
+	content: string;
+	timestamp: string; // ISO timestamp
+}
+
+/** Represents a complete saved chat history */
+export interface ChatHistory {
+	id: string; // Unique identifier for the chat
+	title: string; // Display name for the chat (auto-generated from first user message)
+	turns: ChatTurn[]; // All user/agent message exchanges
+	conversationId: string | null; // Backend conversation ID if any
+	attachedFiles: string[]; // File paths that were attached to this chat
+	created: string; // ISO timestamp when chat was created
+	lastModified: string; // ISO timestamp when chat was last updated
+}
+
+// --- END Chat History Types ---

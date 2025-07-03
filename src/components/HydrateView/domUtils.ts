@@ -1,6 +1,6 @@
 import { MarkdownRenderer, Notice, setIcon } from "obsidian";
 import { HydrateView } from "./hydrateView"; // Corrected path
-import { RegistryEntry } from "../../types"; // Corrected path (up two levels from components/HydrateView)
+import { RegistryEntry, ChatTurn } from "../../types"; // Corrected path (up two levels from components/HydrateView)
 import {
 	removeFilePill as removeEventHandlerFilePill,
 	handleSuggestionSelect,
@@ -169,6 +169,19 @@ export function addMessageToChat(
 	requestAnimationFrame(() => {
 		chatContainer.scrollTop = chatContainer.scrollHeight;
 	});
+
+	// Track this message in chat history (skip system messages and when restoring from history)
+	if (role !== "system" && typeof content === "string") {
+		const chatTurn = {
+			role: role as "user" | "agent",
+			content: content,
+			timestamp: new Date().toISOString(),
+		};
+		// Only add to history if we're not currently restoring from history
+		if (!(view as any).isRestoringFromHistory) {
+			(view as any).currentChatTurns.push(chatTurn);
+		}
+	}
 }
 
 /**

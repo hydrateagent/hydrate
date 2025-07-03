@@ -13,7 +13,7 @@ import {
 import HydratePlugin from "../../main"; // Corrected path to be relative to current dir
 import { DiffReviewModal, DiffReviewResult } from "../DiffReviewModal"; // Corrected path (assuming same dir as view)
 import { ReactViewHost } from "../../ReactViewHost"; // Corrected path
-import { RegistryEntry, Patch } from "../../types"; // Corrected path
+import { RegistryEntry, Patch, ChatHistory, ChatTurn } from "../../types"; // Corrected path
 import {
 	toolReadFile,
 	toolEditFile,
@@ -40,6 +40,7 @@ import {
 	handleInputKeydown,
 	removeFilePill as removeEventHandlerFilePill, // Alias event handler
 } from "./eventHandlers"; // Corrected path
+import { ChatHistoryModal } from "./ChatHistoryModal";
 
 export const HYDRATE_VIEW_TYPE = "hydrate-view";
 
@@ -134,6 +135,12 @@ export class HydrateView extends ItemView {
 	// --- Current API Request Controller ---
 	abortController: AbortController | null = null; // For cancelling requests
 	// --- End Current API Request Controller ---
+
+	// --- Chat History State ---
+	currentChatTurns: ChatTurn[] = []; // Track current conversation turns
+	currentChatId: string | null = null; // ID of current saved chat if loaded from history
+	isRestoringFromHistory: boolean = false; // Flag to prevent duplicate tracking during restoration
+	// --- End Chat History State ---
 
 	constructor(leaf: WorkspaceLeaf, plugin: HydratePlugin) {
 		super(leaf);
@@ -344,6 +351,48 @@ export class HydrateView extends ItemView {
 				background: var(--background-modifier-border);
 				cursor: not-allowed;
 			}
+			.hydrate-chat-history-controls {
+				display: flex;
+				gap: 5px;
+				justify-content: flex-end;
+				margin-bottom: 5px;
+			}
+			.hydrate-icon-button {
+				width: 32px;
+				height: 32px;
+				padding: 4px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-size: 16px;
+				line-height: 1;
+			}
+			.chat-preview {
+				font-style: italic;
+				opacity: 0.7;
+			}
+			.chat-history-delete-button {
+				background: transparent;
+				border: 1px solid var(--background-modifier-border);
+				color: var(--text-muted);
+				padding: 4px 8px;
+				border-radius: 3px;
+				cursor: pointer;
+				font-size: 12px;
+				line-height: 1;
+				transition: all 0.2s;
+				flex-shrink: 0;
+			}
+			.chat-history-delete-button:hover {
+				background: var(--background-modifier-error);
+				color: var(--text-error);
+				border-color: var(--background-modifier-error);
+			}
+			.hydrate-drag-over {
+				background: var(--background-modifier-active);
+				border: 2px dashed var(--text-accent);
+				border-radius: 8px;
+			}
 		`;
 		document.head.appendChild(styleEl);
 
@@ -367,6 +416,25 @@ export class HydrateView extends ItemView {
 		this.filePillsContainer = inputSection.createEl("div", {
 			cls: "hydrate-file-pills",
 		});
+
+		// Create chat history controls container
+		const chatHistoryContainer = inputSection.createEl("div", {
+			cls: "hydrate-chat-history-controls",
+		});
+
+		// Create new chat button (plus icon)
+		const newChatButton = chatHistoryContainer.createEl("button", {
+			cls: "hydrate-button hydrate-icon-button",
+			attr: { title: "New chat" },
+		});
+		newChatButton.createEl("span", { text: "+" });
+
+		// Create chat history button (history icon)
+		const chatHistoryButton = chatHistoryContainer.createEl("button", {
+			cls: "hydrate-button hydrate-icon-button",
+			attr: { title: "Chat history" },
+		});
+		chatHistoryButton.createEl("span", { text: "↺" });
 
 		// Create input container
 		const inputContainer = inputSection.createEl("div", {
@@ -413,9 +481,35 @@ export class HydrateView extends ItemView {
 		sendButton.addEventListener("click", () => handleSend(this));
 		clearButton.addEventListener("click", () => handleClear(this));
 		this.stopButton.addEventListener("click", () => handleStop(this));
+		newChatButton.addEventListener("click", () => this.handleNewChat());
+		chatHistoryButton.addEventListener("click", () =>
+			this.handleChatHistory()
+		);
 
 		// Add drag and drop support
 		container.addEventListener("dragover", (e) => e.preventDefault());
+		container.addEventListener("dragenter", (e) => {
+			e.preventDefault();
+			const inputSection = container.querySelector(
+				".hydrate-input-section"
+			);
+			if (inputSection) {
+				inputSection.classList.add("hydrate-drag-over");
+			}
+		});
+		container.addEventListener("dragleave", (e) => {
+			e.preventDefault();
+			const dragEvent = e as DragEvent;
+			// Only remove the class if we're leaving the container entirely
+			if (!container.contains(dragEvent.relatedTarget as Node)) {
+				const inputSection = container.querySelector(
+					".hydrate-input-section"
+				);
+				if (inputSection) {
+					inputSection.classList.remove("hydrate-drag-over");
+				}
+			}
+		});
 		container.addEventListener("drop", (e) =>
 			handleDrop(this, e as DragEvent)
 		);
@@ -981,4 +1075,149 @@ export class HydrateView extends ItemView {
 	// --- Helper Methods (REMOVED) ---
 
 	// --- Slash Command Methods (REMOVED) ---
+
+	// --- Chat History Methods ---
+
+	/**
+	 * Handles the "New Chat" button click
+	 */
+	private async handleNewChat(): Promise<void> {
+		// Save current chat if it has content
+		if (this.currentChatTurns.length > 0) {
+			await this.saveCurrentChat();
+		}
+
+		// Clear the current chat
+		this.clearCurrentChat();
+	}
+
+	/**
+	 * Handles the "Chat History" button click
+	 */
+	private handleChatHistory(): void {
+		const modal = new ChatHistoryModal(this.app, this, (chatHistory) => {
+			this.loadChatHistory(chatHistory);
+		});
+		modal.open();
+	}
+
+	/**
+	 * Saves the current chat to the plugin settings
+	 */
+	private async saveCurrentChat(): Promise<void> {
+		if (this.currentChatTurns.length === 0) {
+			return; // Nothing to save
+		}
+
+		// Generate title from first user message
+		const firstUserTurn = this.currentChatTurns.find(
+			(turn) => turn.role === "user"
+		);
+		const title = firstUserTurn
+			? firstUserTurn.content.length > 50
+				? firstUserTurn.content.substring(0, 50) + "..."
+				: firstUserTurn.content
+			: "Untitled Chat";
+
+		const now = new Date().toISOString();
+
+		const chatHistory: ChatHistory = {
+			id: this.currentChatId || this.generateChatId(),
+			title,
+			turns: [...this.currentChatTurns],
+			conversationId: this.conversationId,
+			attachedFiles: [...this.attachedFiles],
+			created: this.currentChatId
+				? this.plugin.getChatHistoryById(this.currentChatId)?.created ||
+				  now
+				: now,
+			lastModified: now,
+		};
+
+		await this.plugin.saveChatHistory(chatHistory);
+		this.currentChatId = chatHistory.id;
+
+		console.log(`Chat saved with ID: ${chatHistory.id}`);
+	}
+
+	/**
+	 * Loads a chat history and restores the conversation
+	 */
+	private async loadChatHistory(chatHistory: ChatHistory): Promise<void> {
+		// Save current chat if it has content and is different from the one being loaded
+		if (
+			this.currentChatTurns.length > 0 &&
+			this.currentChatId !== chatHistory.id
+		) {
+			await this.saveCurrentChat();
+		}
+
+		// Clear current chat
+		this.clearCurrentChat();
+
+		// Load the selected chat
+		this.currentChatId = chatHistory.id;
+		this.currentChatTurns = [...chatHistory.turns];
+		this.conversationId = chatHistory.conversationId;
+		this.attachedFiles = [...chatHistory.attachedFiles];
+
+		// Restore the UI
+		this.restoreChatUI();
+
+		console.log(`Chat loaded with ID: ${chatHistory.id}`);
+	}
+
+	/**
+	 * Clears the current chat state
+	 */
+	private clearCurrentChat(): void {
+		// Clear chat display
+		this.chatContainer.empty();
+
+		// Clear input
+		this.textInput.value = "";
+
+		// Clear state
+		this.currentChatTurns = [];
+		this.currentChatId = null;
+		this.conversationId = null;
+		this.attachedFiles = [];
+		this.sentFileContentRegistry.clear();
+		this.appliedRuleIds.clear();
+		this.capturedSelections = [];
+
+		// Update UI
+		renderDomFilePills(this);
+	}
+
+	/**
+	 * Restores the chat UI from saved chat turns
+	 */
+	private restoreChatUI(): void {
+		// Clear the chat container
+		this.chatContainer.empty();
+
+		// Set flag to prevent duplicate tracking during restoration
+		this.isRestoringFromHistory = true;
+
+		// Restore all messages
+		for (const turn of this.currentChatTurns) {
+			addMessageToChat(this, turn.role, turn.content);
+		}
+
+		// Reset flag
+		this.isRestoringFromHistory = false;
+
+		// Update file pills
+		renderDomFilePills(this);
+	}
+
+	/**
+	 * Generates a unique chat ID
+	 */
+	private generateChatId(): string {
+		return `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+	}
+
+	// --- End Chat History Methods ---
 }
