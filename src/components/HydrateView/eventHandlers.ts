@@ -198,14 +198,16 @@ export const removeFilePill = (view: HydrateView, filePath: string): void => {
 	const removed = initialLength > view.attachedFiles.length;
 
 	if (removed) {
+		// If we're removing the last file, or if we had only one file and it was initially attached,
+		// reset the flag so the next active file can be auto-attached
+		if (view.attachedFiles.length === 0) {
+			view.wasInitiallyAttached = false;
+		}
+
 		if (filePath === view.initialFilePathFromState) {
 			view.initialFilePathFromState = null;
-			view.wasInitiallyAttached = false;
-		} else {
-			if (view.wasInitiallyAttached) {
-				view.wasInitiallyAttached = false;
-			}
 		}
+
 		renderDomFilePills(view);
 	}
 };
@@ -793,6 +795,7 @@ export const handleInputChange = (view: HydrateView): void => {
 					// Add the file to attached files if not already present
 					if (!view.attachedFiles.includes(selectedFile.path)) {
 						view.attachedFiles.push(selectedFile.path);
+						view.wasInitiallyAttached = false; // User manually added a file
 						renderDomFilePills(view);
 					}
 

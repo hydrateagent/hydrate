@@ -234,48 +234,49 @@ export class HydrateView extends ItemView {
 	// --- File Change Handling ---
 
 	public handleActiveFileChange(newFilePath: string | null) {
-		// Determine the key for tracking this file's content inclusion
-		const trackingKey = this.conversationId
-			? `${this.conversationId}:${newFilePath}`
-			: null;
+		if (!newFilePath) {
+			console.log(
+				"Hydrate [handleActiveFileChange]: No active file to auto-attach."
+			);
+			return;
+		}
 
-		// Only auto-attach if:
-		// 1. A file is active (newFilePath is not null)
-		// 2. No files are currently attached (empty array)
-		// 3. The file content hasn't been sent for this conversation yet
-		if (
-			newFilePath &&
-			this.attachedFiles.length === 0 &&
-			trackingKey &&
-			!this.sentFileContentRegistry.has(trackingKey)
-		) {
+		// Auto-attach the new active file if:
+		// 1. There are no files currently attached, OR
+		// 2. There's only one file attached and it was initially attached (not manually added)
+		const shouldAutoAttach =
+			this.attachedFiles.length === 0 ||
+			(this.attachedFiles.length === 1 && this.wasInitiallyAttached);
+
+		if (shouldAutoAttach && !this.attachedFiles.includes(newFilePath)) {
 			console.log(
 				`Hydrate [handleActiveFileChange]: Auto-attaching active file: ${newFilePath}`
 			);
 			this.attachedFiles = [newFilePath];
+			this.wasInitiallyAttached = true;
 
 			if (this.filePillsContainer) {
 				// Call the aliased dom util function
 				renderDomFilePills(this); // Pass the view instance
 			}
-		} else if (newFilePath) {
+		} else {
 			// Log why we didn't auto-attach
-			if (this.attachedFiles.length > 0) {
+			if (this.attachedFiles.includes(newFilePath)) {
 				console.log(
-					`Hydrate [handleActiveFileChange]: Not auto-attaching ${newFilePath} because files are already attached: ${this.attachedFiles}`
+					`Hydrate [handleActiveFileChange]: File ${newFilePath} is already attached`
+				);
+			} else if (this.attachedFiles.length > 1) {
+				console.log(
+					`Hydrate [handleActiveFileChange]: Not auto-attaching ${newFilePath} because multiple files are manually attached: ${this.attachedFiles}`
 				);
 			} else if (
-				trackingKey &&
-				this.sentFileContentRegistry.has(trackingKey)
+				this.attachedFiles.length === 1 &&
+				!this.wasInitiallyAttached
 			) {
 				console.log(
-					`Hydrate [handleActiveFileChange]: Not auto-attaching ${newFilePath} because its content was already sent in this conversation`
+					`Hydrate [handleActiveFileChange]: Not auto-attaching ${newFilePath} because a file was manually attached: ${this.attachedFiles}`
 				);
 			}
-		} else {
-			console.log(
-				"Hydrate [handleActiveFileChange]: No active file to auto-attach."
-			);
 		}
 	}
 
@@ -473,6 +474,13 @@ export class HydrateView extends ItemView {
 		});
 		chatHistoryButton.createEl("span", { text: "↺" });
 
+		// Create export chat button (download icon)
+		const exportChatButton = chatHistoryContainer.createEl("button", {
+			cls: "hydrate-button hydrate-icon-button",
+			attr: { title: "Export chat as note" },
+		});
+		exportChatButton.createEl("span", { text: "↓" });
+
 		// Create input container with relative positioning for button overlay
 		const inputContainer = inputSection.createEl("div", {
 			cls: "hydrate-input-container",
@@ -526,6 +534,9 @@ export class HydrateView extends ItemView {
 		newChatButton.addEventListener("click", () => this.handleNewChat());
 		chatHistoryButton.addEventListener("click", () =>
 			this.handleChatHistory()
+		);
+		exportChatButton.addEventListener("click", () =>
+			this.handleExportChat()
 		);
 
 		// Add drag and drop support
@@ -1144,6 +1155,24 @@ export class HydrateView extends ItemView {
 	}
 
 	/**
+	 * Handles the "Export Chat" button click
+	 */
+	private async handleExportChat(): Promise<void> {
+		if (this.currentChatTurns.length === 0) {
+			new Notice("No chat content to export");
+			return;
+		}
+
+		try {
+			await this.exportChatAsNote();
+			new Notice("Chat exported successfully");
+		} catch (error) {
+			console.error("Error exporting chat:", error);
+			new Notice(`Failed to export chat: ${error.message}`);
+		}
+	}
+
+	/**
 	 * Saves the current chat to the plugin settings
 	 */
 	private async saveCurrentChat(): Promise<void> {
@@ -1203,6 +1232,9 @@ export class HydrateView extends ItemView {
 		this.conversationId = chatHistory.conversationId;
 		this.attachedFiles = [...chatHistory.attachedFiles];
 
+		// Treat restored files as initially attached to allow auto-switching
+		this.wasInitiallyAttached = this.attachedFiles.length === 1;
+
 		// Restore the UI
 		this.restoreChatUI();
 
@@ -1224,6 +1256,7 @@ export class HydrateView extends ItemView {
 		this.currentChatId = null;
 		this.conversationId = null;
 		this.attachedFiles = [];
+		this.wasInitiallyAttached = false;
 		this.sentFileContentRegistry.clear();
 		this.appliedRuleIds.clear();
 		this.capturedSelections = [];
@@ -1259,6 +1292,94 @@ export class HydrateView extends ItemView {
 	 */
 	private generateChatId(): string {
 		return `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+	}
+
+	/**
+	 * Exports the current chat as a formatted note
+	 */
+	private async exportChatAsNote(): Promise<void> {
+		// Ensure the hydrate-chats folder exists
+		const folderPath = "hydrate-chats";
+		const folder = this.app.vault.getAbstractFileByPath(folderPath);
+
+		if (!folder) {
+			await this.app.vault.createFolder(folderPath);
+		}
+
+		// Generate filename from first user message or timestamp
+		const firstUserTurn = this.currentChatTurns.find(
+			(turn) => turn.role === "user"
+		);
+		let baseTitle = firstUserTurn
+			? firstUserTurn.content
+					.substring(0, 50)
+					.replace(/[^\w\s-]/g, "")
+					.replace(/\s+/g, " ")
+					.trim()
+			: "Chat Export";
+
+		// Ensure baseTitle is not empty
+		if (!baseTitle) {
+			baseTitle = "Chat Export";
+		}
+
+		const timestamp = new Date()
+			.toISOString()
+			.slice(0, 19)
+			.replace(/:/g, "-");
+		const filename = `${baseTitle} ${timestamp}.md`;
+		const filepath = `${folderPath}/${filename}`;
+
+		// Check if file already exists and append number if needed
+		let finalFilepath = filepath;
+		let counter = 1;
+		while (this.app.vault.getAbstractFileByPath(finalFilepath)) {
+			const nameWithoutExt = filename.replace(".md", "");
+			finalFilepath = `${folderPath}/${nameWithoutExt} (${counter}).md`;
+			counter++;
+		}
+
+		// Build frontmatter
+		const selectedModel = this.plugin.getSelectedModel();
+		const frontmatter = [
+			"---",
+			`model: "${selectedModel} (via Hydrate)"`,
+			`timestamp: ${new Date().toISOString()}`,
+			`conversation_id: ${this.conversationId || "unknown"}`,
+			`attached_files: ${this.attachedFiles.length}`,
+			"---",
+			"",
+		].join("\n");
+
+		// Build dialogue content
+		let dialogueContent = "";
+		for (const turn of this.currentChatTurns) {
+			if (turn.role === "user") {
+				dialogueContent += `## User:\n\n${turn.content}\n\n`;
+			} else if (turn.role === "agent") {
+				dialogueContent += `## Agent:\n\n${turn.content}\n\n`;
+			}
+		}
+
+		// Build references section
+		let referencesContent = "### References:\n\n";
+		if (this.attachedFiles.length > 0) {
+			referencesContent +=
+				this.attachedFiles
+					.map((filepath) => `- [[${filepath}]]`)
+					.join("\n") + "\n";
+		} else {
+			referencesContent +=
+				"- No reference files were used in this conversation\n";
+		}
+
+		// Combine all content
+		const noteContent = frontmatter + dialogueContent + referencesContent;
+
+		// Create the note
+		await this.app.vault.create(finalFilepath, noteContent);
+
+		console.log(`Chat exported to: ${finalFilepath}`);
 	}
 
 	// --- End Chat History Methods ---

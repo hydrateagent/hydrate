@@ -428,6 +428,7 @@ export function selectNoteSearchResult(view: HydrateView, index: number): void {
 	// Add the file to attached files if not already present
 	if (!view.attachedFiles.includes(selectedFile.path)) {
 		view.attachedFiles.push(selectedFile.path);
+		view.wasInitiallyAttached = false; // User manually added a file
 		renderFilePills(view);
 	}
 
