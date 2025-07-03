@@ -427,6 +427,72 @@ export class HydrateView extends ItemView {
 				border: 2px dashed var(--text-accent);
 				border-radius: 8px;
 			}
+			
+			/* Chat message styling improvements */
+			.hydrate-message {
+				overflow: hidden;
+				word-wrap: break-word;
+				box-sizing: border-box;
+			}
+			
+			/* Ensure all content within agent messages stays contained */
+			.hydrate-agent-message * {
+				max-width: 100%;
+				box-sizing: border-box;
+			}
+			
+			/* Fix ordered and unordered lists in chat bubbles */
+			.hydrate-agent-message ol,
+			.hydrate-agent-message ul {
+				margin: 0.5em 0;
+				padding-left: 1.5em;
+				box-sizing: border-box;
+				overflow: hidden;
+			}
+			
+			.hydrate-agent-message li {
+				margin: 0.25em 0;
+				word-wrap: break-word;
+				overflow-wrap: break-word;
+			}
+			
+			/* Fix paragraphs and other block elements */
+			.hydrate-agent-message p {
+				margin: 0.5em 0;
+				word-wrap: break-word;
+				overflow-wrap: break-word;
+			}
+			
+			/* Fix code blocks */
+			.hydrate-agent-message pre {
+				overflow-x: auto;
+				max-width: 100%;
+				box-sizing: border-box;
+			}
+			
+			.hydrate-agent-message code {
+				word-wrap: break-word;
+				overflow-wrap: break-word;
+			}
+			
+			/* Fix headings */
+			.hydrate-agent-message h1,
+			.hydrate-agent-message h2,
+			.hydrate-agent-message h3,
+			.hydrate-agent-message h4,
+			.hydrate-agent-message h5,
+			.hydrate-agent-message h6 {
+				margin: 0.5em 0;
+				word-wrap: break-word;
+				overflow-wrap: break-word;
+			}
+			
+			/* Fix links to prevent overflow */
+			.hydrate-agent-message a {
+				word-wrap: break-word;
+				overflow-wrap: break-word;
+				text-decoration: underline;
+			}
 		`;
 		document.head.appendChild(styleEl);
 
