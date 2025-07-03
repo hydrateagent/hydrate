@@ -11,6 +11,9 @@ import {
 	setSuggestions as setDomSuggestions,
 	setTextContent as setDomTextContent,
 	renderSuggestions as renderDomSuggestions,
+	setNoteSearchResults,
+	selectNoteSearchResult,
+	renderNoteSearchSuggestions,
 } from "./domUtils";
 
 // Define types for clarity if needed, e.g., for state or complex parameters
@@ -29,6 +32,7 @@ export const handleClear = (view: HydrateView): void => {
 	view.sentFileContentRegistry.clear();
 	view.appliedRuleIds.clear();
 	setDomSuggestions(view, []);
+	setNoteSearchResults(view, []);
 	view.chatContainer.innerHTML = "";
 	addMessageToChat(view, "system", "Chat cleared. New conversation started.");
 	view.textInput.style.height = "auto";
@@ -761,17 +765,75 @@ export const handleInputChange = (view: HydrateView): void => {
 
 	if (cursorPos === null) {
 		setDomSuggestions(view, []);
+		setNoteSearchResults(view, []);
 		return;
 	}
 	const textBeforeCursor = value.substring(0, cursorPos);
 
-	const match = textBeforeCursor.match(/(?:\s|^)(\/([a-zA-Z0-9_-]*))$/);
-
-	if (match) {
-		const trigger = match[1];
+	// Check for note search pattern [[ first
+	const noteSearchMatch = textBeforeCursor.match(/\[\[([^\]]*?)$/);
+	if (noteSearchMatch) {
+		const query = noteSearchMatch[1];
 		const triggerStart =
-			match.index !== undefined
-				? match.index + (match[0].startsWith("/") ? 0 : 1)
+			noteSearchMatch.index !== undefined ? noteSearchMatch.index : -1;
+
+		if (triggerStart !== -1) {
+			// Clear slash command suggestions
+			setDomSuggestions(view, []);
+
+			// Get all files in the vault
+			const allFiles = view.app.vault.getMarkdownFiles();
+
+			// Filter files based on query
+			let matchingFiles = allFiles;
+			if (query.trim().length > 0) {
+				const lowerQuery = query.toLowerCase();
+				matchingFiles = allFiles.filter(
+					(file) =>
+						file.basename.toLowerCase().includes(lowerQuery) ||
+						file.path.toLowerCase().includes(lowerQuery)
+				);
+			}
+
+			// Sort by relevance (basename matches first, then path matches)
+			matchingFiles.sort((a, b) => {
+				const aBasenameMatch = a.basename
+					.toLowerCase()
+					.includes(query.toLowerCase());
+				const bBasenameMatch = b.basename
+					.toLowerCase()
+					.includes(query.toLowerCase());
+
+				if (aBasenameMatch && !bBasenameMatch) return -1;
+				if (!aBasenameMatch && bBasenameMatch) return 1;
+
+				// If both or neither match basename, sort alphabetically
+				return a.basename.localeCompare(b.basename);
+			});
+
+			// Limit results to prevent overwhelming UI
+			const limitedResults = matchingFiles.slice(0, 10);
+
+			// Update note search state
+			(view as any).noteSearchQuery = query;
+			(view as any).noteSearchStartIndex = triggerStart;
+
+			setNoteSearchResults(view, limitedResults);
+			return;
+		}
+	}
+
+	// Clear note search if no [[ pattern
+	setNoteSearchResults(view, []);
+
+	// Check for slash command pattern
+	const slashMatch = textBeforeCursor.match(/(?:\s|^)(\/([a-zA-Z0-9_-]*))$/);
+
+	if (slashMatch) {
+		const trigger = slashMatch[1];
+		const triggerStart =
+			slashMatch.index !== undefined
+				? slashMatch.index + (slashMatch[0].startsWith("/") ? 0 : 1)
 				: -1;
 
 		if (triggerStart !== -1) {
@@ -804,43 +866,73 @@ export const handleInputKeydown = (
 	view: HydrateView,
 	event: KeyboardEvent
 ): void => {
-	const suggestionsVisible =
+	const slashSuggestionsVisible =
 		view.suggestions.length > 0 &&
 		view.suggestionsContainer?.style.display !== "none";
 
-	if (suggestionsVisible) {
+	const noteSearchActive = (view as any).noteSearchActive as boolean;
+	const noteSearchResults = (view as any).noteSearchResults as any[];
+
+	const anySuggestionsVisible = slashSuggestionsVisible || noteSearchActive;
+
+	if (anySuggestionsVisible) {
+		const currentResults = noteSearchActive
+			? noteSearchResults
+			: view.suggestions;
+
 		switch (event.key) {
 			case "ArrowUp":
 				event.preventDefault();
 				view.activeSuggestionIndex =
-					(view.activeSuggestionIndex - 1 + view.suggestions.length) %
-					view.suggestions.length;
-				renderDomSuggestions(view);
+					(view.activeSuggestionIndex - 1 + currentResults.length) %
+					currentResults.length;
+				if (noteSearchActive) {
+					renderNoteSearchSuggestions(view);
+				} else {
+					renderDomSuggestions(view);
+				}
 				break;
 			case "ArrowDown":
 				event.preventDefault();
 				view.activeSuggestionIndex =
-					(view.activeSuggestionIndex + 1) % view.suggestions.length;
-				renderDomSuggestions(view);
+					(view.activeSuggestionIndex + 1) % currentResults.length;
+				if (noteSearchActive) {
+					renderNoteSearchSuggestions(view);
+				} else {
+					renderDomSuggestions(view);
+				}
 				break;
 			case "Enter":
 			case "Tab":
 				if (view.activeSuggestionIndex !== -1) {
 					event.preventDefault();
-					handleSuggestionSelect(view, view.activeSuggestionIndex);
+					if (noteSearchActive) {
+						selectNoteSearchResult(
+							view,
+							view.activeSuggestionIndex
+						);
+					} else {
+						handleSuggestionSelect(
+							view,
+							view.activeSuggestionIndex
+						);
+					}
 				} else {
 					if (event.key === "Enter" && !event.shiftKey) {
 						event.preventDefault();
 						setDomSuggestions(view, []);
+						setNoteSearchResults(view, []);
 						handleSend(view);
 					} else if (event.key === "Tab") {
 						setDomSuggestions(view, []);
+						setNoteSearchResults(view, []);
 					}
 				}
 				break;
 			case "Escape":
 				event.preventDefault();
 				setDomSuggestions(view, []);
+				setNoteSearchResults(view, []);
 				break;
 			default:
 				break;

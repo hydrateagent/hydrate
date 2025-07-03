@@ -642,6 +642,11 @@ export default class HydratePlugin extends Plugin {
 		// Open the view in the right sidebar
 		const leaf = workspace.getRightLeaf(false);
 
+		if (!leaf) {
+			console.error("Hydrate: Could not get right sidebar leaf");
+			return;
+		}
+
 		// Pass the source file path in the state when opening the view
 		const viewStateToSet: any = {
 			// Use 'any' temporarily if strict type causes issues

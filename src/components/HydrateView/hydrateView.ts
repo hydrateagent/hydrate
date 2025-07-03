@@ -106,6 +106,13 @@ export class HydrateView extends ItemView {
 	triggerStartIndex: number = -1;
 	// --- End Slash Command State ---
 
+	// --- Note Search State (for [[ note linking) ---
+	noteSearchActive: boolean = false;
+	noteSearchResults: TFile[] = [];
+	noteSearchQuery: string = "";
+	noteSearchStartIndex: number = -1;
+	// --- End Note Search State ---
+
 	// --- Captured Selection State ---
 	// capturedSelection: string | null = null; // <<< REMOVED
 	capturedSelections: string[] = []; // <<< CHANGED to array

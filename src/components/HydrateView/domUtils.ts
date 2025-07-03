@@ -13,7 +13,7 @@ export function addMessageToChat(
 	view: HydrateView,
 	role: "user" | "agent" | "system",
 	content: string | HTMLElement,
-	isError: boolean = false,
+	isError: boolean = false
 ): void {
 	const chatContainer = (view as any).chatContainer as HTMLDivElement; // Access private member
 	const plugin = (view as any).plugin; // Access private member
@@ -39,7 +39,7 @@ export function addMessageToChat(
 		messageClasses.push(
 			"ml-auto",
 			"bg-[var(--interactive-accent)]",
-			"text-[var(--text-on-accent)]",
+			"text-[var(--text-on-accent)]"
 		);
 	} else if (role === "agent") {
 		messageClasses.push("mr-auto", "bg-[var(--background-secondary)]");
@@ -49,7 +49,7 @@ export function addMessageToChat(
 			"text-xs",
 			"text-[var(--text-muted)]",
 			"italic",
-			"text-center",
+			"text-center"
 		);
 	}
 
@@ -57,7 +57,7 @@ export function addMessageToChat(
 		messageClasses.push(
 			"hydrate-error-message",
 			"bg-[var(--background-modifier-error)]",
-			"text-[var(--text-error)]",
+			"text-[var(--text-error)]"
 		);
 	}
 
@@ -127,11 +127,11 @@ export function addMessageToChat(
 
 		if (allCommandsToHighlight.length > 0) {
 			const escapedCommands = allCommandsToHighlight.map((cmd: string) =>
-				cmd.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&"),
+				cmd.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&")
 			);
 			const commandRegex = new RegExp(
 				`(${escapedCommands.join("|")})(?=\\s|$)`,
-				"g",
+				"g"
 			);
 
 			let lastIndex = 0;
@@ -142,8 +142,8 @@ export function addMessageToChat(
 				if (match.index > lastIndex) {
 					fragment.appendChild(
 						document.createTextNode(
-							content.substring(lastIndex, match.index),
-						),
+							content.substring(lastIndex, match.index)
+						)
 					);
 				}
 				const strongEl = document.createElement("strong");
@@ -155,7 +155,7 @@ export function addMessageToChat(
 
 			if (lastIndex < content.length) {
 				fragment.appendChild(
-					document.createTextNode(content.substring(lastIndex)),
+					document.createTextNode(content.substring(lastIndex))
 				);
 			}
 			messageEl.appendChild(fragment);
@@ -182,7 +182,7 @@ export function setLoadingState(view: HydrateView, loading: boolean): void {
 	const containerEl = view.containerEl; // Public member
 
 	const sendButton = containerEl.querySelector(
-		".hydrate-send-button",
+		".hydrate-send-button"
 	) as HTMLButtonElement;
 
 	if (sendButton) {
@@ -218,7 +218,7 @@ export function renderFilePills(view: HydrateView): void {
 		"wasInitiallyAttached:",
 		wasInitiallyAttached,
 		"initialFilePath:",
-		initialFilePathFromState,
+		initialFilePathFromState
 	);
 
 	filePillsContainer.empty();
@@ -247,7 +247,7 @@ export function renderFilePills(view: HydrateView): void {
 		removeBtn.style.minHeight = "unset";
 		removeBtn.style.boxShadow = "none";
 		removeBtn.addEventListener("click", () =>
-			removeEventHandlerFilePill(view, filePath),
+			removeEventHandlerFilePill(view, filePath)
 		);
 	});
 }
@@ -303,7 +303,7 @@ export function renderSuggestions(view: HydrateView): void {
 
 	if (activeSuggestionIndex !== -1) {
 		const activeEl = suggestionsContainer.querySelector(
-			`#hydrate-suggestion-${activeSuggestionIndex}`,
+			`#hydrate-suggestion-${activeSuggestionIndex}`
 		);
 		activeEl?.scrollIntoView({ block: "nearest" });
 	}
@@ -314,7 +314,7 @@ export function renderSuggestions(view: HydrateView): void {
  */
 export function setSuggestions(
 	view: HydrateView,
-	newSuggestions: RegistryEntry[],
+	newSuggestions: RegistryEntry[]
 ): void {
 	(view as any).suggestions = newSuggestions;
 	(view as any).activeSuggestionIndex = -1;
@@ -329,5 +329,132 @@ export function setTextContent(view: HydrateView, text: string): void {
 	if (textInput) {
 		textInput.value = text;
 		textInput.dispatchEvent(new Event("input", { bubbles: true }));
+	}
+}
+
+/**
+ * Renders note search suggestions for [[ note linking.
+ */
+export function renderNoteSearchSuggestions(view: HydrateView): void {
+	const suggestionsContainer = (view as any)
+		.suggestionsContainer as HTMLDivElement | null;
+	const noteSearchResults = (view as any).noteSearchResults as any[];
+	const activeSuggestionIndex = (view as any).activeSuggestionIndex as number;
+
+	if (!suggestionsContainer) {
+		console.error("Hydrate DOM Utils: suggestionsContainer is null!");
+		return;
+	}
+
+	suggestionsContainer.empty();
+
+	if (noteSearchResults.length === 0) {
+		suggestionsContainer.style.display = "none";
+		return;
+	}
+
+	suggestionsContainer.style.display = "block";
+
+	noteSearchResults.forEach((file: any, index: number) => {
+		const itemEl = suggestionsContainer.createDiv({
+			cls: "hydrate-suggestion-item p-1.5 cursor-pointer hover:bg-[var(--background-modifier-hover)] rounded-sm text-sm",
+		});
+
+		itemEl.id = `hydrate-note-suggestion-${index}`;
+
+		if (index === activeSuggestionIndex) {
+			itemEl.addClass("is-selected");
+			itemEl.addClass("bg-[var(--background-modifier-hover)]");
+		}
+
+		// Show file name prominently
+		const nameEl = itemEl.createEl("strong");
+		nameEl.textContent = file.basename || file.name;
+
+		// Show file path if different from name
+		if (file.path !== file.basename) {
+			itemEl.createSpan({
+				text: ` (${file.path})`,
+				cls: "text-[var(--text-muted)] ml-1 text-xs",
+			});
+		}
+
+		itemEl.addEventListener("click", (e) => {
+			e.stopPropagation();
+			selectNoteSearchResult(view, index);
+		});
+	});
+
+	if (activeSuggestionIndex !== -1) {
+		const activeEl = suggestionsContainer.querySelector(
+			`#hydrate-note-suggestion-${activeSuggestionIndex}`
+		);
+		activeEl?.scrollIntoView({ block: "nearest" });
+	}
+}
+
+/**
+ * Selects a note from the search results and adds it to attached files.
+ */
+export function selectNoteSearchResult(view: HydrateView, index: number): void {
+	const noteSearchResults = (view as any).noteSearchResults as any[];
+	const noteSearchStartIndex = (view as any).noteSearchStartIndex as number;
+
+	if (
+		index < 0 ||
+		index >= noteSearchResults.length ||
+		noteSearchStartIndex === -1
+	) {
+		setNoteSearchResults(view, []);
+		return;
+	}
+
+	const selectedFile = noteSearchResults[index];
+	if (!selectedFile?.path) return;
+
+	// Add the file to attached files if not already present
+	if (!view.attachedFiles.includes(selectedFile.path)) {
+		view.attachedFiles.push(selectedFile.path);
+		renderFilePills(view);
+	}
+
+	// Remove the [[ from the input
+	const currentValue = view.textInput.value;
+	const beforeTrigger = currentValue.substring(0, noteSearchStartIndex);
+	const afterCursor = currentValue.substring(
+		view.textInput.selectionStart || 0
+	);
+
+	const newValue = beforeTrigger + afterCursor;
+	setTextContent(view, newValue);
+
+	// Clear note search state
+	setNoteSearchResults(view, []);
+
+	// Position cursor
+	const newCursorPos = beforeTrigger.length;
+	view.textInput.focus();
+	requestAnimationFrame(() => {
+		view.textInput.setSelectionRange(newCursorPos, newCursorPos);
+	});
+}
+
+/**
+ * Updates the note search results and re-renders the suggestions UI.
+ */
+export function setNoteSearchResults(view: HydrateView, results: any[]): void {
+	(view as any).noteSearchResults = results;
+	(view as any).activeSuggestionIndex = -1;
+	(view as any).noteSearchActive = results.length > 0;
+
+	if (results.length > 0) {
+		renderNoteSearchSuggestions(view);
+	} else {
+		// Hide suggestions container
+		const suggestionsContainer = (view as any)
+			.suggestionsContainer as HTMLDivElement | null;
+		if (suggestionsContainer) {
+			suggestionsContainer.style.display = "none";
+		}
 	}
 }
