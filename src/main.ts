@@ -441,30 +441,17 @@ export default class HydratePlugin extends Plugin {
 			this.app.workspace.on("layout-change", this.handleLayoutChange)
 		);
 
-		// This creates an icon in the left ribbon to toggle the Hydrate pane
+		// This creates an icon in the left ribbon to open the Hydrate pane
 		const ribbonIconEl = this.addRibbonIcon(
-			"text-cursor-input", // Changed icon for better representation
-			"Toggle Hydrate Pane",
+			"droplet", // Water droplet icon for Hydrate
+			"Open Hydrate Pane",
 			async (evt: MouseEvent) => {
-				// Toggle the pane when the icon is clicked
-				await this.togglePane(); // Use helper function
+				// Open the pane when the icon is clicked
+				await this.activateView();
 			}
 		);
 		// Perform additional things with the ribbon
 		ribbonIconEl.addClass("hydrate-ribbon-class");
-
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		// const statusBarItemEl = this.addStatusBarItem();
-		// statusBarItemEl.setText("Hydrate Ready"); // Example status
-
-		// This adds a command to toggle the Hydrate pane
-		this.addCommand({
-			id: "toggle-hydrate-pane",
-			name: "Toggle Hydrate pane",
-			callback: async () => {
-				await this.togglePane(); // Use helper function
-			},
-		});
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new HydrateSettingTab(this.app, this)); // <<< USE IMPORTED SETTING TAB
@@ -576,16 +563,6 @@ export default class HydratePlugin extends Plugin {
 				await this.generateManifestsInHydrateDocs();
 			},
 		});
-	}
-
-	// --- Helper to Toggle Pane ---
-	async togglePane() {
-		const leaves = this.app.workspace.getLeavesOfType(HYDRATE_VIEW_TYPE);
-		if (leaves.length > 0) {
-			await this.deactivateView();
-		} else {
-			await this.activateView();
-		}
 	}
 
 	// --- Activate/Deactivate View ---
