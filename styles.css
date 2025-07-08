@@ -351,11 +351,6 @@
   .list-none {
     list-style-type: none;
   }
-  .\!appearance-none {
-    -webkit-appearance: none !important;
-       -moz-appearance: none !important;
-            appearance: none !important;
-  }
   .flex-row {
     flex-direction: row;
   }
@@ -407,10 +402,6 @@
     border-style: var(--tw-border-style);
     border-width: 1px;
   }
-  .\!border-none {
-    --tw-border-style: none !important;
-    border-style: none !important;
-  }
   .border-\[var\(--background-modifier-border\)\] {
     border-color: var(--background-modifier-border);
   }
@@ -419,12 +410,6 @@
   }
   .border-gray-300 {
     border-color: var(--color-gray-300);
-  }
-  .\!bg-transparent {
-    background-color: transparent !important;
-  }
-  .bg-\[var\(--background-modifier-border\)\] {
-    background-color: var(--background-modifier-border);
   }
   .bg-\[var\(--background-modifier-error\)\] {
     background-color: var(--background-modifier-error);
@@ -465,14 +450,8 @@
   .p-4 {
     padding: calc(var(--spacing) * 4);
   }
-  .\!px-1\.5 {
-    padding-inline: calc(var(--spacing) * 1.5) !important;
-  }
   .px-1 {
     padding-inline: calc(var(--spacing) * 1);
-  }
-  .\!py-0 {
-    padding-block: calc(var(--spacing) * 0) !important;
   }
   .py-0 {
     padding-block: calc(var(--spacing) * 0);
@@ -527,10 +506,6 @@
   .\!leading-snug {
     --tw-leading: var(--leading-snug) !important;
     line-height: var(--leading-snug) !important;
-  }
-  .leading-none {
-    --tw-leading: 1;
-    line-height: 1;
   }
   .leading-snug {
     --tw-leading: var(--leading-snug);
