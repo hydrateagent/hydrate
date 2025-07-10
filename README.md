@@ -1,94 +1,95 @@
-# Obsidian Sample Plugin
+# Hydrate Plugin for Obsidian
 
-This is a sample plugin for Obsidian (https://obsidian.md).
+**Your AI-powered thinking partner for writing, research, and knowledge discovery in Obsidian.**
 
-This project uses TypeScript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
+---
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open Sample Modal" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and output 'click' to the console.
-- Registers a global interval which logs 'setInterval' to the console.
+## ✨ What is Hydrate?
 
-## First time developing plugins?
+Hydrate transforms your Obsidian vault into an intelligent knowledge companion. Designed for writers, researchers, students, and anyone who thinks deeply, Hydrate helps you:
 
-Quick starting guide for new plugin devs:
+-   Chat naturally with your notes and get contextual answers
+-   Discover hidden connections between ideas
+-   Search by meaning, not just keywords
+-   Generate new content, outlines, and summaries
+-   Expand and refine your thoughts
+-   Accelerate research and synthesize information
+-   Overcome creative blocks and enhance your writing
 
-- Check if [someone already developed a plugin for what you want](https://obsidian.md/plugins)! There might be an existing plugin similar enough that you can partner up with.
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `main.ts` to `main.js`.
-- Make changes to `main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
+Hydrate is **not** in the official Obsidian Community Plugins marketplace yet. You can install it easily using the [Obsidian42 BRAT](https://github.com/TfTHacker/obsidian42-brat) plugin.
 
-## Releasing new releases
+---
 
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments. Note: The manifest.json file must be in two places, first the root path of your repository and also in the release.
-- Publish the release.
+## 🚀 Installation (via BRAT)
 
-> You can simplify the version bump process by running `npm version patch`, `npm version minor` or `npm version major` after updating `minAppVersion` manually in `manifest.json`.
-> The command will bump version in `manifest.json` and `package.json`, and add the entry for the new version to `versions.json`
+### Prerequisites
 
-## Adding your plugin to the community plugin list
+-   Obsidian v0.15.0 or higher
+-   [Obsidian42 BRAT](https://github.com/TfTHacker/obsidian42-brat) plugin installed and enabled
 
-- Check the [plugin guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines).
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
+### Step-by-Step Instructions
 
-## How to use
+1. **Install BRAT**
+    - In Obsidian, go to **Settings → Community plugins → Browse**
+    - Search for `BRAT` or `Obsidian42 - BRAT`
+    - Click **Install** and then **Enable**
+2. **Add Hydrate Plugin via BRAT**
+    - Copy this repository URL:  
+      `https://github.com/hydrateagent/hydrate`
+    - Open the **Command Palette** (Cmd+P or Ctrl+P)
+    - Run: `BRAT: Add a beta plugin for testing`
+    - Paste the URL above into the modal and confirm
+    - Wait for BRAT to download and install the plugin
+3. **Enable Hydrate**
+    - Go to **Settings → Community plugins**
+    - Find `Hydrate` in the list and click **Enable**
 
-- Clone this repo.
-- Make sure your NodeJS is at least v16 (`node --version`).
-- `npm i` or `yarn` to install dependencies.
-- `npm run dev` to start compilation in watch mode.
+---
 
-## Manually installing the plugin
+## 🛠 Key Features
 
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
+-   **Conversational AI:** Chat with your notes, ask questions, and get contextual answers
+-   **Smart Connections:** Discover relationships between ideas and notes you might have missed
+-   **Semantic Search:** Find information by meaning, not just keywords
+-   **Content Generation:** Create outlines, summaries, and new content from your notes
+-   **Idea Development:** Brainstorm, expand, and refine your thoughts
+-   **Research Assistant:** Synthesize information, generate literature reviews, and identify knowledge gaps
+-   **Writing Assistant:** Get suggestions, expand on ideas, and create structured documents
+-   **Privacy First:** Your notes stay local unless you explicitly use cloud AI services with your own API keys
 
-## Improve code quality with eslint (optional)
-- [ESLint](https://eslint.org/) is a tool that analyzes your code to quickly find problems. You can run ESLint against your plugin to find common bugs and ways to improve your code. 
-- To use eslint with this project, make sure to install eslint from terminal:
-  - `npm install -g eslint`
-- To use eslint to analyze this project use this command:
-  - `eslint main.ts`
-  - eslint will then create a report with suggestions for code improvement by file and line number.
-- If your source code is in a folder, such as `src`, you can use eslint with this command to analyze all files in that folder:
-  - `eslint .\src\`
+---
 
-## Funding URL
+## 🔄 Updating Hydrate
 
-You can include funding URLs where people who use your plugin can financially support it.
+-   To update, open the Command Palette and run:  
+    `BRAT: Check for updates to all beta plugins and UPDATE`
+-   You can also enable auto-updates for beta plugins in the BRAT settings tab.
 
-The simple way is to set the `fundingUrl` field to your link in your `manifest.json` file:
+---
 
-```json
-{
-    "fundingUrl": "https://buymeacoffee.com"
-}
-```
+## 🧑‍💻 Quick Start
 
-If you have multiple URLs, you can also do:
+-   Open the Hydrate panel from the ribbon to chat with your notes
+-   Select text and use "Expand with AI" to generate ideas or summaries
+-   Use semantic search to find related notes and concepts
+-   Explore plugin settings for more options
 
-```json
-{
-    "fundingUrl": {
-        "Buy Me a Coffee": "https://buymeacoffee.com",
-        "GitHub Sponsor": "https://github.com/sponsors",
-        "Patreon": "https://www.patreon.com/"
-    }
-}
-```
+---
 
-## API Documentation
+## 🧩 Troubleshooting
 
-See https://github.com/obsidianmd/obsidian-api
+-   If Hydrate does not appear after installation, try restarting Obsidian
+-   Ensure you have the latest version of BRAT and Obsidian
+-   For issues, open an issue on [GitHub](https://github.com/hydrateagent/hydrate/issues)
+
+---
+
+## 💡 About BRAT
+
+BRAT (Beta Reviewer's Auto-update Tool) lets you easily install and update plugins that are not yet in the official Obsidian marketplace. [Learn more about BRAT](https://tfthacker.com/BRAT).
+
+---
+
+## 📝 License
+
+MIT
