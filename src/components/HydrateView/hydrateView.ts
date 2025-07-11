@@ -833,6 +833,17 @@ export class HydrateView extends ItemView {
 		// Create new abort controller for this request
 		this.abortController = new AbortController();
 
+		// Update loading message based on endpoint
+		let loadingMessage = "Processing request";
+		if (endpoint === "/chat") {
+			loadingMessage = "Agent is thinking";
+		} else if (endpoint === "/tool_result") {
+			loadingMessage = "Processing tool results";
+		}
+
+		// Set loading state with appropriate message
+		setDomLoadingState(this, true, loadingMessage);
+
 		try {
 			const response = await requestUrl({
 				url: `${this.plugin.settings.backendUrl}${endpoint}`,

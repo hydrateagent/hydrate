@@ -271,11 +271,18 @@ export async function applyPatchesToFile(
 			const contextIndex = currentContent.indexOf(contextString);
 
 			if (contextIndex === -1) {
+				// Provide more detailed debugging information
+				const contentPreview =
+					currentContent.length > 200
+						? currentContent.substring(0, 200) + "..."
+						: currentContent;
 				const errorMsg = `Patch ${
 					i + 1
-				} failed: Could not find context in ${normalizedPathForPatches}.\nContext Searched:\n\`\`\`\n${contextString}\n\`\`\`\nPatch Details:\n${JSON.stringify(
-					patch
-				)}`;
+				} failed: Could not find context in ${normalizedPathForPatches}.\n\nContext Searched For:\n\`\`\`\n${contextString}\n\`\`\`\n\nFile Content Preview:\n\`\`\`\n${contentPreview}\n\`\`\`\n\nPatch Details:\n${JSON.stringify(
+					patch,
+					null,
+					2
+				)}\n\nThis often happens when:\n1. The text was modified since the patch was created\n2. The 'before' or 'after' context doesn't match exactly\n3. The 'old' text is no longer present in the file`;
 				errors.push(errorMsg);
 				console.error(errorMsg);
 				continue;

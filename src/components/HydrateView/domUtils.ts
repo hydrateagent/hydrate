@@ -195,27 +195,104 @@ export function addMessageToChat(
 /**
  * Sets the loading state of the UI elements (buttons, input).
  */
-export function setLoadingState(view: HydrateView, loading: boolean): void {
+export function setLoadingState(
+	view: HydrateView,
+	loading: boolean,
+	customMessage?: string
+): void {
 	// Access private members via 'any' cast or make them accessible
 	(view as any).isLoading = loading;
 	const textInput = (view as any).textInput as HTMLTextAreaElement;
 	const stopButton = (view as any).stopButton as HTMLButtonElement | null;
+	const loadingIndicator = (view as any)
+		.loadingIndicator as HTMLDivElement | null;
+	const chatContainer = (view as any).chatContainer as HTMLDivElement;
 	const containerEl = view.containerEl; // Public member
 
-	const sendButton = containerEl.querySelector(
-		".hydrate-send-button"
-	) as HTMLButtonElement;
+	// Find the actual send button (it has class 'hydrate-overlay-button' and text 'Send')
+	const buttons = Array.from(
+		containerEl.querySelectorAll(".hydrate-overlay-button")
+	);
+	let sendButton: HTMLButtonElement | null = null;
 
+	for (const button of buttons) {
+		if (
+			button.textContent?.trim() === "Send" ||
+			button.textContent?.trim() === "Sending..."
+		) {
+			sendButton = button as HTMLButtonElement;
+			break;
+		}
+	}
+
+	// Update send button
 	if (sendButton) {
 		sendButton.disabled = loading;
 		sendButton.textContent = loading ? "Sending..." : "Send";
 	}
+
+	// Update text input
 	if (textInput) {
 		textInput.disabled = loading;
 	}
+
+	// Update stop button
 	if (stopButton) {
 		stopButton.style.display = loading ? "inline-block" : "none";
 		stopButton.disabled = !loading;
+	}
+
+	// Show/hide loading indicator in chat
+	if (loadingIndicator) {
+		if (loading) {
+			loadingIndicator.empty();
+			loadingIndicator.style.display = "flex";
+			loadingIndicator.style.alignItems = "center";
+			loadingIndicator.style.justifyContent = "center";
+			loadingIndicator.style.padding = "16px";
+			loadingIndicator.style.color = "var(--text-muted)";
+			loadingIndicator.style.fontSize = "14px";
+			loadingIndicator.style.fontStyle = "italic";
+
+			// Use custom message or default
+			const message = customMessage || "Agent is thinking";
+
+			// Create animated dots
+			const loadingText = loadingIndicator.createEl("span", {
+				text: message,
+			});
+			const dotsContainer = loadingIndicator.createEl("span", {
+				cls: "hydrate-loading-dots",
+				text: "...",
+			});
+
+			// Add CSS animation for the dots
+			const style = document.createElement("style");
+			style.textContent = `
+				.hydrate-loading-dots {
+					animation: hydrate-loading-blink 1.4s infinite both;
+					margin-left: 4px;
+				}
+				@keyframes hydrate-loading-blink {
+					0%, 80%, 100% { opacity: 0; }
+					40% { opacity: 1; }
+				}
+			`;
+			if (!document.head.querySelector("style[data-hydrate-loading]")) {
+				style.setAttribute("data-hydrate-loading", "true");
+				document.head.appendChild(style);
+			}
+
+			// Scroll to show the loading indicator
+			if (chatContainer) {
+				requestAnimationFrame(() => {
+					chatContainer.scrollTop = chatContainer.scrollHeight;
+				});
+			}
+		} else {
+			loadingIndicator.style.display = "none";
+			loadingIndicator.empty();
+		}
 	}
 }
 

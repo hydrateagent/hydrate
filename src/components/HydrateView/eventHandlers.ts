@@ -233,16 +233,51 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 
 	// --- Step 1: Handle /selectNN commands ---
 	const capturedSelections = [...view.capturedSelections]; // Copy array
+
+	// Check for orphaned /selectXX tokens (tokens without corresponding captured selections)
+	const selectTokenRegex = /\/select(\d{2})/g;
+	const foundTokens = [...payloadContent.matchAll(selectTokenRegex)];
+	const orphanedTokens: string[] = [];
+
+	for (const match of foundTokens) {
+		const tokenIndex = parseInt(match[1], 10); // Extract the number (e.g., "01" -> 1)
+		if (tokenIndex > capturedSelections.length) {
+			orphanedTokens.push(match[0]); // Full token like "/select01"
+		}
+	}
+
+	if (orphanedTokens.length > 0) {
+		const errorMsg = `Cannot send message: Found selection tokens (${orphanedTokens.join(
+			", "
+		)}) but only ${
+			capturedSelections.length
+		} text selections were captured.\n\nTo use text selections:\n1. Select text in a note\n2. Right-click and choose "Capture Selection for Hydrate"\n3. Then use /select01, /select02, etc. in your message\n\nAlternatively, you can replace "${
+			orphanedTokens[0]
+		}" with the actual text you want to modify.`;
+		addMessageToChat(view, "system", errorMsg, true);
+		setDomLoadingState(view, false);
+		return; // Exit early to prevent sending malformed message
+	}
+
 	if (capturedSelections.length > 0) {
 		console.log(
 			`[handleSend] Found ${capturedSelections.length} captured selection(s).`
 		);
+		console.log(
+			`[handleSend] Current payloadContent before replacement:`,
+			payloadContent
+		);
+		console.log(`[handleSend] Captured selections:`, capturedSelections);
+
 		for (let i = 0; i < capturedSelections.length; i++) {
 			const index = i + 1; // 1-based index for token
 			const formattedIndex = index.toString().padStart(2, "0");
 			const token = `/select${formattedIndex}`;
 			const selectionText = capturedSelections[i];
 
+			console.log(
+				`[handleSend] Looking for token: "${token}" in payloadContent`
+			);
 			if (payloadContent.includes(token)) {
 				const replacement = `\n\n--- Selected Text ${index} ---\n${selectionText}\n--- End Selected Text ${index} ---\n`;
 				// Use replaceAll in case the same token was somehow added multiple times (though command logic prevents this)
@@ -254,9 +289,16 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 				console.warn(
 					`[handleSend] Token ${token} not found in payloadContent, but selection ${index} was captured.`
 				);
-				// Optionally add a note about the unused selection?
+				console.warn(
+					`[handleSend] All tokens in payloadContent:`,
+					payloadContent.match(/\/select\d+/g)
+				);
 			}
 		}
+		console.log(
+			`[handleSend] PayloadContent after replacement:`,
+			payloadContent
+		);
 		// Clear the selections array in the view state AFTER processing
 		view.capturedSelections = [];
 		console.log("[handleSend] Cleared captured selections array.");
@@ -620,7 +662,6 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 
 	setDomTextContent(view, "");
 	setDomSuggestions(view, []);
-	setDomLoadingState(view, true);
 
 	try {
 		await view.callBackend("/chat", payload);

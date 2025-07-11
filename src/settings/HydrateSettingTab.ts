@@ -382,6 +382,15 @@ export class HydrateSettingTab extends PluginSettingTab {
 		// --- Remote Embeddings Section ---
 		containerEl.createEl("h3", { text: "Remote Embeddings Configuration" });
 
+		// Add helpful notice for new users
+		if (!this.plugin.settings.enableRemoteEmbeddings) {
+			const noticeEl = containerEl.createDiv({ cls: "hydrate-embeddings-notice" });
+			noticeEl.createEl("p", { 
+				text: "💡 Enable remote embeddings to use AI-powered context search and document indexing. This requires an API key from a service like OpenAI.",
+				cls: "hydrate-embeddings-help"
+			});
+		}
+
 		new Setting(containerEl)
 			.setName("Enable Remote Embeddings")
 			.setDesc(
@@ -393,6 +402,30 @@ export class HydrateSettingTab extends PluginSettingTab {
 					.onChange(async (value) => {
 						this.plugin.settings.enableRemoteEmbeddings = value;
 						await this.plugin.saveSettings();
+
+						// Initialize vector system when embeddings are first enabled
+						if (value) {
+							try {
+								await this.plugin.initializeVectorSystemIfNeeded();
+								if (
+									this.plugin.settings.remoteEmbeddingUrl &&
+									this.plugin.settings.remoteEmbeddingApiKey
+								) {
+									new Notice(
+										"Vector system initialized. You can now index your vault."
+									);
+								}
+							} catch (error) {
+								console.error(
+									"Failed to initialize vector system:",
+									error
+								);
+								new Notice(
+									"Failed to initialize vector system. Check console for details."
+								);
+							}
+						}
+
 						this.display();
 					})
 			);

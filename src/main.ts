@@ -216,8 +216,23 @@ export default class HydratePlugin extends Plugin {
 
 		await this.loadSettings();
 
-		// --- Initialize Vector System (Loads Local Index) ---
-		await initializeVectorSystem(this.app);
+		// --- Initialize Vector System (Only if embeddings are enabled) ---
+		// Don't initialize vector system for new users or when embeddings are disabled
+		// This prevents unnecessary directory creation and setup for users who haven't configured embeddings
+		if (
+			this.settings.enableRemoteEmbeddings &&
+			this.settings.remoteEmbeddingUrl &&
+			this.settings.remoteEmbeddingApiKey
+		) {
+			console.log(
+				"Embeddings are enabled and configured, initializing vector system..."
+			);
+			await initializeVectorSystem(this.app);
+		} else {
+			console.log(
+				"Embeddings are disabled or not configured, skipping vector system initialization."
+			);
+		}
 
 		// --- Initialize MCP Server Manager ---
 		console.log("Initializing MCP Server Manager...");
@@ -357,90 +372,28 @@ export default class HydratePlugin extends Plugin {
 		// Register example component (we'll create this later)
 		registerReactView("issue-board", IssueBoardView); // <<< ADD THIS REGISTRATION
 
-		// --- Event Listeners for File Changes (Using Remote Embedding Logic) ---
-		this.registerEvent(
-			this.app.vault.on("create", (file) => {
-				if (
-					file instanceof TFile &&
-					this.settings.enableRemoteEmbeddings
-				) {
-					// Check if file should be skipped BEFORE triggering indexing
-					if (shouldSkipPath(file.path)) {
-						// Silently skip files that should not be indexed
-						return;
-					}
+		// --- Event Listeners for File Changes ---
+		// REMOVED: Automatic indexing on file create/modify to prevent unwanted indexing on startup
+		// Users must manually trigger indexing via settings panel
 
-					console.log(
-						`File created: ${file.path}, triggering remote indexing.`
-					);
-					// No need to await, let it run in the background
-					addOrUpdateDocumentRemote(
-						this.app,
-						file,
-						this.settings
-					).catch((err: any) =>
-						console.error(
-							`Error indexing created file ${file.path}:`,
-							err
-						)
-					);
-				} else if (file instanceof TFile) {
-					console.log(
-						`File created: ${file.path}, remote embeddings disabled, skipping indexing.`
-					);
-				}
-			})
-		);
-
-		this.registerEvent(
-			this.app.vault.on("modify", (file) => {
-				if (
-					file instanceof TFile &&
-					this.settings.enableRemoteEmbeddings
-				) {
-					// Check if file should be skipped BEFORE triggering indexing
-					if (shouldSkipPath(file.path)) {
-						// Silently skip files that should not be indexed
-						return;
-					}
-
-					console.log(
-						`File modified: ${file.path}, triggering remote indexing.`
-					);
-					// No need to await, let it run in the background
-					addOrUpdateDocumentRemote(
-						this.app,
-						file,
-						this.settings
-					).catch((err: any) =>
-						console.error(
-							`Error indexing modified file ${file.path}:`,
-							err
-						)
-					);
-				} else if (file instanceof TFile) {
-					console.log(
-						`File modified: ${file.path}, remote embeddings disabled, skipping indexing.`
-					);
-				}
-			})
-		);
-
+		// Keep only the delete event listener to clean up deleted files from index
 		this.registerEvent(
 			this.app.vault.on("delete", (file) => {
-				console.log(
-					`File/folder deleted: ${file.path}, triggering index removal.`
-				);
-				// Deleting from index doesn't require remote settings
-				// No need to await, let it run in the background
-				deleteDocumentFromIndex(this.app, file.path).catch((err: any) =>
-					console.error(
-						`Error removing deleted file ${file.path} from index:`,
-						err
-					)
-				);
-				// Note: This simple delete only handles the exact file path.
-				// Folder deletion cleanup would require iterating through the index.
+				// Only attempt to remove from index if embeddings are enabled
+				// This prevents unnecessary operations when vector indexing is not being used
+				if (this.settings.enableRemoteEmbeddings) {
+					console.log(
+						`File/folder deleted: ${file.path}, removing from index.`
+					);
+					// No need to await, let it run in the background
+					deleteDocumentFromIndex(this.app, file.path).catch(
+						(err: any) =>
+							console.error(
+								`Error removing deleted file ${file.path} from index:`,
+								err
+							)
+					);
+				}
 			})
 		);
 
@@ -528,13 +481,24 @@ export default class HydratePlugin extends Plugin {
 				const formattedIndex = index.toString().padStart(2, "0"); // Zero-pad
 				const token = `/select${formattedIndex}`; // Create token like /select01
 
+				console.log(`[Capture] Selection captured: "${selection}"`);
+				console.log(`[Capture] Token created: "${token}"`);
+				console.log(
+					`[Capture] Total captured selections now: ${hydrateView.capturedSelections.length}`
+				);
+
 				// Append the token to the current text
 				const currentText = hydrateView.textInput.value;
 				const separator =
 					currentText.length > 0 && !currentText.endsWith(" ")
 						? " "
 						: ""; // Add space if needed
-				hydrateView.textInput.value += `${separator}${token} `;
+				const newValue = `${currentText}${separator}${token} `;
+				hydrateView.textInput.value = newValue;
+
+				console.log(
+					`[Capture] Updated text input value: "${newValue}"`
+				);
 
 				// Trigger input event for potential UI updates (like textarea resize)
 				hydrateView.textInput.dispatchEvent(
@@ -549,6 +513,25 @@ export default class HydratePlugin extends Plugin {
 				);
 			},
 		});
+
+		// --- Add Context Menu for Text Selection ---
+		this.registerEvent(
+			this.app.workspace.on("editor-menu", (menu, editor, view) => {
+				// Only add menu item if there's a text selection
+				if (editor.getSelection()) {
+					menu.addItem((item) => {
+						item.setTitle("Capture Selection for Hydrate")
+							.setIcon("droplet")
+							.onClick(() => {
+								// Execute the same logic as the command
+								(this.app as any).commands.executeCommandById(
+									"add-selection-to-hydrate"
+								);
+							});
+					});
+				}
+			})
+		);
 		// --- End Add Selection Command ---
 
 		/**
@@ -1125,6 +1108,18 @@ export default class HydratePlugin extends Plugin {
 		await this.saveSettings();
 	}
 	// --- End Chat History Helper functions ---
+
+	// --- Add method to initialize vector system from settings ---
+	async initializeVectorSystemIfNeeded() {
+		if (
+			this.settings.enableRemoteEmbeddings &&
+			this.settings.remoteEmbeddingUrl &&
+			this.settings.remoteEmbeddingApiKey
+		) {
+			console.log("Initializing vector system from settings...");
+			await initializeVectorSystem(this.app);
+		}
+	}
 
 	// --- Add Initial Indexing Function ---
 	async triggerInitialIndexing(forceRebuild: boolean = false) {
