@@ -83,14 +83,13 @@ export function getReactViewComponent(
 
 // Define allowed model names (matches backend agent.py ModelName Literal)
 export const ALLOWED_MODELS = [
-	"gpt-4.1-mini", // Default
 	"gpt-4.1",
+	"gpt-4.1-mini",
 	"o4-mini",
-	"claude-3-7-sonnet-latest",
-	"claude-3-5-haiku-latest",
 	"claude-sonnet-4-0",
-	"gemini-2.5-flash-preview-05-20",
+	"claude-haiku-3-5-latest",
 	"gemini-2.5-pro-preview-05-06",
+	"gemini-2.5-flash-preview-05-20",
 ] as const; // Use const assertion for stricter typing
 
 export type ModelName = (typeof ALLOWED_MODELS)[number]; // Create type from array values
