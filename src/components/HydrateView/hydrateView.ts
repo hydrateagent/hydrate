@@ -713,6 +713,26 @@ export class HydrateView extends ItemView {
 			attr: { placeholder: "Ask a question or request an action..." },
 		});
 
+		// Create suggestions container (dropdown for slash commands and note search)
+		this.suggestionsContainer = inputContainer.createEl("div", {
+			cls: "hydrate-suggestions-container",
+		});
+		this.suggestionsContainer.style.display = "none"; // Initially hidden
+		this.suggestionsContainer.style.position = "absolute";
+		this.suggestionsContainer.style.top = "100%";
+		this.suggestionsContainer.style.left = "0";
+		this.suggestionsContainer.style.right = "0";
+		this.suggestionsContainer.style.backgroundColor =
+			"var(--background-primary)";
+		this.suggestionsContainer.style.border =
+			"1px solid var(--background-modifier-border)";
+		this.suggestionsContainer.style.borderRadius = "4px";
+		this.suggestionsContainer.style.boxShadow =
+			"0 2px 8px rgba(0, 0, 0, 0.15)";
+		this.suggestionsContainer.style.zIndex = "1000";
+		this.suggestionsContainer.style.maxHeight = "200px";
+		this.suggestionsContainer.style.overflowY = "auto";
+
 		// Create button container positioned inside the textarea
 		const buttonContainer = inputContainer.createEl("div", {
 			cls: "hydrate-button-overlay",

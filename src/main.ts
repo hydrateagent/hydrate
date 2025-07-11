@@ -46,6 +46,7 @@ import {
 	deleteDocumentFromIndex, // Use this for delete (no remote call needed)
 	searchIndexRemote, // Use this for search
 	clearVectorIndex, // Use this to clear corrupted index
+	shouldSkipPath, // Import shouldSkipPath from vectorIndex
 } from "./vectorIndex"; // Updated imports
 
 import { handleSearchProject } from "./toolHandlers"; // <<< ADD IMPORT
@@ -363,6 +364,12 @@ export default class HydratePlugin extends Plugin {
 					file instanceof TFile &&
 					this.settings.enableRemoteEmbeddings
 				) {
+					// Check if file should be skipped BEFORE triggering indexing
+					if (shouldSkipPath(file.path)) {
+						// Silently skip files that should not be indexed
+						return;
+					}
+
 					console.log(
 						`File created: ${file.path}, triggering remote indexing.`
 					);
@@ -391,6 +398,12 @@ export default class HydratePlugin extends Plugin {
 					file instanceof TFile &&
 					this.settings.enableRemoteEmbeddings
 				) {
+					// Check if file should be skipped BEFORE triggering indexing
+					if (shouldSkipPath(file.path)) {
+						// Silently skip files that should not be indexed
+						return;
+					}
+
 					console.log(
 						`File modified: ${file.path}, triggering remote indexing.`
 					);
@@ -1175,7 +1188,7 @@ export default class HydratePlugin extends Plugin {
 			}
 
 			// Path filtering using shouldSkipPath (which blocks ALL hidden files)
-			const shouldSkip = this.shouldSkipPath(file.path);
+			const shouldSkip = shouldSkipPath(file.path);
 			return !shouldSkip;
 		});
 
@@ -1213,121 +1226,6 @@ export default class HydratePlugin extends Plugin {
 			console.log("Requesting indexing stop...");
 			this.isIndexing = false; // Set flag to stop loop
 		}
-	}
-
-	/**
-	 * Check if a file path should be skipped during indexing
-	 * @param filePath The file path to check
-	 * @returns True if the file should be skipped
-	 */
-	private shouldSkipPath(filePath: string): boolean {
-		// Normalize path separators to forward slashes for consistent checking
-		const normalizedPath = filePath.replace(/\\/g, "/");
-
-		// CRITICAL: Skip ANY file or directory that starts with . (hidden files/directories)
-		// This must be checked first and is absolute - no exceptions
-		const pathParts = normalizedPath.split("/");
-		for (const part of pathParts) {
-			if (part.startsWith(".") && part.length > 1) {
-				return true; // Skip ALL hidden files and contents of hidden directories
-			}
-		}
-
-		// Skip common problematic directories (redundant with above but kept for clarity)
-		const skipDirectories = [
-			"node_modules/",
-			"venv/",
-			"env/",
-			"__pycache__/",
-			"dist/",
-			"build/",
-			"target/",
-			"bin/",
-			"obj/",
-			"vendor/",
-			"cache/",
-			"logs/",
-			"temp/",
-			"tmp/",
-		];
-
-		// Check if path contains any of the skip directories
-		for (const skipDir of skipDirectories) {
-			if (normalizedPath.includes(skipDir)) {
-				return true;
-			}
-		}
-
-		// Skip binary files and other non-text files
-		const binaryFilePatterns = [
-			/\.bin$/i,
-			/\.exe$/i,
-			/\.dll$/i,
-			/\.so$/i,
-			/\.dylib$/i,
-			/\.zip$/i,
-			/\.tar$/i,
-			/\.gz$/i,
-			/\.rar$/i,
-			/\.7z$/i,
-			/\.iso$/i,
-			/\.img$/i,
-			/\.dmg$/i,
-			/\.db$/i,
-			/\.sqlite$/i,
-			/\.sqlite3$/i,
-			/\.mdb$/i,
-			/\.accdb$/i,
-			/\.pdf$/i,
-			/\.doc$/i,
-			/\.docx$/i,
-			/\.xls$/i,
-			/\.xlsx$/i,
-			/\.ppt$/i,
-			/\.pptx$/i,
-			/\.jpg$/i,
-			/\.jpeg$/i,
-			/\.png$/i,
-			/\.gif$/i,
-			/\.bmp$/i,
-			/\.tiff$/i,
-			/\.webp$/i,
-			/\.svg$/i,
-			/\.ico$/i,
-			/\.mp3$/i,
-			/\.mp4$/i,
-			/\.avi$/i,
-			/\.mov$/i,
-			/\.wmv$/i,
-			/\.flv$/i,
-			/\.webm$/i,
-			/\.mkv$/i,
-			/\.wav$/i,
-			/\.flac$/i,
-			/\.ogg$/i,
-			/\.woff$/i,
-			/\.woff2$/i,
-			/\.ttf$/i,
-			/\.otf$/i,
-			/\.eot$/i,
-			// Python bytecode files
-			/\.pyc$/i,
-			/\.pyo$/i,
-			/\.pyd$/i,
-		];
-
-		for (const pattern of binaryFilePatterns) {
-			if (pattern.test(normalizedPath)) {
-				return true;
-			}
-		}
-
-		// Skip files with very long paths (likely to cause issues)
-		if (normalizedPath.length > 250) {
-			return true;
-		}
-
-		return false;
 	}
 
 	/**

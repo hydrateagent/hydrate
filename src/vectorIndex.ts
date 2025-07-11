@@ -80,7 +80,7 @@ const INDEX_DIR_NAME = ".hydrate/index"; // Vectra will use this directory
  * @param filePath The file path to check
  * @returns True if the file should be skipped
  */
-function shouldSkipPath(filePath: string): boolean {
+export function shouldSkipPath(filePath: string): boolean {
 	// Normalize path separators to forward slashes for consistent checking
 	const normalizedPath = filePath.replace(/\\/g, "/");
 
