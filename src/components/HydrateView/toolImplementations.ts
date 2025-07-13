@@ -1,7 +1,7 @@
 import { App, TFile, Notice, normalizePath } from "obsidian";
 import HydratePlugin from "../../main";
 import { Patch } from "../../types";
-import { ManifestFile } from "../../manifestUtils";
+
 import * as path from "path";
 /**
  * Reads the content of a file within the Obsidian vault.
@@ -341,75 +341,5 @@ export async function applyPatchesToFile(
 			`Error applying patches to file ${file.basename}: ${error.message}`
 		);
 		return `Error applying patches to file: ${error.message}`;
-	}
-}
-
-/**
- * Updates specific fields in a .hydrate-manifest.md file.
- * @param plugin - The HydratePlugin instance.
- * @param params - The parameters for updating the manifest.
- *                 Expected: { directory_path: string, purpose?: string, type?: string, domain?: string }
- * @returns A success or error message string.
- */
-export async function toolUpdateHydrateManifest(
-	plugin: HydratePlugin,
-	params: any
-): Promise<string> {
-	const { directory_path, purpose, type, domain } = params;
-
-	if (!directory_path || typeof directory_path !== "string") {
-		return "Error: 'directory_path' parameter is missing or invalid.";
-	}
-
-	const manifestFilePath = normalizePath(
-		path.join(directory_path, ".hydrate-manifest.md")
-	);
-
-	console.log(
-		`Tool: Attempting to update manifest at ${manifestFilePath} with params:`,
-		params
-	);
-
-	try {
-		const manifestExists = await plugin.app.vault.adapter.exists(
-			manifestFilePath
-		);
-
-		if (!manifestExists) {
-			const msg = `Error: Manifest file not found at ${manifestFilePath}. This tool can only update existing manifests.`;
-			console.warn(msg);
-			return msg;
-		}
-
-		const currentContent = await plugin.app.vault.adapter.read(
-			manifestFilePath
-		);
-		const manifestFile = ManifestFile.fromString(currentContent);
-
-		const updates: { purpose?: string; type?: any; domain?: string } = {};
-		if (purpose !== undefined) updates.purpose = purpose;
-		if (type !== undefined) updates.type = type;
-		if (domain !== undefined) updates.domain = domain;
-
-		if (Object.keys(updates).length === 0) {
-			return "No update parameters provided. Manifest remains unchanged.";
-		}
-
-		manifestFile.updateFields(updates);
-
-		await plugin.app.vault.adapter.write(
-			manifestFilePath,
-			manifestFile.toString()
-		);
-
-		const successMsg = `Successfully updated manifest for directory: ${directory_path}`;
-		new Notice(successMsg);
-		console.log(successMsg);
-		return successMsg;
-	} catch (error: any) {
-		const errorMsg = `Error updating manifest for ${directory_path}: ${error.message}`;
-		console.error(errorMsg, error);
-		new Notice(errorMsg);
-		return errorMsg;
 	}
 }

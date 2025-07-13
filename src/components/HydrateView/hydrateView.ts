@@ -19,7 +19,6 @@ import {
 	toolEditFile,
 	toolReplaceSelectionInFile,
 	applyPatchesToFile,
-	toolUpdateHydrateManifest,
 } from "./toolImplementations"; // Ensure this path is correct for your setup
 import { handleSearchProject } from "../../toolHandlers"; // <<< ADD THIS IMPORT
 import {
@@ -1354,11 +1353,7 @@ export class HydrateView extends ItemView {
 					this.app,
 					this.plugin.settings
 				);
-			case "update_hydrate_manifest":
-				return await toolUpdateHydrateManifest(
-					this.plugin, // Pass the plugin instance
-					toolCall.params
-				);
+
 			default:
 				throw new Error(
 					`Unknown or unsupported tool for direct execution: ${toolCall.tool}`

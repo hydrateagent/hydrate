@@ -51,8 +51,6 @@ import {
 
 import { handleSearchProject } from "./toolHandlers"; // <<< ADD IMPORT
 
-import { ManifestFile, DirectoryManifest } from "./manifestUtils"; // Assuming manifestUtils.ts is in the same directory
-
 // MCP imports
 import { MCPServerManager, MCPConfigStorage } from "./mcp/MCPServerManager";
 
@@ -212,9 +210,6 @@ interface ToolExecutionResult {
 	id: string; // The ID of the original tool call
 	result: string; // The result of the tool execution (stringified if complex)
 }
-
-const HYDRATE_DOCS_FOLDER_NAME = "hydrate-docs";
-const MANIFEST_FILE_NAME = ".hydrate-manifest.md";
 
 export default class HydratePlugin extends Plugin {
 	settings: HydratePluginSettings;
@@ -560,22 +555,6 @@ export default class HydratePlugin extends Plugin {
 			callback: async () => {
 				const toolCalls = await this.processAgentToolCalls([]);
 				new Notice(`Processed ${toolCalls.length} tool calls.`);
-			},
-		});
-
-		this.addRibbonIcon(
-			"folder-sync",
-			"Generate Hydrate Manifests",
-			async (evt: MouseEvent) => {
-				await this.generateManifestsInHydrateDocs();
-			}
-		);
-
-		this.addCommand({
-			id: "generate-hydrate-manifests",
-			name: "Generate Manifests in hydrate-docs",
-			callback: async () => {
-				await this.generateManifestsInHydrateDocs();
 			},
 		});
 	}
@@ -1302,111 +1281,6 @@ export default class HydratePlugin extends Plugin {
 		// Here, you would typically send these toolResults back to your FastAPI /tool_result endpoint.
 		// For example, via another fetch/requestUrl call if this is not already part of that flow.
 		return toolResults;
-	}
-
-	async generateManifestsInHydrateDocs(): Promise<void> {
-		const vaultName = this.app.vault.getName();
-		const hydrateDocsFolder = this.app.vault.getAbstractFileByPath(
-			HYDRATE_DOCS_FOLDER_NAME
-		);
-
-		if (!hydrateDocsFolder || !(hydrateDocsFolder instanceof TFolder)) {
-			new Notice(
-				`Folder "${HYDRATE_DOCS_FOLDER_NAME}" not found. Please create it first.`
-			);
-			return;
-		}
-
-		let manifestsCreated = 0;
-		let manifestsUpdated = 0;
-		let manifestsSkippedNoChange = 0;
-
-		const traverseAndCreateOrUpdate = async (folder: TFolder) => {
-			if (folder.name.startsWith(".")) {
-				return;
-			}
-
-			const manifestPath = `${folder.path}/${MANIFEST_FILE_NAME}`;
-			let scannedManifest: ManifestFile;
-
-			try {
-				scannedManifest = await ManifestFile.scanDirectory(
-					folder.path,
-					vaultName,
-					this.app.vault
-				);
-			} catch (scanError) {
-				console.error(
-					`Hydrate: Error scanning directory ${folder.path}:`,
-					scanError
-				);
-				new Notice(
-					`Error scanning directory ${folder.path}. Manifest not updated. Check console.`
-				);
-				return;
-			}
-
-			const newContent = scannedManifest.toString();
-
-			try {
-				const fileExists = await this.app.vault.adapter.exists(
-					manifestPath
-				);
-
-				if (fileExists) {
-					const existingContent = await this.app.vault.adapter.read(
-						manifestPath
-					);
-					if (existingContent !== newContent) {
-						await this.app.vault.adapter.write(
-							manifestPath,
-							newContent
-						);
-						manifestsUpdated++;
-					} else {
-						manifestsSkippedNoChange++;
-					}
-				} else {
-					await this.app.vault.adapter.write(
-						manifestPath,
-						newContent
-					);
-					manifestsCreated++;
-				}
-			} catch (error) {
-				console.error(
-					`Hydrate: Error writing manifest for ${folder.path}:`,
-					error
-				);
-				new Notice(
-					`Error writing manifest for ${folder.path}. Check console.`
-				);
-			}
-
-			for (const child of folder.children) {
-				if (child instanceof TFolder) {
-					await traverseAndCreateOrUpdate(child);
-				}
-			}
-		};
-
-		new Notice("Generating/Updating Hydrate manifests...");
-		await traverseAndCreateOrUpdate(hydrateDocsFolder as TFolder);
-
-		let message = "";
-		if (manifestsCreated > 0) {
-			message += `Created ${manifestsCreated} new manifest(s). `;
-		}
-		if (manifestsUpdated > 0) {
-			message += `Updated ${manifestsUpdated} manifest(s). `;
-		}
-		if (manifestsSkippedNoChange > 0) {
-			message += `Skipped ${manifestsSkippedNoChange} manifest(s) (no changes). `;
-		}
-		if (!message) {
-			message = "No changes to manifests in hydrate-docs.";
-		}
-		new Notice(message.trim());
 	}
 }
 
