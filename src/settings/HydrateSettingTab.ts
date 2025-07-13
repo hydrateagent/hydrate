@@ -161,25 +161,162 @@ export class HydrateSettingTab extends PluginSettingTab {
 				});
 			});
 
-		// --- ADDED API KEY SETTING ---
+		// --- BYOK SUBSCRIPTION SETTINGS ---
+		containerEl.createEl("h3", { text: "Subscription & API Keys" });
+
+		// Subscription Status Display
+		const subscriptionStatusSection = containerEl.createEl("div", {
+			cls: "hydrate-subscription-status",
+		});
+
+		if (this.plugin.settings.licenseKey) {
+			subscriptionStatusSection.createEl("h4", {
+				text: "Subscription Status",
+			});
+			const statusDiv = subscriptionStatusSection.createEl("div", {
+				cls: "subscription-status-display",
+			});
+			statusDiv.createEl("p", { text: "Loading subscription status..." });
+			this.loadSubscriptionStatus(statusDiv);
+		} else {
+			subscriptionStatusSection.createEl("h4", {
+				text: "Current Tier: Free",
+			});
+			const freeInfoDiv = subscriptionStatusSection.createEl("div", {
+				cls: "subscription-info",
+			});
+			freeInfoDiv.createEl("p", {
+				text: "You're currently using the free tier. Configure your API keys below to get started, or upgrade to a paid tier for advanced features.",
+				cls: "subscription-description",
+			});
+
+			const featuresList = freeInfoDiv.createEl("ul", {
+				cls: "free-features-list",
+			});
+			featuresList.createEl("li", {
+				text: "✓ Basic AI chat with your own API keys",
+			});
+			featuresList.createEl("li", {
+				text: "✓ File operations and editing",
+			});
+			featuresList.createEl("li", {
+				text: "✗ MCP server integrations (Pro+)",
+			});
+			featuresList.createEl("li", {
+				text: "✗ Advanced file operations (Pro+)",
+			});
+			featuresList.createEl("li", { text: "✗ Priority support (Pro+)" });
+		}
+
 		new Setting(containerEl)
-			.setName("API Key")
+			.setName("License Key")
 			.setDesc(
-				"The API key required to authenticate with the backend service. This must match the HYDRATE_API_KEY on the server."
+				"Enter your Hydrate license key for paid subscriptions. Leave empty for free tier."
 			)
 			.addText((text) =>
 				text
-					.setPlaceholder("Enter your API key")
-					.setValue(this.plugin.settings.apiKey) // Use the apiKey setting
+					.setPlaceholder("Enter your license key")
+					.setValue(this.plugin.settings.licenseKey)
 					.onChange(async (value) => {
-						// Basic trim, no complex validation needed here
-						this.plugin.settings.apiKey = value.trim();
+						this.plugin.settings.licenseKey = value.trim();
 						await this.plugin.saveSettings();
-						// Optionally add a notice, though maybe not necessary for key changes
-						// new Notice("API Key updated.");
+						// Refresh the display to show/hide subscription status
+						this.display();
 					})
 			);
-		// --- END ADDED API KEY SETTING ---
+
+		const apiKeysDesc = containerEl.createEl("p", {
+			text: "Configure your API keys for LLM providers. These are sent securely to the Hydrate service but never stored permanently.",
+			cls: "setting-item-description",
+		});
+		apiKeysDesc.style.marginBottom = "16px";
+
+		new Setting(containerEl)
+			.setName("OpenAI API Key")
+			.setDesc("Required for GPT models")
+			.addText((text) => {
+				text.setPlaceholder("sk-...")
+					.setValue(this.plugin.settings.openaiApiKey)
+					.onChange(async (value) => {
+						this.plugin.settings.openaiApiKey = value.trim();
+						await this.plugin.saveSettings();
+					});
+				text.inputEl.type = "password";
+			});
+
+		new Setting(containerEl)
+			.setName("Anthropic API Key")
+			.setDesc("Required for Claude models")
+			.addText((text) => {
+				text.setPlaceholder("sk-ant-...")
+					.setValue(this.plugin.settings.anthropicApiKey)
+					.onChange(async (value) => {
+						this.plugin.settings.anthropicApiKey = value.trim();
+						await this.plugin.saveSettings();
+					});
+				text.inputEl.type = "password";
+			});
+
+		new Setting(containerEl)
+			.setName("Google API Key")
+			.setDesc("Required for Gemini models")
+			.addText((text) => {
+				text.setPlaceholder("AIza...")
+					.setValue(this.plugin.settings.googleApiKey)
+					.onChange(async (value) => {
+						this.plugin.settings.googleApiKey = value.trim();
+						await this.plugin.saveSettings();
+					});
+				text.inputEl.type = "password";
+			});
+
+		// API Key Registration Status Section
+		if (this.plugin.settings.licenseKey) {
+			const registrationSection = containerEl.createEl("div", {
+				cls: "hydrate-registration-section",
+			});
+			registrationSection.createEl("h4", {
+				text: "API Key Registration Status",
+			});
+
+			const statusDiv = registrationSection.createEl("div", {
+				cls: "registration-status",
+			});
+			statusDiv.createEl("p", { text: "Loading registration status..." });
+
+			this.loadRegistrationStatus(statusDiv);
+
+			new Setting(registrationSection)
+				.setName("Re-register API Keys")
+				.setDesc(
+					"If your API keys are compromised, you can re-register them (limited to 3 times per year)"
+				)
+				.addButton((button) => {
+					button
+						.setButtonText("Re-register Keys")
+						.setCta()
+						.onClick(async () => {
+							await this.handleAPIKeyReregistration();
+						});
+				});
+		}
+
+		// --- LEGACY API KEY SETTING (deprecated) ---
+		new Setting(containerEl)
+			.setName("Legacy API Key (Deprecated)")
+			.setDesc(
+				"The legacy API key for backward compatibility. This will be removed in a future version."
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder("Enter your legacy API key")
+					.setValue(this.plugin.settings.apiKey)
+					.onChange(async (value) => {
+						this.plugin.settings.apiKey = value.trim();
+						await this.plugin.saveSettings();
+					})
+			);
+		// --- END BYOK SUBSCRIPTION SETTINGS ---
 
 		// --- Format & Context Registry Section ---
 		const formatRegistrySection = containerEl.createDiv(
@@ -384,10 +521,12 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 		// Add helpful notice for new users
 		if (!this.plugin.settings.enableRemoteEmbeddings) {
-			const noticeEl = containerEl.createDiv({ cls: "hydrate-embeddings-notice" });
-			noticeEl.createEl("p", { 
+			const noticeEl = containerEl.createDiv({
+				cls: "hydrate-embeddings-notice",
+			});
+			noticeEl.createEl("p", {
 				text: "💡 Enable remote embeddings to use AI-powered context search and document indexing. This requires an API key from a service like OpenAI.",
-				cls: "hydrate-embeddings-help"
+				cls: "hydrate-embeddings-help",
 			});
 		}
 
@@ -1186,5 +1325,211 @@ export class HydrateSettingTab extends PluginSettingTab {
 		this.plugin.settings.mcpServers[index] = updatedServer;
 		this.plugin.saveSettings();
 		this.display(); // Refresh the entire display
+	}
+
+	// --- BYOK Subscription Status Methods ---
+	private async loadSubscriptionStatus(statusDiv: HTMLElement) {
+		try {
+			const response = await this.makeApiCall(
+				`${this.plugin.settings.backendUrl}/license/${this.plugin.settings.licenseKey}/status`,
+				{}
+			);
+
+			if (!response.ok) {
+				statusDiv.innerHTML = `<p style="color: red;">Error loading subscription status: ${response.status}</p>`;
+				return;
+			}
+
+			const licenseInfo = await response.json();
+			const tierName =
+				licenseInfo.subscription_tier?.toUpperCase() || "UNKNOWN";
+			const statusColor = licenseInfo.is_active ? "green" : "red";
+			const statusText = licenseInfo.is_active ? "Active" : "Inactive";
+
+			statusDiv.innerHTML = `
+				<div class="subscription-status-info">
+					<p><strong>Tier:</strong> <span style="color: ${statusColor}">${tierName}</span></p>
+					<p><strong>Status:</strong> <span style="color: ${statusColor}">${statusText}</span></p>
+					${
+						licenseInfo.expires_at
+							? `<p><strong>Expires:</strong> ${new Date(
+									licenseInfo.expires_at
+							  ).toLocaleDateString()}</p>`
+							: ""
+					}
+				</div>
+				<div class="subscription-features">
+					<h5>Available Features:</h5>
+					<ul>
+						<li>✓ Basic AI chat with your own API keys</li>
+						<li>✓ File operations and editing</li>
+						<li>${
+							licenseInfo.subscription_tier === "free" ? "✗" : "✓"
+						} MCP server integrations</li>
+						<li>${
+							licenseInfo.subscription_tier === "free" ? "✗" : "✓"
+						} Advanced file operations</li>
+						<li>${
+							licenseInfo.subscription_tier === "free" ? "✗" : "✓"
+						} Priority support</li>
+						<li>${
+							licenseInfo.subscription_tier === "max" ? "✓" : "✗"
+						} Custom integrations</li>
+					</ul>
+				</div>
+			`;
+		} catch (error) {
+			statusDiv.innerHTML = `<p style="color: red;">Error loading subscription status: ${error.message}</p>`;
+		}
+	}
+
+	// --- BYOK API Key Registration Methods ---
+	private async loadRegistrationStatus(statusDiv: HTMLElement) {
+		try {
+			const response = await this.makeApiCall(
+				`${this.plugin.settings.backendUrl}/license/${this.plugin.settings.licenseKey}/registration-quota`,
+				{}
+			);
+
+			if (!response.ok) {
+				statusDiv.innerHTML = `<p style="color: red;">Error loading registration status: ${response.status}</p>`;
+				return;
+			}
+
+			const quota = await response.json();
+			statusDiv.innerHTML = `
+				<p><strong>Registration Status:</strong></p>
+				<ul>
+					<li>Re-registrations used: ${quota.registration_count} / ${
+				quota.max_reregistrations
+			}</li>
+					<li>Quota resets: ${new Date(quota.next_reset).toLocaleDateString()}</li>
+					<li>Remaining: ${quota.max_reregistrations - quota.registration_count}</li>
+				</ul>
+			`;
+		} catch (error) {
+			statusDiv.innerHTML = `<p style="color: red;">Error loading registration status: ${error.message}</p>`;
+		}
+	}
+
+	private async handleAPIKeyReregistration() {
+		const modal = new (class extends Modal {
+			constructor(app: App, private settingsTab: HydrateSettingTab) {
+				super(app);
+			}
+
+			onOpen() {
+				const { contentEl } = this;
+				contentEl.createEl("h2", { text: "Re-register API Keys" });
+				contentEl.createEl("p", {
+					text: "Are you sure you want to re-register your API keys? This will revoke all previously registered keys and count against your annual quota.",
+				});
+
+				const buttonContainer = contentEl.createEl("div", {
+					cls: "modal-button-container",
+				});
+				buttonContainer.style.display = "flex";
+				buttonContainer.style.gap = "8px";
+				buttonContainer.style.justifyContent = "flex-end";
+				buttonContainer.style.marginTop = "16px";
+
+				const cancelButton = buttonContainer.createEl("button", {
+					text: "Cancel",
+				});
+				cancelButton.onclick = () => this.close();
+
+				const confirmButton = buttonContainer.createEl("button", {
+					text: "Re-register Keys",
+					cls: "mod-cta",
+				});
+				confirmButton.onclick = async () => {
+					await this.settingsTab.performAPIKeyReregistration();
+					this.close();
+				};
+			}
+
+			onClose() {
+				const { contentEl } = this;
+				contentEl.empty();
+			}
+		})(this.app, this);
+		modal.open();
+	}
+
+	private async performAPIKeyReregistration() {
+		try {
+			const apiKeys = {
+				openai: this.plugin.settings.openaiApiKey,
+				anthropic: this.plugin.settings.anthropicApiKey,
+				google: this.plugin.settings.googleApiKey,
+			};
+
+			// Filter out empty keys
+			const validKeys = Object.fromEntries(
+				Object.entries(apiKeys).filter(
+					([_, value]) => value && value.trim()
+				)
+			);
+
+			if (Object.keys(validKeys).length === 0) {
+				new Notice(
+					"No API keys to register. Please configure your API keys first."
+				);
+				return;
+			}
+
+			const response = await this.makeApiCall(
+				`${this.plugin.settings.backendUrl}/license/reregister-api-keys`,
+				{
+					license_key: this.plugin.settings.licenseKey,
+					api_keys: validKeys,
+					reason: "User initiated re-registration from plugin settings",
+				}
+			);
+
+			if (response.ok) {
+				new Notice("API keys re-registered successfully!");
+				// Refresh the status display
+				const statusDiv = document.querySelector(
+					".registration-status"
+				) as HTMLElement;
+				if (statusDiv) {
+					await this.loadRegistrationStatus(statusDiv);
+				}
+			} else {
+				const error = await response.json();
+				new Notice(`Error re-registering API keys: ${error.detail}`);
+			}
+		} catch (error) {
+			new Notice(`Error re-registering API keys: ${error.message}`);
+		}
+	}
+
+	private async makeApiCall(url: string, data: any): Promise<Response> {
+		const headers: Record<string, string> = {
+			"Content-Type": "application/json",
+		};
+
+		// Add license key if available
+		if (this.plugin.settings.licenseKey) {
+			headers["X-License-Key"] = this.plugin.settings.licenseKey;
+		}
+
+		// Add user API keys
+		if (this.plugin.settings.openaiApiKey) {
+			headers["X-OpenAI-Key"] = this.plugin.settings.openaiApiKey;
+		}
+		if (this.plugin.settings.anthropicApiKey) {
+			headers["X-Anthropic-Key"] = this.plugin.settings.anthropicApiKey;
+		}
+		if (this.plugin.settings.googleApiKey) {
+			headers["X-Google-Key"] = this.plugin.settings.googleApiKey;
+		}
+
+		return fetch(url, {
+			method: "POST",
+			headers,
+			body: JSON.stringify(data),
+		});
 	}
 }

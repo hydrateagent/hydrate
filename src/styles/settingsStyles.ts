@@ -27,6 +27,72 @@ export function injectSettingsStyles(plugin: HydratePlugin) {
             box-shadow: 0 0 0 1px var(--text-error) !important;
         }
 
+        /* --- Subscription Status Styles --- */
+        .hydrate-subscription-status {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: var(--background-secondary);
+            border-radius: var(--radius-m);
+            border: 1px solid var(--background-modifier-border);
+        }
+        .subscription-status-display {
+            margin-top: 10px;
+        }
+        .subscription-status-info {
+            margin-bottom: 15px;
+        }
+        .subscription-status-info p {
+            margin: 5px 0;
+        }
+        .subscription-features {
+            margin-top: 15px;
+        }
+        .subscription-features h5 {
+            margin-bottom: 10px;
+            color: var(--text-muted);
+        }
+        .subscription-features ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .subscription-features li {
+            margin: 5px 0;
+            font-size: 0.9em;
+        }
+        .free-features-list {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .free-features-list li {
+            margin: 5px 0;
+            font-size: 0.9em;
+        }
+        .subscription-description {
+            margin-bottom: 15px;
+            color: var(--text-muted);
+        }
+        .subscription-info {
+            margin-top: 10px;
+        }
+        .hydrate-registration-section {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid var(--background-modifier-border);
+        }
+        .hydrate-registration-section h4 {
+            margin-bottom: 10px;
+        }
+        .registration-status {
+            margin: 10px 0;
+        }
+        .registration-status ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .registration-status li {
+            margin: 5px 0;
+        }
+
         /* --- Registry List Styles --- */
         .hydrate-registry-list {
             margin-top: 15px;

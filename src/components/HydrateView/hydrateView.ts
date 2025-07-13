@@ -845,13 +845,33 @@ export class HydrateView extends ItemView {
 		setDomLoadingState(this, true, loadingMessage);
 
 		try {
+			// Prepare headers with authentication
+			const headers: Record<string, string> = {
+				"Content-Type": "application/json",
+				"X-API-Key": this.plugin.settings.apiKey, // Legacy API key for backward compatibility
+			};
+
+			// Add license key if available
+			if (this.plugin.settings.licenseKey) {
+				headers["X-License-Key"] = this.plugin.settings.licenseKey;
+			}
+
+			// Add user API keys
+			if (this.plugin.settings.openaiApiKey) {
+				headers["X-OpenAI-Key"] = this.plugin.settings.openaiApiKey;
+			}
+			if (this.plugin.settings.anthropicApiKey) {
+				headers["X-Anthropic-Key"] =
+					this.plugin.settings.anthropicApiKey;
+			}
+			if (this.plugin.settings.googleApiKey) {
+				headers["X-Google-Key"] = this.plugin.settings.googleApiKey;
+			}
+
 			const response = await requestUrl({
 				url: `${this.plugin.settings.backendUrl}${endpoint}`,
 				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					"X-API-Key": this.plugin.settings.apiKey,
-				},
+				headers,
 				body: JSON.stringify(payload),
 				throw: false, // Don't throw on HTTP errors, handle them manually
 			});

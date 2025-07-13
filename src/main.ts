@@ -104,7 +104,13 @@ export interface HydratePluginSettings {
 	rulesRegistryEntries: RuleEntry[]; // <<< ADDED rules registry
 	chatHistories: ChatHistory[]; // Chat history storage
 	selectedModel: ModelName; // Add setting for selected LLM
-	apiKey: string; // <<< ADDED default empty API Key
+	apiKey: string; // <<< ADDED default empty API Key (deprecated, kept for compatibility)
+
+	// --- BYOK Subscription Settings ---
+	licenseKey: string; // License key for paid subscriptions
+	openaiApiKey: string; // User's OpenAI API key
+	anthropicApiKey: string; // User's Anthropic API key
+	googleApiKey: string; // User's Google API key
 
 	// --- NEW: Settings for Remote Embeddings ---
 	enableRemoteEmbeddings: boolean;
@@ -173,7 +179,13 @@ const DEFAULT_SETTINGS: HydratePluginSettings = {
 	rulesRegistryEntries: [], // <<< Initialized as empty
 	chatHistories: [], // Initialize chat histories as empty
 	selectedModel: "gpt-4.1-mini", // Set default model
-	apiKey: "", // <<< ADDED default empty API Key
+	apiKey: "", // <<< ADDED default empty API Key (deprecated, kept for compatibility)
+
+	// --- BYOK Subscription Settings ---
+	licenseKey: "", // Default to empty (free tier)
+	openaiApiKey: "", // Default to empty
+	anthropicApiKey: "", // Default to empty
+	googleApiKey: "", // Default to empty
 
 	// --- NEW: Default values for Remote Embeddings ---
 	enableRemoteEmbeddings: false, // Default to disabled
