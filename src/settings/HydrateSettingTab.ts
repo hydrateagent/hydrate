@@ -1378,7 +1378,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 	private async loadRegistrationStatus(statusDiv: HTMLElement) {
 		try {
 			const response = await this.makeApiCall(
-				`${this.plugin.settings.backendUrl}/subcriptions/license/${this.plugin.settings.licenseKey}/registration-quota`,
+				`${this.plugin.settings.backendUrl}/subscriptions/license/${this.plugin.settings.licenseKey}/registration-quota`,
 				{}
 			);
 
@@ -1470,7 +1470,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 			}
 
 			const response = await this.makeApiCall(
-				`${this.plugin.settings.backendUrl}/subcriptions/license/reregister-api-keys`,
+				`${this.plugin.settings.backendUrl}/subscriptions/license/reregister-api-keys`,
 				{
 					license_key: this.plugin.settings.licenseKey,
 					api_keys: validKeys,
