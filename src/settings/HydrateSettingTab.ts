@@ -257,6 +257,23 @@ export class HydrateSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					});
 				text.inputEl.type = "password";
+				// Add flat eye icon button
+				const eyeBtn = document.createElement("button");
+				eyeBtn.type = "button";
+				eyeBtn.style.marginLeft = "8px";
+				eyeBtn.style.background = "none";
+				eyeBtn.style.border = "none";
+				eyeBtn.style.cursor = "pointer";
+				const flatEye =
+					'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="10" ry="6"/><circle cx="12" cy="12" r="2.5"/></svg>';
+				let visible = false;
+				eyeBtn.innerHTML = flatEye;
+				eyeBtn.onclick = (e) => {
+					e.preventDefault();
+					visible = !visible;
+					text.inputEl.type = visible ? "text" : "password";
+				};
+				text.inputEl.parentElement?.appendChild(eyeBtn);
 			});
 
 		new Setting(containerEl)
@@ -270,6 +287,23 @@ export class HydrateSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					});
 				text.inputEl.type = "password";
+				// Add flat eye icon button
+				const eyeBtn = document.createElement("button");
+				eyeBtn.type = "button";
+				eyeBtn.style.marginLeft = "8px";
+				eyeBtn.style.background = "none";
+				eyeBtn.style.border = "none";
+				eyeBtn.style.cursor = "pointer";
+				const flatEye =
+					'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="10" ry="6"/><circle cx="12" cy="12" r="2.5"/></svg>';
+				let visible = false;
+				eyeBtn.innerHTML = flatEye;
+				eyeBtn.onclick = (e) => {
+					e.preventDefault();
+					visible = !visible;
+					text.inputEl.type = visible ? "text" : "password";
+				};
+				text.inputEl.parentElement?.appendChild(eyeBtn);
 			});
 
 		new Setting(containerEl)
@@ -283,6 +317,23 @@ export class HydrateSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					});
 				text.inputEl.type = "password";
+				// Add flat eye icon button
+				const eyeBtn = document.createElement("button");
+				eyeBtn.type = "button";
+				eyeBtn.style.marginLeft = "8px";
+				eyeBtn.style.background = "none";
+				eyeBtn.style.border = "none";
+				eyeBtn.style.cursor = "pointer";
+				const flatEye =
+					'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="10" ry="6"/><circle cx="12" cy="12" r="2.5"/></svg>';
+				let visible = false;
+				eyeBtn.innerHTML = flatEye;
+				eyeBtn.onclick = (e) => {
+					e.preventDefault();
+					visible = !visible;
+					text.inputEl.type = visible ? "text" : "password";
+				};
+				text.inputEl.parentElement?.appendChild(eyeBtn);
 			});
 
 		// API Key Registration Status Section
