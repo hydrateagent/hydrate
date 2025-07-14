@@ -1341,8 +1341,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 			}
 
 			const licenseInfo = await response.json();
-			const tierName =
-				licenseInfo.subscription_tier?.toUpperCase() || "UNKNOWN";
+			const tierName = licenseInfo.tier?.toUpperCase() || "UNKNOWN";
 			const statusColor = licenseInfo.is_active ? "green" : "red";
 			const statusText = licenseInfo.is_active ? "Active" : "Inactive";
 
@@ -1363,18 +1362,10 @@ export class HydrateSettingTab extends PluginSettingTab {
 					<ul>
 						<li>✓ Basic AI chat with your own API keys</li>
 						<li>✓ File operations and editing</li>
-						<li>${
-							licenseInfo.subscription_tier === "free" ? "✗" : "✓"
-						} MCP server integrations</li>
-						<li>${
-							licenseInfo.subscription_tier === "free" ? "✗" : "✓"
-						} Advanced file operations</li>
-						<li>${
-							licenseInfo.subscription_tier === "free" ? "✗" : "✓"
-						} Priority support</li>
-						<li>${
-							licenseInfo.subscription_tier === "max" ? "✓" : "✗"
-						} Custom integrations</li>
+						<li>${licenseInfo.tier === "free" ? "✗" : "✓"} MCP server integrations</li>
+						<li>${licenseInfo.tier === "free" ? "✗" : "✓"} Advanced file operations</li>
+						<li>${licenseInfo.tier === "free" ? "✗" : "✓"} Priority support</li>
+						<li>${licenseInfo.tier === "max" ? "✓" : "✗"} Custom integrations</li>
 					</ul>
 				</div>
 			`;
