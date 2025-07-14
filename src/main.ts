@@ -1058,6 +1058,20 @@ export default class HydratePlugin extends Plugin {
 			? this.settings.selectedModel
 			: "gpt-4.1-mini";
 	}
+
+	getBackendUrl(): string {
+		// In production, always use the hardcoded production URL
+		if (!this.isDevelopmentMode()) {
+			return "https://api.hydrateagent.com";
+		}
+		// In development, use the configured URL or fallback to localhost
+		return this.settings.backendUrl || "http://localhost:8000";
+	}
+
+	private isDevelopmentMode(): boolean {
+		// Only use the build-time NODE_ENV
+		return process.env.NODE_ENV === "development";
+	}
 	// --- End Helper function --- // <<< ADDED
 
 	// --- Helper functions for Chat History Management ---

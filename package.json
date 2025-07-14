@@ -6,7 +6,7 @@
 	"scripts": {
 		"build:js": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"build:css": "postcss src/tailwind.css -o styles.css -c postcss.config.js --verbose",
-		"build": "npm run build:js && npm run build:css",
+		"build": "export NODE_ENV=production && npm run build:js && npm run build:css",
 		"dev:js": "node esbuild.config.mjs",
 		"dev:css": "postcss src/tailwind.css -o styles.css -c postcss.config.js --watch --verbose",
 		"dev": "npm-run-all --parallel dev:js dev:css",

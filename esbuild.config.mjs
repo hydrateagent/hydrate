@@ -64,6 +64,11 @@ const context = await esbuild.context({
 			"src/shims/wink-eng-lite-web-model.ts"
 		),
 	},
+	define: {
+		"process.env.NODE_ENV": JSON.stringify(
+			prod ? "production" : "development"
+		),
+	},
 });
 
 if (prod) {

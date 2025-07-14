@@ -90,6 +90,16 @@ export class HydrateSettingTab extends PluginSettingTab {
 		this.serverStatusListeners.clear();
 	}
 
+	private isDevelopmentMode(): boolean {
+		// Only use the build-time NODE_ENV
+		return process.env.NODE_ENV === "development";
+	}
+
+	private getBackendUrl(): string {
+		// Use the plugin's getBackendUrl method for consistent behavior
+		return this.plugin.getBackendUrl();
+	}
+
 	display(): void {
 		const { containerEl } = this;
 
@@ -120,46 +130,51 @@ export class HydrateSettingTab extends PluginSettingTab {
 					});
 			});
 
-		new Setting(containerEl)
-			.setName("Backend URL")
-			.setDesc(
-				"URL of the Hydrate agent backend (e.g., http://localhost:8000)."
-			)
-			.addText((text) => {
-				text.setPlaceholder("http://localhost:8000")
-					.setValue(this.plugin.settings.backendUrl)
-					.onChange(async (value) => {
-						const trimmedValue = value.trim().replace(/\/$/, ""); // Trim and remove trailing slash
+		// Only show backend URL in development mode
+		if (this.isDevelopmentMode()) {
+			new Setting(containerEl)
+				.setName("Backend URL")
+				.setDesc(
+					"URL of the Hydrate agent backend (e.g., http://localhost:8000). In production, this is hardcoded to https://api.hydrateagent.com/"
+				)
+				.addText((text) => {
+					text.setPlaceholder("http://localhost:8000")
+						.setValue(this.plugin.settings.backendUrl)
+						.onChange(async (value) => {
+							const trimmedValue = value
+								.trim()
+								.replace(/\/$/, ""); // Trim and remove trailing slash
+							if (
+								trimmedValue === "" ||
+								trimmedValue.startsWith("http://") ||
+								trimmedValue.startsWith("https://")
+							) {
+								this.plugin.settings.backendUrl = trimmedValue;
+								await this.plugin.saveSettings();
+								text.inputEl.removeClass("hydrate-input-error");
+							} else {
+								// Keep the invalid value in the input for correction, but don't save it.
+								// Show persistent error styling instead of notice spam.
+								text.inputEl.addClass("hydrate-input-error");
+							}
+						});
+					// Add input listener to clear error on valid input
+					text.inputEl.addEventListener("input", () => {
+						const trimmedValue = text.inputEl.value
+							.trim()
+							.replace(/\/$/, "");
 						if (
 							trimmedValue === "" ||
 							trimmedValue.startsWith("http://") ||
 							trimmedValue.startsWith("https://")
 						) {
-							this.plugin.settings.backendUrl = trimmedValue;
-							await this.plugin.saveSettings();
 							text.inputEl.removeClass("hydrate-input-error");
 						} else {
-							// Keep the invalid value in the input for correction, but don't save it.
-							// Show persistent error styling instead of notice spam.
 							text.inputEl.addClass("hydrate-input-error");
 						}
 					});
-				// Add input listener to clear error on valid input
-				text.inputEl.addEventListener("input", () => {
-					const trimmedValue = text.inputEl.value
-						.trim()
-						.replace(/\/$/, "");
-					if (
-						trimmedValue === "" ||
-						trimmedValue.startsWith("http://") ||
-						trimmedValue.startsWith("https://")
-					) {
-						text.inputEl.removeClass("hydrate-input-error");
-					} else {
-						text.inputEl.addClass("hydrate-input-error");
-					}
 				});
-			});
+		}
 
 		// --- BYOK SUBSCRIPTION SETTINGS ---
 		containerEl.createEl("h3", { text: "Subscription & API Keys" });
@@ -301,21 +316,6 @@ export class HydrateSettingTab extends PluginSettingTab {
 				});
 		}
 
-		// --- LEGACY API KEY SETTING (deprecated) ---
-		new Setting(containerEl)
-			.setName("Legacy API Key (Deprecated)")
-			.setDesc(
-				"The legacy API key for backward compatibility. This will be removed in a future version."
-			)
-			.addText((text) =>
-				text
-					.setPlaceholder("Enter your legacy API key")
-					.setValue(this.plugin.settings.apiKey)
-					.onChange(async (value) => {
-						this.plugin.settings.apiKey = value.trim();
-						await this.plugin.saveSettings();
-					})
-			);
 		// --- END BYOK SUBSCRIPTION SETTINGS ---
 
 		// --- Format & Context Registry Section ---
@@ -1331,7 +1331,9 @@ export class HydrateSettingTab extends PluginSettingTab {
 	private async loadSubscriptionStatus(statusDiv: HTMLElement) {
 		try {
 			const response = await this.makeApiCall(
-				`${this.plugin.settings.backendUrl}/subscriptions/license/${this.plugin.settings.licenseKey}/status`,
+				`${this.getBackendUrl()}/subscriptions/license/${
+					this.plugin.settings.licenseKey
+				}/status`,
 				{}
 			);
 
@@ -1378,7 +1380,9 @@ export class HydrateSettingTab extends PluginSettingTab {
 	private async loadRegistrationStatus(statusDiv: HTMLElement) {
 		try {
 			const response = await this.makeApiCall(
-				`${this.plugin.settings.backendUrl}/subscriptions/license/${this.plugin.settings.licenseKey}/registration-quota`,
+				`${this.getBackendUrl()}/subscriptions/license/${
+					this.plugin.settings.licenseKey
+				}/registration-quota`,
 				{}
 			);
 
@@ -1470,7 +1474,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 			}
 
 			const response = await this.makeApiCall(
-				`${this.plugin.settings.backendUrl}/subscriptions/license/reregister-api-keys`,
+				`${this.getBackendUrl()}/subscriptions/license/reregister-api-keys`,
 				{
 					license_key: this.plugin.settings.licenseKey,
 					api_keys: validKeys,
