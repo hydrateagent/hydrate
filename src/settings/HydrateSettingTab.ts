@@ -239,6 +239,16 @@ export class HydrateSettingTab extends PluginSettingTab {
 						this.display();
 					})
 			);
+		// Add a link to the Hydrate home page for subscriptions
+		const licenseLink = document.createElement("a");
+		licenseLink.href = "https://hydrateagent.com";
+		licenseLink.target = "_blank";
+		licenseLink.rel = "noopener noreferrer";
+		licenseLink.style.display = "inline-block";
+		licenseLink.style.margin = "4px 0 16px 0";
+		licenseLink.textContent =
+			"Get a subscription or manage your license at hydrateagent.com";
+		containerEl.appendChild(licenseLink);
 
 		const apiKeysDesc = containerEl.createEl("p", {
 			text: "Configure your API keys for LLM providers. These are sent securely to the Hydrate service but never stored permanently.",
