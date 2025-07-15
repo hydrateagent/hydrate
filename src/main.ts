@@ -36,8 +36,7 @@ import {
 import { ReactViewHost } from "./ReactViewHost"; // Corrected path
 import IssueBoardView from "./components/IssueBoardView"; // Corrected path
 import { HydrateSettingTab } from "./settings/HydrateSettingTab"; // Corrected path
-import { injectSettingsStyles } from "./styles/settingsStyles"; // Corrected path
-import { injectPaneStyles } from "./styles/paneStyles"; // <<< ADDED IMPORT
+// Styles are now compiled into styles.css via hydrate-styles.css
 
 import {
 	initializeVectorSystem, // Only loads local index now
@@ -327,11 +326,7 @@ export default class HydratePlugin extends Plugin {
 			);
 		}
 
-		// Inject custom styles
-		injectSettingsStyles(this);
-		injectPaneStyles(this); // <<< CALL NEW FUNCTION
-
-		// Custom styles will be loaded automatically from styles.css
+		// Custom styles are now loaded automatically from styles.css
 
 		// Register the custom view
 		this.registerView(HYDRATE_VIEW_TYPE, (leaf: WorkspaceLeaf) => {

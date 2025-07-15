@@ -12,7 +12,7 @@ import { RegistryEditModal } from "./RegistryEditModal";
 import { RuleEditModal } from "./RuleEditModal"; // <<< IMPORT NEW MODAL
 import { MCPServersConfigModal } from "./MCPServerEditModal";
 import { MCPServerSettingsModal } from "./MCPServerSettingsModal"; // <<< IMPORT MCP SERVER MODAL
-import { injectSettingsStyles } from "../styles/settingsStyles";
+// Settings styles are now compiled into styles.css via hydrate-styles.css
 import { RuleEntry } from "../types"; // <<< IMPORT RuleEntry
 import {
 	MCPServerConfig,
@@ -834,7 +834,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 		}
 
 		// --- Inject CSS --- <<< CALL INJECTOR FUNCTION
-		injectSettingsStyles(this.plugin);
+		// Settings styles are now compiled into styles.css
 	}
 
 	// --- Helper to Render the Format Registry List ---
