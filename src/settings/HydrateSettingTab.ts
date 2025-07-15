@@ -244,8 +244,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 		licenseLink.href = "https://hydrateagent.com";
 		licenseLink.target = "_blank";
 		licenseLink.rel = "noopener noreferrer";
-		licenseLink.style.display = "inline-block";
-		licenseLink.style.margin = "4px 0 16px 0";
+		licenseLink.addClass("hydrate-license-link");
 		licenseLink.textContent =
 			"Get a subscription or manage your license at hydrateagent.com";
 		containerEl.appendChild(licenseLink);
@@ -254,7 +253,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 			text: "Configure your API keys for LLM providers. These are sent securely to the Hydrate service but never stored permanently.",
 			cls: "setting-item-description",
 		});
-		apiKeysDesc.style.marginBottom = "16px";
+		apiKeysDesc.addClass("hydrate-api-keys-desc");
 
 		new Setting(containerEl)
 			.setName("OpenAI API Key")
@@ -271,10 +270,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 				// Add flat eye icon button
 				const eyeBtn = document.createElement("button");
 				eyeBtn.type = "button";
-				eyeBtn.style.marginLeft = "8px";
-				eyeBtn.style.background = "none";
-				eyeBtn.style.border = "none";
-				eyeBtn.style.cursor = "pointer";
+				eyeBtn.addClass("hydrate-eye-button");
 				// Use a Unicode eye character instead of SVG or innerHTML
 				const eyeChar = document.createTextNode("\u{1F441}");
 				eyeBtn.appendChild(eyeChar);
@@ -301,10 +297,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 				// Add flat eye icon button
 				const eyeBtn = document.createElement("button");
 				eyeBtn.type = "button";
-				eyeBtn.style.marginLeft = "8px";
-				eyeBtn.style.background = "none";
-				eyeBtn.style.border = "none";
-				eyeBtn.style.cursor = "pointer";
+				eyeBtn.addClass("hydrate-eye-button");
 				// Use a Unicode eye character instead of SVG or innerHTML
 				const eyeChar2 = document.createTextNode("\u{1F441}");
 				eyeBtn.appendChild(eyeChar2);
@@ -331,10 +324,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 				// Add flat eye icon button
 				const eyeBtn = document.createElement("button");
 				eyeBtn.type = "button";
-				eyeBtn.style.marginLeft = "8px";
-				eyeBtn.style.background = "none";
-				eyeBtn.style.border = "none";
-				eyeBtn.style.cursor = "pointer";
+				eyeBtn.addClass("hydrate-eye-button");
 				// Use a Unicode eye character instead of SVG or innerHTML
 				const eyeChar3 = document.createTextNode("\u{1F441}");
 				eyeBtn.appendChild(eyeChar3);
@@ -1476,10 +1466,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 				const buttonContainer = contentEl.createEl("div", {
 					cls: "modal-button-container",
 				});
-				buttonContainer.style.display = "flex";
-				buttonContainer.style.gap = "8px";
-				buttonContainer.style.justifyContent = "flex-end";
-				buttonContainer.style.marginTop = "16px";
+				buttonContainer.addClass("hydrate-button-container");
 
 				const cancelButton = buttonContainer.createEl("button", {
 					text: "Cancel",

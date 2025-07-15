@@ -1,0 +1,126 @@
+/* Hydrate Plugin Custom Styles */
+/* This file contains CSS classes to replace inline JavaScript styles */
+
+.hydrate-modal-wide {
+  width: 90vw;
+  max-width: 1400px;
+}
+
+.hydrate-flex-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.hydrate-message-agent {
+  position: relative;
+  padding-bottom: 24px;
+}
+
+.hydrate-stop-button-visible {
+  display: inline-block;
+}
+
+.hydrate-stop-button-hidden {
+  display: none;
+}
+
+.hydrate-loading-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-style: italic;
+}
+
+.hydrate-loading-indicator-hidden {
+  display: none;
+}
+
+.hydrate-file-pills-hidden {
+  display: none;
+}
+
+.hydrate-file-pills-visible {
+  display: flex;
+}
+
+.hydrate-suggestions-hidden {
+  display: none;
+}
+
+.hydrate-suggestions-visible {
+  display: block;
+}
+
+.hydrate-textarea-auto-height {
+  height: auto;
+}
+
+.hydrate-suggestions-container {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.hydrate-stop-button-default {
+  display: none;
+}
+
+.hydrate-loading-indicator-default {
+  display: none;
+}
+
+.hydrate-popup-positioned {
+  position: fixed;
+  z-index: 9999;
+}
+
+.hydrate-license-link {
+  display: inline-block;
+  margin: 4px 0 16px 0;
+}
+
+.hydrate-api-keys-desc {
+  margin-bottom: 16px;
+}
+
+.hydrate-eye-button {
+  margin-left: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.hydrate-button-container {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.hydrate-mcp-textarea {
+  width: 100%;
+  font-family: monospace;
+  font-size: 14px;
+}
+
+.hydrate-mcp-error {
+  color: var(--text-error);
+  margin-top: 10px;
+  padding: 8px;
+  background: var(--background-modifier-error);
+  border-radius: 4px;
+}

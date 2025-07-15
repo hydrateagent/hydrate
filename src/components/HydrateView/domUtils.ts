@@ -67,9 +67,7 @@ export function addMessageToChat(
 
 	// Make agent messages relative for absolute positioning of the copy button
 	if (role === "agent") {
-		messageEl.style.position = "relative";
-		// Add some padding to the bottom to avoid overlap with the button
-		messageEl.style.paddingBottom = "24px"; // Adjust as needed
+		messageEl.addClass("hydrate-message-agent");
 	}
 
 	if (content instanceof HTMLElement) {
@@ -237,7 +235,13 @@ export function setLoadingState(
 
 	// Update stop button
 	if (stopButton) {
-		stopButton.style.display = loading ? "inline-block" : "none";
+		if (loading) {
+			stopButton.addClass("hydrate-stop-button-visible");
+			stopButton.removeClass("hydrate-stop-button-hidden");
+		} else {
+			stopButton.addClass("hydrate-stop-button-hidden");
+			stopButton.removeClass("hydrate-stop-button-visible");
+		}
 		stopButton.disabled = !loading;
 	}
 
@@ -245,13 +249,8 @@ export function setLoadingState(
 	if (loadingIndicator) {
 		if (loading) {
 			loadingIndicator.empty();
-			loadingIndicator.style.display = "flex";
-			loadingIndicator.style.alignItems = "center";
-			loadingIndicator.style.justifyContent = "center";
-			loadingIndicator.style.padding = "16px";
-			loadingIndicator.style.color = "var(--text-muted)";
-			loadingIndicator.style.fontSize = "14px";
-			loadingIndicator.style.fontStyle = "italic";
+			loadingIndicator.addClass("hydrate-loading-indicator");
+			loadingIndicator.removeClass("hydrate-loading-indicator-hidden");
 
 			// Use custom message or default
 			const message = customMessage || "Agent is thinking";
@@ -289,7 +288,8 @@ export function setLoadingState(
 				});
 			}
 		} else {
-			loadingIndicator.style.display = "none";
+			loadingIndicator.addClass("hydrate-loading-indicator-hidden");
+			loadingIndicator.removeClass("hydrate-loading-indicator");
 			loadingIndicator.empty();
 		}
 	}
@@ -311,11 +311,13 @@ export function renderFilePills(view: HydrateView): void {
 
 	filePillsContainer.empty();
 	if (attachedFiles.length === 0) {
-		filePillsContainer.style.display = "none";
+		filePillsContainer.addClass("hydrate-file-pills-hidden");
+		filePillsContainer.removeClass("hydrate-file-pills-visible");
 		return;
 	}
 
-	filePillsContainer.style.display = "flex";
+	filePillsContainer.addClass("hydrate-file-pills-visible");
+	filePillsContainer.removeClass("hydrate-file-pills-hidden");
 
 	attachedFiles.forEach((filePath) => {
 		const pill = filePillsContainer.createDiv({
@@ -354,12 +356,14 @@ export function renderSuggestions(view: HydrateView): void {
 	suggestionsContainer.empty();
 
 	if (suggestions.length === 0) {
-		suggestionsContainer.style.display = "none";
+		suggestionsContainer.addClass("hydrate-suggestions-hidden");
+		suggestionsContainer.removeClass("hydrate-suggestions-visible");
 		// Resetting trigger state is likely handled elsewhere (e.g., input change)
 		return;
 	}
 
-	suggestionsContainer.style.display = "block";
+	suggestionsContainer.addClass("hydrate-suggestions-visible");
+	suggestionsContainer.removeClass("hydrate-suggestions-hidden");
 
 	suggestions.forEach((entry: RegistryEntry, index: number) => {
 		const itemEl = suggestionsContainer.createDiv({
@@ -434,11 +438,13 @@ export function renderNoteSearchSuggestions(view: HydrateView): void {
 	suggestionsContainer.empty();
 
 	if (noteSearchResults.length === 0) {
-		suggestionsContainer.style.display = "none";
+		suggestionsContainer.addClass("hydrate-suggestions-hidden");
+		suggestionsContainer.removeClass("hydrate-suggestions-visible");
 		return;
 	}
 
-	suggestionsContainer.style.display = "block";
+	suggestionsContainer.addClass("hydrate-suggestions-visible");
+	suggestionsContainer.removeClass("hydrate-suggestions-hidden");
 
 	noteSearchResults.forEach((file: any, index: number) => {
 		const itemEl = suggestionsContainer.createDiv({
@@ -540,7 +546,8 @@ export function setNoteSearchResults(view: HydrateView, results: any[]): void {
 		const suggestionsContainer =
 			view.suggestionsContainer as HTMLDivElement | null;
 		if (suggestionsContainer) {
-			suggestionsContainer.style.display = "none";
+			suggestionsContainer.addClass("hydrate-suggestions-hidden");
+			suggestionsContainer.removeClass("hydrate-suggestions-visible");
 		}
 	}
 }

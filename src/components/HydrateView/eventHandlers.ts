@@ -42,7 +42,7 @@ export const handleClear = (view: HydrateView): void => {
 		view.chatContainer.removeChild(view.chatContainer.firstChild);
 	}
 	addMessageToChat(view, "system", "Chat cleared. New conversation started.");
-	view.textInput.style.height = "auto";
+	view.textInput.addClass("hydrate-textarea-auto-height");
 	view.textInput.dispatchEvent(new Event("input"));
 	view.textInput.focus();
 };
@@ -223,7 +223,7 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 	if (
 		view.suggestions.length > 0 &&
 		view.activeSuggestionIndex !== -1 &&
-		view.suggestionsContainer?.style.display !== "none"
+		view.suggestionsContainer?.hasClass("hydrate-suggestions-visible")
 	) {
 		handleSuggestionSelect(view, view.activeSuggestionIndex);
 		return;
@@ -474,7 +474,7 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 		setDomLoadingState(view, false);
 	} finally {
 		view.textInput.focus();
-		view.textInput.style.height = "auto";
+		view.textInput.addClass("hydrate-textarea-auto-height");
 		view.textInput.dispatchEvent(new Event("input"));
 		// Ensure captured selection is cleared even on error
 		view.capturedSelections = [];

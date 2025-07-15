@@ -97,11 +97,8 @@ export class ChatHistoryModal extends FuzzySuggestModal<ChatHistory> {
 			}
 		});
 
-		// Style the container for flexbox layout
-		el.style.display = "flex";
-		el.style.alignItems = "center";
-		el.style.justifyContent = "space-between";
-		el.style.gap = "10px";
+		// Apply flexbox layout styling via CSS class
+		el.addClass("hydrate-flex-container");
 	}
 
 	onChooseItem(chatHistory: ChatHistory): void {

@@ -64,10 +64,8 @@ export class DiffReviewModal extends Modal {
 
 		this.modalEl.addClass("hydrate-diff-modal"); // Add class to the modal container itself for sizing
 
-		// --- Set Modal Width via JS --- //
-		this.modalEl.style.width = "90vw";
-		this.modalEl.style.maxWidth = "1400px";
-		// --- End Set Modal Width --- //
+		// Apply modal width styling via CSS class
+		this.modalEl.addClass("hydrate-modal-wide");
 
 		contentEl.createEl("h2", {
 			text: `Review Proposed Changes for ${this.filePath}`,

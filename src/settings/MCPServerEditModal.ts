@@ -49,9 +49,7 @@ export class MCPServersConfigModal extends Modal {
 			.addTextArea((text) => {
 				this.jsonTextArea = text;
 				text.inputEl.rows = 20;
-				text.inputEl.style.width = "100%";
-				text.inputEl.style.fontFamily = "monospace";
-				text.inputEl.style.fontSize = "14px";
+				text.inputEl.addClass("hydrate-mcp-textarea");
 
 				text.setValue(this.currentJson).setPlaceholder(
 					this.getExampleJson()
@@ -278,11 +276,7 @@ export class MCPServersConfigModal extends Modal {
 
 		// Add new error
 		const errorEl = this.contentEl.createDiv({ cls: "mcp-error" });
-		errorEl.style.color = "var(--text-error)";
-		errorEl.style.marginTop = "10px";
-		errorEl.style.padding = "8px";
-		errorEl.style.background = "var(--background-modifier-error)";
-		errorEl.style.borderRadius = "4px";
+		errorEl.addClass("hydrate-mcp-error");
 		errorEl.textContent = message;
 
 		setTimeout(() => errorEl.remove(), 5000);

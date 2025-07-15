@@ -671,21 +671,7 @@ export class HydrateView extends ItemView {
 		this.suggestionsContainer = inputContainer.createEl("div", {
 			cls: "hydrate-suggestions-container",
 		});
-		this.suggestionsContainer.style.display = "none"; // Initially hidden
-		this.suggestionsContainer.style.position = "absolute";
-		this.suggestionsContainer.style.top = "100%";
-		this.suggestionsContainer.style.left = "0";
-		this.suggestionsContainer.style.right = "0";
-		this.suggestionsContainer.style.backgroundColor =
-			"var(--background-primary)";
-		this.suggestionsContainer.style.border =
-			"1px solid var(--background-modifier-border)";
-		this.suggestionsContainer.style.borderRadius = "4px";
-		this.suggestionsContainer.style.boxShadow =
-			"0 2px 8px rgba(0, 0, 0, 0.15)";
-		this.suggestionsContainer.style.zIndex = "1000";
-		this.suggestionsContainer.style.maxHeight = "200px";
-		this.suggestionsContainer.style.overflowY = "auto";
+		this.suggestionsContainer.addClass("hydrate-suggestions-container");
 
 		// Create button container positioned inside the textarea
 		const buttonContainer = inputContainer.createEl("div", {
@@ -703,7 +689,7 @@ export class HydrateView extends ItemView {
 			cls: "hydrate-button hydrate-overlay-button",
 			text: "Stop",
 		});
-		this.stopButton.style.display = "none";
+		this.stopButton.addClass("hydrate-stop-button-default");
 
 		// Create clear button
 		const clearButton = buttonContainer.createEl("button", {
@@ -716,7 +702,7 @@ export class HydrateView extends ItemView {
 			cls: "hydrate-loading",
 			text: "Processing...",
 		});
-		this.loadingIndicator.style.display = "none";
+		this.loadingIndicator.addClass("hydrate-loading-indicator-default");
 
 		// Bind event handlers using imported functions
 		this.textInput.addEventListener("input", () => handleInputChange(this));
@@ -1723,10 +1709,9 @@ export class HydrateView extends ItemView {
 
 		// Position popup near the anchor element after adding to DOM
 		const rect = anchorElement.getBoundingClientRect();
-		popup.style.position = "fixed";
+		popup.addClass("hydrate-popup-positioned");
 		popup.style.top = `${rect.bottom + 5}px`;
 		popup.style.left = `${rect.left}px`;
-		popup.style.zIndex = "9999";
 
 		// Close on outside click
 		const closeOnOutsideClick = (e: MouseEvent) => {
