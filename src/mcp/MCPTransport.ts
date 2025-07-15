@@ -15,7 +15,7 @@ export interface MCPTransport extends EventEmitter {
  * Transport implementation for MCP servers communicating via stdio
  */
 export class StdioTransport extends EventEmitter implements MCPTransport {
-	private process: ChildProcess | null = null;
+	public process: ChildProcess | null = null;
 	private connected = false;
 	private messageBuffer = "";
 

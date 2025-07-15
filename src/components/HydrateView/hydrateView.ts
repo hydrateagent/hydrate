@@ -166,17 +166,12 @@ export class HydrateView extends ItemView {
 	}
 
 	async setState(state: any, result: ViewStateResult): Promise<void> {
-		console.log("HydrateView setState called with state:", state);
 		let fileToAttachPath: string | null = null;
 
 		if (state?.sourceFilePath) {
 			fileToAttachPath = state.sourceFilePath;
-			console.log(
-				"HydrateView setState: Captured sourceFilePath:",
-				fileToAttachPath
-			);
 		} else {
-			console.log(
+			console.warn(
 				"HydrateView setState: No sourceFilePath found in state."
 			);
 		}
@@ -184,39 +179,22 @@ export class HydrateView extends ItemView {
 		await super.setState(state, result);
 
 		if (fileToAttachPath && this.attachedFiles.length === 0) {
-			console.log(
-				"Hydrate [setState]: Attempting to auto-attach file from state:",
-				fileToAttachPath
-			);
 			this.attachInitialFile(fileToAttachPath);
 		} else if (fileToAttachPath && this.attachedFiles.length > 0) {
-			console.log(
+			console.warn(
 				"Hydrate [setState]: Files already attached, skipping auto-attach from state."
 			);
 		}
 	}
 
 	public attachInitialFile(filePath: string) {
-		console.log("Hydrate [attachInitialFile]: Trying to attach:", filePath);
-		console.log(
-			"Hydrate [attachInitialFile]: Current attachedFiles BEFORE attach:",
-			[...this.attachedFiles]
-		);
-
 		if (filePath && !this.attachedFiles.includes(filePath)) {
 			const fileExists =
 				this.app.vault.getAbstractFileByPath(filePath) instanceof TFile;
 			if (fileExists) {
-				console.log(
-					`Hydrate [attachInitialFile]: Attaching ${filePath}...`
-				);
 				this.attachedFiles = [filePath];
 				this.initialFilePathFromState = filePath;
 				this.wasInitiallyAttached = true;
-				console.log(
-					"Hydrate [attachInitialFile]: attachedFiles after push:",
-					[...this.attachedFiles]
-				);
 				if (this.filePillsContainer) {
 					// Call the aliased dom util function
 					renderDomFilePills(this); // Pass the view instance
@@ -227,11 +205,11 @@ export class HydrateView extends ItemView {
 				);
 			}
 		} else if (filePath && this.attachedFiles.includes(filePath)) {
-			console.log(
+			console.warn(
 				`Hydrate [attachInitialFile]: File ${filePath} already attached.`
 			);
 		} else {
-			console.log(
+			console.warn(
 				"Hydrate [attachInitialFile]: File path variable was null/empty."
 			);
 		}
@@ -241,7 +219,7 @@ export class HydrateView extends ItemView {
 
 	public handleActiveFileChange(newFilePath: string | null) {
 		if (!newFilePath) {
-			console.log(
+			console.warn(
 				"Hydrate [handleActiveFileChange]: No active file to auto-attach."
 			);
 			return;
@@ -255,9 +233,6 @@ export class HydrateView extends ItemView {
 			(this.attachedFiles.length === 1 && this.wasInitiallyAttached);
 
 		if (shouldAutoAttach && !this.attachedFiles.includes(newFilePath)) {
-			console.log(
-				`Hydrate [handleActiveFileChange]: Auto-attaching active file: ${newFilePath}`
-			);
 			this.attachedFiles = [newFilePath];
 			this.wasInitiallyAttached = true;
 
@@ -265,32 +240,12 @@ export class HydrateView extends ItemView {
 				// Call the aliased dom util function
 				renderDomFilePills(this); // Pass the view instance
 			}
-		} else {
-			// Log why we didn't auto-attach
-			if (this.attachedFiles.includes(newFilePath)) {
-				console.log(
-					`Hydrate [handleActiveFileChange]: File ${newFilePath} is already attached`
-				);
-			} else if (this.attachedFiles.length > 1) {
-				console.log(
-					`Hydrate [handleActiveFileChange]: Not auto-attaching ${newFilePath} because multiple files are manually attached: ${this.attachedFiles}`
-				);
-			} else if (
-				this.attachedFiles.length === 1 &&
-				!this.wasInitiallyAttached
-			) {
-				console.log(
-					`Hydrate [handleActiveFileChange]: Not auto-attaching ${newFilePath} because a file was manually attached: ${this.attachedFiles}`
-				);
-			}
 		}
 	}
 
 	// --- UI Creation and Event Binding ---
 
 	async onOpen(): Promise<void> {
-		console.log("HydrateView opening...");
-
 		const container = this.containerEl.children[1];
 		container.empty();
 		container.addClass("hydrate-view");
@@ -815,15 +770,11 @@ export class HydrateView extends ItemView {
 		if (activeFile) {
 			this.handleActiveFileChange(activeFile.path);
 		}
-
-		console.log("HydrateView opened successfully");
 	}
 
 	// --- Backend Communication ---
 
 	async callBackend(endpoint: string, payload: any) {
-		console.log(`Calling backend: ${endpoint}`, payload);
-
 		// Cancel any existing request
 		if (this.abortController) {
 			this.abortController.abort();
@@ -888,8 +839,6 @@ export class HydrateView extends ItemView {
 
 			const responseData: BackendResponse = response.json;
 
-			console.log("Backend response:", responseData);
-
 			// Update conversation ID from response
 			if (responseData.conversation_id) {
 				this.conversationId = responseData.conversation_id;
@@ -900,10 +849,6 @@ export class HydrateView extends ItemView {
 				responseData.tool_calls_prepared &&
 				responseData.tool_calls_prepared.length > 0
 			) {
-				console.log(
-					"Tool calls detected:",
-					responseData.tool_calls_prepared
-				);
 				await this.processToolCalls(responseData.tool_calls_prepared);
 			} else {
 				// No tool calls, just display the agent message
@@ -921,7 +866,6 @@ export class HydrateView extends ItemView {
 			this.abortController = null;
 
 			if (error.name === "AbortError") {
-				console.log("Request was cancelled");
 				addMessageToChat(this, "agent", "Request cancelled by user.");
 			} else {
 				console.error("Backend call failed:", error);
@@ -937,23 +881,7 @@ export class HydrateView extends ItemView {
 		let mcpTools: any[] = [];
 		if (this.plugin.mcpManager) {
 			try {
-				console.log(
-					"[sendToolResults] MCP Manager found, checking servers..."
-				);
-				console.log(
-					"[sendToolResults] Number of servers:",
-					this.plugin.mcpManager.getServerCount()
-				);
-				console.log(
-					"[sendToolResults] Server statuses:",
-					this.plugin.mcpManager.getServerStatuses()
-				);
-
 				mcpTools = await this.plugin.mcpManager.getAllDiscoveredTools();
-				console.log(
-					`[sendToolResults] Collected ${mcpTools.length} MCP tools for backend:`,
-					mcpTools
-				);
 			} catch (error) {
 				console.warn(
 					"Error collecting MCP tools for tool result:",
@@ -970,15 +898,12 @@ export class HydrateView extends ItemView {
 			mcp_tools: mcpTools, // Include MCP tools in tool result request
 		};
 
-		console.log("[sendToolResults] Calling backend: /tool_result", payload);
 		await this.callBackend("/tool_result", payload);
 	}
 
 	private async processToolCalls(
 		toolCalls: BackendToolCall[]
 	): Promise<void> {
-		console.log(`Processing ${toolCalls.length} tool call(s)`);
-
 		// Add tool call indication to chat for each tool being called
 		for (const toolCall of toolCalls) {
 			const toolDisplayName = toolCall.mcp_info?.server_name
@@ -1012,9 +937,6 @@ export class HydrateView extends ItemView {
 
 		// Process edit tools through review modal
 		if (editToolCalls.length > 0) {
-			console.log(
-				`Processing ${editToolCalls.length} edit tool call(s) through review modal`
-			);
 			try {
 				const editResults = await this.reviewAndExecuteEdits(
 					editToolCalls
@@ -1039,10 +961,8 @@ export class HydrateView extends ItemView {
 		// Process other tools directly
 		for (const toolCall of otherToolCalls) {
 			try {
-				console.log(`Executing tool: ${toolCall.tool}`);
 				const result = await this.executeSingleTool(toolCall);
 				results.push({ id: toolCall.id, result });
-				console.log(`Tool ${toolCall.tool} completed successfully`);
 			} catch (error) {
 				console.error(`Error executing tool ${toolCall.tool}:`, error);
 				results.push({
@@ -1055,7 +975,6 @@ export class HydrateView extends ItemView {
 		}
 
 		// Send all results back to backend
-		console.log(`Sending ${results.length} tool result(s) to backend`);
 		await this.sendToolResults(results);
 	}
 
@@ -1066,18 +985,12 @@ export class HydrateView extends ItemView {
 
 		for (const toolCall of pendingEdits) {
 			try {
-				console.log(`Reviewing edit for tool: ${toolCall.tool}`);
-
 				// Show diff modal for review
 				const reviewResult = await this.displayDiffModalForReview(
 					toolCall
 				);
 
 				if (reviewResult.applied) {
-					console.log(
-						`Edit approved and applied for tool: ${toolCall.tool}`
-					);
-
 					// Actually apply the changes to the file
 					try {
 						const file = this.app.vault.getAbstractFileByPath(
@@ -1088,17 +1001,11 @@ export class HydrateView extends ItemView {
 								file,
 								reviewResult.finalContent || ""
 							);
-							console.log(
-								`Successfully wrote changes to ${toolCall.params.path}`
-							);
 						} else {
 							// File doesn't exist, create it
 							await this.app.vault.create(
 								toolCall.params.path,
 								reviewResult.finalContent || ""
-							);
-							console.log(
-								`Successfully created new file ${toolCall.params.path}`
 							);
 						}
 
@@ -1125,9 +1032,6 @@ export class HydrateView extends ItemView {
 						});
 					}
 				} else {
-					console.log(
-						`Edit rejected for tool: ${toolCall.tool}. Reason: ${reviewResult.message}`
-					);
 					// If the user rejected the changes, return an error result
 					results.push({
 						id: toolCall.id,
@@ -1157,8 +1061,6 @@ export class HydrateView extends ItemView {
 		toolCall: BackendToolCall
 	): Promise<DiffReviewResult> {
 		return new Promise(async (resolve) => {
-			console.log(`Preparing diff modal for tool: ${toolCall.tool}`);
-
 			// Determine the target file path
 			const targetPath = toolCall.params.path;
 			const instructions =
@@ -1304,15 +1206,6 @@ export class HydrateView extends ItemView {
 					`Error preparing data for DiffReviewModal for ${targetPath}:`,
 					error
 				);
-				// Log the original content and tool call on error for debugging
-				console.log(
-					"Original Content during error:",
-					JSON.stringify(originalContent)
-				);
-				console.log(
-					"Tool Call during error:",
-					JSON.stringify(toolCall)
-				);
 				// Resolve the promise with a rejected state if we can't even show the modal
 				resolve({
 					applied: false,
@@ -1362,8 +1255,6 @@ export class HydrateView extends ItemView {
 	}
 
 	private async executeMCPTool(toolCall: BackendToolCall): Promise<any> {
-		console.log(`Executing MCP tool: ${toolCall.tool}`, toolCall.mcp_info);
-
 		if (!toolCall.mcp_info) {
 			throw new Error("MCP tool call missing routing information");
 		}
@@ -1385,7 +1276,6 @@ export class HydrateView extends ItemView {
 				toolCall.params.kwargs &&
 				typeof toolCall.params.kwargs === "object"
 			) {
-				console.log("Unwrapping kwargs for MCP tool:", toolCall.tool);
 				actualParams = toolCall.params.kwargs;
 			}
 
@@ -1396,10 +1286,6 @@ export class HydrateView extends ItemView {
 				actualParams
 			);
 
-			console.log(
-				`MCP tool ${toolCall.tool} executed successfully:`,
-				result
-			);
 			return result;
 		} catch (error) {
 			console.error(
@@ -1528,8 +1414,6 @@ export class HydrateView extends ItemView {
 
 		await this.plugin.saveChatHistory(chatHistory);
 		this.currentChatId = chatHistory.id;
-
-		console.log(`Chat saved with ID: ${chatHistory.id}`);
 	}
 
 	/**
@@ -1558,8 +1442,6 @@ export class HydrateView extends ItemView {
 
 		// Restore the UI
 		this.restoreChatUI();
-
-		console.log(`Chat loaded with ID: ${chatHistory.id}`);
 	}
 
 	/**
@@ -1629,7 +1511,7 @@ export class HydrateView extends ItemView {
 	/**
 	 * Generates search queries from recent chat content and finds relevant notes
 	 */
-	private async refreshContextSuggestions(): Promise<void> {
+	public async refreshContextSuggestions(): Promise<void> {
 		// Throttle calls to avoid excessive API usage
 		const now = Date.now();
 		const timeSinceLastRefresh = now - this.lastSuggestionRefresh;
@@ -1678,7 +1560,7 @@ export class HydrateView extends ItemView {
 					);
 					const searchResults = await searchIndexRemote(
 						queryInfo.query,
-						this.plugin.settings as any, // VectorIndexSettings compatible
+						this.plugin.settings, // VectorIndexSettings compatible
 						3 // Limit results per query
 					);
 
@@ -2043,8 +1925,6 @@ export class HydrateView extends ItemView {
 
 		// Create the note
 		await this.app.vault.create(finalFilepath, noteContent);
-
-		console.log(`Chat exported to: ${finalFilepath}`);
 	}
 
 	// --- End Chat History Methods ---

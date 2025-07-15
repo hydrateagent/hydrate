@@ -47,7 +47,7 @@ export interface MCPToolSchema {
  * MCP Client implementation following the Model Context Protocol
  */
 export class MCPClient extends EventEmitter {
-	private transport: MCPTransport;
+	public transport: MCPTransport;
 	private connected = false;
 	private requestId = 0;
 	private pendingRequests = new Map<
@@ -219,9 +219,12 @@ export class MCPClient extends EventEmitter {
 		clearTimeout(pending.timeout);
 
 		if (response.error) {
-			const error = new Error(response.error.message);
-			(error as any).code = response.error.code;
-			(error as any).data = response.error.data;
+			const error = new Error(response.error.message) as Error & {
+				code?: any;
+				data?: any;
+			};
+			error.code = response.error.code;
+			error.data = response.error.data;
 			pending.reject(error);
 		} else {
 			pending.resolve(response.result);

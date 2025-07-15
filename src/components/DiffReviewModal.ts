@@ -58,27 +58,6 @@ export class DiffReviewModal extends Modal {
 
 	onOpen() {
 		const { contentEl } = this;
-		console.log("DiffReviewModal [onOpen]: Opening modal.");
-		console.log(
-			`DiffReviewModal [onOpen]: FilePath: ${this.filePath}, ToolCallId: ${this.toolCallId}`
-		);
-		console.log(
-			`DiffReviewModal [onOpen]: Original Content Length: ${this.originalContent.length}`,
-			`Proposed Content Length: ${this.proposedContent.length}`
-		);
-		// Log snippets for verification, careful with large content
-		console.log(
-			`DiffReviewModal [onOpen]: Original Snippet: ${this.originalContent.substring(
-				0,
-				100
-			)}`
-		);
-		console.log(
-			`DiffReviewModal [onOpen]: Proposed Snippet: ${this.proposedContent.substring(
-				0,
-				100
-			)}`
-		);
 
 		contentEl.empty();
 		contentEl.addClass("hydrate-diff-modal-content");
@@ -123,7 +102,6 @@ export class DiffReviewModal extends Modal {
 
 	// Renamed and implemented patch/hunk generation
 	private generatePatchesAndHunks(): void {
-		console.log("Generating patches and hunks...");
 		// Use patch_make for better hunk structure
 		this.patches = this.dmp.patch_make(
 			this.originalContent,
@@ -178,25 +156,14 @@ export class DiffReviewModal extends Modal {
 			});
 			this.hunks.push(hunk);
 		});
-		console.log(`Generated ${this.hunks.length} hunks.`);
 	}
 
 	// Implemented hunk rendering
 	private renderHunks(container: HTMLElement): void {
 		container.empty();
-		console.log("DiffReviewModal [renderHunks]: Starting render...");
-
-		// Log before the check
-		console.log(
-			`DiffReviewModal [renderHunks]: Checking empty file condition. Original length: ${this.originalContent.length}, Proposed length: ${this.proposedContent.length}`
-		);
 
 		// --- Special Handling for Empty Original File ---
 		if (this.originalContent === "" && this.proposedContent !== "") {
-			console.log(
-				"DiffReviewModal [renderHunks]: ENTERING Special handling for empty original file."
-			);
-			console.log("Rendering diff for empty original file.");
 			const lines = this.proposedContent.split("\n");
 			// Remove trailing empty line if present from split
 			if (lines[lines.length - 1] === "") {
@@ -230,21 +197,10 @@ export class DiffReviewModal extends Modal {
 		}
 		// --- End Special Handling ---
 
-		console.log(
-			"DiffReviewModal [renderHunks]: Condition for empty file special case NOT met."
-		);
-
 		if (this.hunks.length === 0) {
-			console.log(
-				"DiffReviewModal [renderHunks]: No hunks generated, displaying 'No changes detected'."
-			);
 			container.setText("No changes detected.");
 			return;
 		}
-
-		console.log(
-			`DiffReviewModal [renderHunks]: Rendering ${this.hunks.length} standard hunks.`
-		);
 
 		this.hunks.forEach((hunk, index) => {
 			const hunkContainer = container.createDiv({ cls: "diff-hunk" });
@@ -263,7 +219,6 @@ export class DiffReviewModal extends Modal {
 			checkbox.checked = hunk.applied;
 			checkbox.addEventListener("change", () => {
 				hunk.applied = checkbox.checked;
-				console.log(`Hunk ${index} applied status: ${hunk.applied}`);
 				hunkContainer.toggleClass("diff-hunk-discarded", !hunk.applied);
 			});
 
@@ -296,9 +251,6 @@ export class DiffReviewModal extends Modal {
 	}
 
 	private handleApply = () => {
-		console.log(
-			"Apply clicked. Reconstructing content based on selected hunks..."
-		);
 		// TODO: Implement logic to reconstruct the final content
 		// based on the `applied` status of each hunk in `this.hunks`
 		const reconstructedContent = this.reconstructContent();
@@ -313,7 +265,6 @@ export class DiffReviewModal extends Modal {
 	};
 
 	private handleCancel = () => {
-		console.log("Cancel clicked.");
 		this.resolvePromise({
 			toolCallId: this.toolCallId,
 			applied: false,
@@ -329,11 +280,9 @@ export class DiffReviewModal extends Modal {
 		);
 
 		if (selectedPatches.length === 0) {
-			console.log("No hunks selected, returning original content.");
 			return this.originalContent;
 		}
 
-		console.log(`Applying ${selectedPatches.length} selected patches...`);
 		const [newContent, results] = this.dmp.patch_apply(
 			selectedPatches,
 			this.originalContent
@@ -342,7 +291,6 @@ export class DiffReviewModal extends Modal {
 		// Check results for errors, add type annotation for the callback parameter
 		const successful = results.every((r: boolean) => r === true);
 		if (successful) {
-			console.log("Patch application successful.");
 			return newContent;
 		} else {
 			console.error("Patch application failed for some hunks:", results);

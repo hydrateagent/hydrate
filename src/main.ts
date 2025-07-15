@@ -70,7 +70,6 @@ export function registerReactView(
 		console.warn(`Hydrate: Overwriting React view for key "${key}"`);
 	}
 	reactViewRegistry.set(key, component);
-	console.log(`Hydrate: Registered React view for key "${key}"`);
 }
 
 export function getReactViewComponent(
@@ -171,7 +170,7 @@ const DEFAULT_CONVERSATION_RULE: RuleEntry = {
 
 const DEFAULT_SETTINGS: HydratePluginSettings = {
 	mySetting: "default",
-	developmentPath: ".obsidian/plugins/hydrate",
+	developmentPath: "", // <<< ADDED default empty developmentPath set dynamically
 	backendUrl: "http://localhost:8000",
 	registryEntries: [], // Existing initialization
 	rulesRegistryEntries: [], // <<< Initialized as empty
@@ -219,9 +218,10 @@ export default class HydratePlugin extends Plugin {
 	mcpManager: MCPServerManager | null = null; // MCP Server Manager
 
 	async onload() {
-		console.log("Loading Hydrate plugin...");
-
 		await this.loadSettings();
+		// Set developmentPath dynamically based on the actual config directory
+		this.settings.developmentPath =
+			this.app.vault.configDir + "/plugins/hydrate";
 
 		// --- Initialize Vector System (Only if embeddings are enabled) ---
 		// Don't initialize vector system for new users or when embeddings are disabled
@@ -231,18 +231,14 @@ export default class HydratePlugin extends Plugin {
 			this.settings.remoteEmbeddingUrl &&
 			this.settings.remoteEmbeddingApiKey
 		) {
-			console.log(
-				"Embeddings are enabled and configured, initializing vector system..."
-			);
 			await initializeVectorSystem(this.app);
 		} else {
-			console.log(
+			console.warn(
 				"Embeddings are disabled or not configured, skipping vector system initialization."
 			);
 		}
 
 		// --- Initialize MCP Server Manager ---
-		console.log("Initializing MCP Server Manager...");
 		try {
 			// Create MCP server manager
 			const plugin = this; // Capture reference for use in config storage
@@ -270,36 +266,23 @@ export default class HydratePlugin extends Plugin {
 					.map((p) => p.trim())
 					.filter((p) => p.length > 0);
 				this.mcpManager.setCustomPaths(paths);
-				console.log("MCP Custom paths set:", paths);
 			}
 
 			// Debug: Check what MCP servers are in settings
-			console.log("MCP servers from settings:", this.settings.mcpServers);
-			console.log(
-				"Number of MCP servers in settings:",
-				this.settings.mcpServers?.length || 0
-			);
 
 			// Load existing MCP servers from settings
 			if (
 				this.settings.mcpServers &&
 				this.settings.mcpServers.length > 0
 			) {
-				console.log("Loading existing MCP servers from settings...");
 				let loadedCount = 0;
 				let failedCount = 0;
 
 				for (const serverConfig of this.settings.mcpServers) {
 					try {
-						console.log(
-							`Attempting to load server: ${serverConfig.id} (${serverConfig.name})`
-						);
 						await this.mcpManager.addServer(
 							serverConfig.id,
 							serverConfig
-						);
-						console.log(
-							`✓ Successfully loaded MCP server: ${serverConfig.id} (${serverConfig.name})`
 						);
 						loadedCount++;
 					} catch (error) {
@@ -310,35 +293,21 @@ export default class HydratePlugin extends Plugin {
 						failedCount++;
 					}
 				}
-				console.log(
-					`MCP Server loading complete: ${loadedCount} loaded, ${failedCount} failed out of ${this.settings.mcpServers.length} total`
-				);
 
 				// Verify servers are actually in the manager
 				const managerServerIds = this.mcpManager.getServerIds();
-				console.log(
-					`MCPServerManager now contains ${managerServerIds.length} servers:`,
-					managerServerIds
-				);
 
 				// Trigger tool discovery for any servers that are already running
-				console.log(
-					"Triggering tool discovery for already-running servers..."
-				);
 				let discoveryCount = 0;
 				for (const serverId of managerServerIds) {
 					const server = this.mcpManager.getServer(serverId);
 					const status = this.mcpManager.getServerStatus(serverId);
 					if (server && status === "running") {
 						try {
-							console.log(
-								`Discovering tools for running server: ${serverId}`
-							);
 							const tools =
 								await this.mcpManager.refreshServerTools(
 									serverId
 								);
-							console.log(`✓ Discovered tools for ${serverId}`);
 							discoveryCount++;
 						} catch (error) {
 							console.error(
@@ -348,14 +317,9 @@ export default class HydratePlugin extends Plugin {
 						}
 					}
 				}
-				console.log(
-					`Tool discovery complete: ${discoveryCount} servers processed`
-				);
 			} else {
-				console.log("No MCP servers configured in settings");
+				console.warn("No MCP servers configured in settings");
 			}
-
-			console.log("MCP Server Manager initialized successfully");
 		} catch (error) {
 			console.error("Failed to initialize MCP Server Manager:", error);
 			new Notice(
@@ -389,9 +353,6 @@ export default class HydratePlugin extends Plugin {
 				// Only attempt to remove from index if embeddings are enabled
 				// This prevents unnecessary operations when vector indexing is not being used
 				if (this.settings.enableRemoteEmbeddings) {
-					console.log(
-						`File/folder deleted: ${file.path}, removing from index.`
-					);
 					// No need to await, let it run in the background
 					deleteDocumentFromIndex(this.app, file.path).catch(
 						(err: any) =>
@@ -412,7 +373,7 @@ export default class HydratePlugin extends Plugin {
 		// --- Toggle Command ---
 		this.addCommand({
 			id: "toggle-hydrate-react-view",
-			name: "Toggle Markdown/Hydrate React View",
+			name: "Toggle Markdown / React View",
 			checkCallback: this.checkToggleReactView,
 		});
 
@@ -436,24 +397,15 @@ export default class HydratePlugin extends Plugin {
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new HydrateSettingTab(this.app, this)); // <<< USE IMPORTED SETTING TAB
 
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		// this.registerInterval(
-		//  window.setInterval(() => console.log("setInterval"), 5 * 60 * 1000)
-		// );
-
 		// --- React View Host Registration ---
-		console.log(`Hydrate: Registering view type: ${REACT_HOST_VIEW_TYPE}`);
 		this.registerView(REACT_HOST_VIEW_TYPE, (leaf: WorkspaceLeaf) => {
-			console.log(
-				`Hydrate: Factory function called for view type: ${REACT_HOST_VIEW_TYPE}`
-			);
 			return new ReactViewHost(leaf, this);
 		});
 
 		// --- Add Selection Command ---
 		this.addCommand({
 			id: "add-selection-to-hydrate",
-			name: "Hydrate: Add selection to context",
+			name: "Add selection to context",
 			callback: () => {
 				// 1. Get active editor and selection
 				const activeMdView =
@@ -488,12 +440,6 @@ export default class HydratePlugin extends Plugin {
 				const formattedIndex = index.toString().padStart(2, "0"); // Zero-pad
 				const token = `/select${formattedIndex}`; // Create token like /select01
 
-				console.log(`[Capture] Selection captured: "${selection}"`);
-				console.log(`[Capture] Token created: "${token}"`);
-				console.log(
-					`[Capture] Total captured selections now: ${hydrateView.capturedSelections.length}`
-				);
-
 				// Append the token to the current text
 				const currentText = hydrateView.textInput.value;
 				const separator =
@@ -502,10 +448,6 @@ export default class HydratePlugin extends Plugin {
 						: ""; // Add space if needed
 				const newValue = `${currentText}${separator}${token} `;
 				hydrateView.textInput.value = newValue;
-
-				console.log(
-					`[Capture] Updated text input value: "${newValue}"`
-				);
 
 				// Trigger input event for potential UI updates (like textarea resize)
 				hydrateView.textInput.dispatchEvent(
@@ -551,7 +493,7 @@ export default class HydratePlugin extends Plugin {
 		 */
 		this.addCommand({
 			id: "process-agent-tool-calls",
-			name: "Hydrate: Process agent tool calls",
+			name: "Process agent tool calls",
 			callback: async () => {
 				const toolCalls = await this.processAgentToolCalls([]);
 				new Notice(`Processed ${toolCalls.length} tool calls.`);
@@ -571,17 +513,11 @@ export default class HydratePlugin extends Plugin {
 			// Get path from MarkdownView or ReactViewHost (if applicable)
 			if (currentView instanceof MarkdownView && currentView.file) {
 				sourceFilePath = currentView.file.path;
-				console.log(
-					`Hydrate activateView: Found source file from MarkdownView: ${sourceFilePath}`
-				);
 			} else if (
 				currentView instanceof ReactViewHost &&
 				currentView.currentFilePath
 			) {
 				sourceFilePath = currentView.currentFilePath;
-				console.log(
-					`Hydrate activateView: Found source file from ReactViewHost: ${sourceFilePath}`
-				);
 			} else if (
 				currentView instanceof ItemView &&
 				currentView.getViewType() !== HYDRATE_VIEW_TYPE
@@ -594,18 +530,15 @@ export default class HydratePlugin extends Plugin {
 					);
 					if (file instanceof TFile) {
 						sourceFilePath = file.path;
-						console.log(
-							`Hydrate activateView: Found source file from generic ItemView state: ${sourceFilePath}`
-						);
 					}
 				}
 			} else {
-				console.log(
+				console.warn(
 					`Hydrate activateView: Active view is not Markdown or ReactViewHost or did not yield a file path.`
 				);
 			}
 		} else {
-			console.log(`Hydrate activateView: No active leaf found.`);
+			console.warn(`Hydrate activateView: No active leaf found.`);
 		}
 
 		// If view is already open in a leaf, reveal that leaf
@@ -619,14 +552,11 @@ export default class HydratePlugin extends Plugin {
 				existingLeaf.view instanceof HydrateView &&
 				existingLeaf.view.attachedFiles.length === 0
 			) {
-				console.log(
-					`Hydrate activateView: Existing view revealed. Attaching current file: ${sourceFilePath}`
-				);
 				(existingLeaf.view as HydrateView).attachInitialFile(
 					sourceFilePath
 				);
 			} else {
-				console.log(
+				console.warn(
 					`Hydrate activateView: Existing view revealed. Source file: ${sourceFilePath}. View state not modified.`
 				);
 			}
@@ -652,10 +582,6 @@ export default class HydratePlugin extends Plugin {
 			viewStateToSet.state.sourceFilePath = sourceFilePath; // Add sourceFilePath if found
 		}
 
-		console.log(
-			`Hydrate activateView: Setting state for new leaf:`,
-			JSON.stringify(viewStateToSet)
-		);
 		await leaf.setViewState(viewStateToSet);
 
 		// 'this.view' will be set by the view factory function registered earlier
@@ -674,19 +600,12 @@ export default class HydratePlugin extends Plugin {
 
 	// --- File Open Handler (Simplified for File Attachment Logic) ---
 	handleFileOpen = async (file: TFile | null) => {
-		console.log(
-			`Hydrate [file-open]: File changed to: ${file?.path ?? "null"}`
-		);
-
 		// --- Part 1: Notify the Hydrate Pane (Keep this logic) ---
 		if (this.view && this.view.containerEl.isShown()) {
-			console.log(
-				`Hydrate [file-open]: Hydrate view is open, notifying it of file change.`
-			);
 			// Pass the new file path (or null) to the view instance
 			this.view.handleActiveFileChange(file?.path ?? null);
 		} else {
-			console.log(
+			console.warn(
 				`Hydrate [file-open]: Hydrate view is not open or not visible, ignoring file change.`
 			);
 		}
@@ -694,7 +613,7 @@ export default class HydratePlugin extends Plugin {
 		// --- Part 2: Handle Main Editor View Switching (Uncommented and Refined) ---
 		const leaf = this.app.workspace.getActiveViewOfType(ItemView)?.leaf; // Get active leaf first
 		if (!leaf) {
-			console.log(
+			console.warn(
 				"Hydrate [file-open]: No active leaf found. Cannot switch view."
 			);
 			return; // Exit if no active leaf
@@ -705,7 +624,7 @@ export default class HydratePlugin extends Plugin {
 		// Handle case where file becomes null (e.g., closing last tab)
 		if (!file) {
 			if (currentView instanceof ReactViewHost) {
-				console.log(
+				console.warn(
 					"Hydrate [file-open]: File is null, switching React Host back to Markdown."
 				);
 				// Check if ReactViewHost expects a file path; might need adjustment if it crashes on null
@@ -713,12 +632,12 @@ export default class HydratePlugin extends Plugin {
 				if (!this.isSwitchingToMarkdown) {
 					currentView.switchToMarkdownView();
 				} else {
-					console.log(
+					console.warn(
 						"Hydrate [file-open]: Already switching to markdown, skipping."
 					);
 				}
 			} else {
-				console.log(
+				console.warn(
 					"Hydrate [file-open]: File is null, current view is not React Host. No action needed."
 				);
 			}
@@ -779,20 +698,15 @@ export default class HydratePlugin extends Plugin {
 
 	// --- Layout Change Handler (Re-enabled and Refined) ---
 	handleLayoutChange = async () => {
-		console.log("Hydrate [layout-change]: Layout change detected.");
-
 		// Check if we are intentionally switching back to markdown
 		if (this.isSwitchingToMarkdown) {
-			console.log(
-				"Hydrate [layout-change]: Intentional switch to markdown detected, skipping checks and resetting flag."
-			);
 			this.isSwitchingToMarkdown = false; // Reset the flag *after* skipping the check
 			return;
 		}
 
 		const leaf = this.app.workspace.activeLeaf;
 		if (!leaf) {
-			console.log("Hydrate [layout-change]: No active leaf.");
+			console.debug("Hydrate [layout-change]: No active leaf.");
 			return;
 		}
 
@@ -803,7 +717,7 @@ export default class HydratePlugin extends Plugin {
 			const file = currentView.file;
 			const fileCache = this.app.metadataCache.getFileCache(file);
 			if (!fileCache) {
-				console.log(
+				console.debug(
 					"Hydrate [layout-change]: File cache not ready, skipping check."
 				);
 				return;
@@ -823,9 +737,6 @@ export default class HydratePlugin extends Plugin {
 
 				// Switch if in Reading ("preview") or Live Preview (mode=="source" AND state.source==false)
 				if (currentMode === "preview" || !isSourceMode) {
-					console.log(
-						`Hydrate [layout-change]: Active view is Markdown (mode: ${currentMode}, sourceState: ${currentState.source}) for ${file.path}, but should be React (${viewKey}). Switching...`
-					);
 					try {
 						await leaf.setViewState({
 							type: REACT_HOST_VIEW_TYPE,
@@ -838,23 +749,13 @@ export default class HydratePlugin extends Plugin {
 							error
 						);
 					}
-				} else {
-					// This condition implies mode=="source" AND state.source==true (True Source Mode)
-					console.log(
-						`Hydrate [layout-change]: Active view is Markdown for ${file.path} (IN TRUE SOURCE MODE). File should be React, but respecting source mode. NO SWITCH.`
-					);
 				}
-			} else {
-				// console.log("Hydrate [layout-change]: Active view is Markdown, and it should be (no valid hydrate-plugin key). No switch needed.");
 			}
 		}
 		// Scenario 2: Active view is React, but should it be Markdown?
 		else if (currentView instanceof ReactViewHost) {
 			const filePath = currentView.currentFilePath;
 			if (!filePath) {
-				console.log(
-					"Hydrate [layout-change]: Active view is ReactHost, but has no file path. Switching to Markdown."
-				);
 				await currentView.switchToMarkdownView();
 				return;
 			}
@@ -870,7 +771,7 @@ export default class HydratePlugin extends Plugin {
 
 			const fileCache = this.app.metadataCache.getFileCache(file);
 			if (!fileCache) {
-				console.log(
+				console.debug(
 					"Hydrate [layout-change]: File cache not ready for ReactHost file, skipping check."
 				);
 				return;
@@ -883,15 +784,11 @@ export default class HydratePlugin extends Plugin {
 				: undefined;
 
 			if (!ReactComponent || !viewKey) {
-				console.log(
+				console.debug(
 					`Hydrate [layout-change]: Active view is React for ${filePath}, but should be Markdown (key missing or invalid). Switching back...`
 				);
 				await currentView.switchToMarkdownView();
-			} else {
-				// console.log("Hydrate [layout-change]: Active view is React, and it should be. No switch needed.");
 			}
-		} else {
-			// console.log("Hydrate [layout-change]: Active view is neither Markdown nor ReactHost, no action needed.");
 		}
 	};
 	// --- End Layout Change Handler ---
@@ -903,12 +800,10 @@ export default class HydratePlugin extends Plugin {
 
 		// Clean up MCP Server Manager
 		if (this.mcpManager) {
-			console.log("Shutting down MCP Server Manager...");
 			try {
 				// Stop all servers
 				this.mcpManager.stopAllServers();
 				this.mcpManager = null;
-				console.log("MCP Server Manager shut down successfully");
 			} catch (error) {
 				console.error(
 					"Error during MCP Server Manager shutdown:",
@@ -916,8 +811,6 @@ export default class HydratePlugin extends Plugin {
 				);
 			}
 		}
-
-		console.log("Hydrate Plugin Unloaded");
 	}
 
 	async loadSettings() {
@@ -933,9 +826,6 @@ export default class HydratePlugin extends Plugin {
 			!this.settings.registryEntries ||
 			!Array.isArray(this.settings.registryEntries)
 		) {
-			console.log(
-				"Hydrate: Format Registry empty or invalid, initializing with default /issue command."
-			);
 			// If empty or not an array, initialize it with the default entry
 			this.settings.registryEntries = [
 				{
@@ -956,9 +846,6 @@ export default class HydratePlugin extends Plugin {
 					entry.slashCommandTrigger === "/issue"
 			);
 			if (!defaultIssueExists) {
-				console.log(
-					"Hydrate: Default '/issue' command missing from existing registry, adding it."
-				);
 				// Add it if missing
 				this.settings.registryEntries.push({
 					id: "default-issue-board",
@@ -979,9 +866,6 @@ export default class HydratePlugin extends Plugin {
 			!this.settings.rulesRegistryEntries ||
 			!Array.isArray(this.settings.rulesRegistryEntries)
 		) {
-			console.log(
-				"Hydrate: Rules Registry empty or invalid, initializing with default conversation rule."
-			);
 			// Initialize with the default rule if empty or invalid
 			this.settings.rulesRegistryEntries = [DEFAULT_CONVERSATION_RULE];
 		} else {
@@ -991,9 +875,6 @@ export default class HydratePlugin extends Plugin {
 					(rule) => rule.id === DEFAULT_CONVERSATION_RULE.id
 				);
 			if (!defaultConversationRuleExists) {
-				console.log(
-					"Hydrate: Default conversation rule missing from existing registry, adding it."
-				);
 				this.settings.rulesRegistryEntries.push(
 					DEFAULT_CONVERSATION_RULE
 				);
@@ -1006,9 +887,6 @@ export default class HydratePlugin extends Plugin {
 			!this.settings.chatHistories ||
 			!Array.isArray(this.settings.chatHistories)
 		) {
-			console.log(
-				"Hydrate: Chat Histories empty or invalid, initializing as empty array."
-			);
 			this.settings.chatHistories = [];
 		}
 		// --- End Initialize Chat Histories Array ---
@@ -1121,7 +999,6 @@ export default class HydratePlugin extends Plugin {
 			this.settings.remoteEmbeddingUrl &&
 			this.settings.remoteEmbeddingApiKey
 		) {
-			console.log("Initializing vector system from settings...");
 			await initializeVectorSystem(this.app);
 		}
 	}
@@ -1155,14 +1032,12 @@ export default class HydratePlugin extends Plugin {
 
 		if (forceRebuild) {
 			new Notice("Rebuilding vector index from scratch...");
-			console.log("Force rebuilding vector index...");
 			// Reinitialize with force rebuild to clear corrupted data
 			await initializeVectorSystem(this.app, true);
 		} else {
 			new Notice(
 				"Starting vault indexing... This will be much faster with batch processing."
 			);
-			console.log("Starting vault indexing with batch processing...");
 		}
 
 		const allFiles = this.app.vault.getFiles();
@@ -1192,10 +1067,6 @@ export default class HydratePlugin extends Plugin {
 			return !shouldSkip;
 		});
 
-		console.log(
-			`Found ${allFiles.length} total files, ${filteredFiles.length} files match criteria for extensions: '${this.settings.indexFileExtensions}'.`
-		);
-
 		try {
 			const result = await addOrUpdateDocumentsBatch(
 				this.app,
@@ -1207,8 +1078,6 @@ export default class HydratePlugin extends Plugin {
 
 			if (result.errors > 0) {
 				console.warn(completionMessage);
-			} else {
-				console.log(completionMessage);
 			}
 
 			new Notice(completionMessage);
@@ -1223,7 +1092,6 @@ export default class HydratePlugin extends Plugin {
 	// Add a function to potentially stop indexing if needed
 	stopIndexing() {
 		if (this.isIndexing) {
-			console.log("Requesting indexing stop...");
 			this.isIndexing = false; // Set flag to stop loop
 		}
 	}
@@ -1244,11 +1112,6 @@ export default class HydratePlugin extends Plugin {
 		if (!preparedCalls || preparedCalls.length === 0) {
 			return toolResults;
 		}
-
-		console.log(
-			"[Hydrate Plugin] Processing agent tool calls:",
-			preparedCalls
-		);
 
 		for (const call of preparedCalls) {
 			if (call.tool === "search_project") {
@@ -1288,7 +1151,7 @@ export default class HydratePlugin extends Plugin {
 			}
 		}
 
-		console.log(
+		console.debug(
 			"[Hydrate Plugin] Sending tool results back to agent:",
 			toolResults
 		);

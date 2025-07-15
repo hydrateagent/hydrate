@@ -44,10 +44,6 @@ export async function handleSearchProject(
 	}
 
 	try {
-		console.log(
-			`[Hydrate Plugin] Executing search_project with query: "${params.query}"`
-		);
-
 		// Validate required settings for remote embeddings
 		if (!settings.enableRemoteEmbeddings) {
 			const errorMsg =
@@ -74,14 +70,6 @@ export async function handleSearchProject(
 		// Also, searchIndexRemote does not currently use target_directories.
 		// If target_directories functionality is needed, searchIndexRemote
 		// and potentially Vectra querying logic will need to be updated.
-		if (params.target_directories && params.target_directories.length > 0) {
-			console.log(
-				`[Hydrate Plugin] search_project target_directories specified: ${params.target_directories.join(
-					", "
-				)} (currently not implemented in searchIndexRemote)`
-			);
-			// Future: Pass target_directories to an updated searchIndexRemote
-		}
 
 		const searchResults = await searchIndexRemote(
 			params.query,
@@ -104,9 +92,6 @@ export async function handleSearchProject(
 			resultSummary = `No relevant snippets found for your query: "${params.query}"`;
 		}
 
-		console.log(
-			`[Hydrate Plugin] search_project result for query "${params.query}": ${searchResults.length} items found.`
-		);
 		return {
 			id: call.id,
 			result: resultSummary,

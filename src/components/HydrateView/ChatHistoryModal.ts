@@ -91,8 +91,6 @@ export class ChatHistoryModal extends FuzzySuggestModal<ChatHistory> {
 					await this.view.plugin.deleteChatHistory(chat.id);
 
 					// Modal will automatically refresh since getItems() fetches current data
-
-					console.log(`Deleted chat history: ${chat.id}`);
 				} catch (error) {
 					console.error("Error deleting chat history:", error);
 				}

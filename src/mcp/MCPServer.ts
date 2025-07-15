@@ -136,9 +136,6 @@ export class MCPServer extends EventEmitter {
 					const newPaths = this.customPaths.join(":");
 					envVars.PATH =
 						newPaths + (currentPath ? ":" + currentPath : "");
-					console.log(
-						`[${this.config.id}] Using custom PATH: ${envVars.PATH}`
-					);
 				}
 
 				// Add config environment variables (these are already strings)
@@ -358,7 +355,7 @@ export class MCPServer extends EventEmitter {
 		});
 
 		this.client.on("stderr", (data: string) => {
-			console.log(`[${this.config.id}] Server stderr:`, data.trim());
+			console.warn(`[${this.config.id}] Server stderr:`, data.trim());
 		});
 	}
 
@@ -425,7 +422,7 @@ export class MCPServer extends EventEmitter {
 	}
 
 	private handleClientDisconnect(info: any): void {
-		console.log(`[${this.config.id}] Client disconnected:`, info);
+		console.warn(`[${this.config.id}] Client disconnected:`, info);
 
 		if (this.status === MCPServerStatus.RUNNING) {
 			this.setStatus(MCPServerStatus.CRASHED);
@@ -513,9 +510,17 @@ export class MCPServer extends EventEmitter {
 	private getPid(): number | undefined {
 		// Try to get PID from the transport if it's stdio
 		if (this.client && this.config.transport.type === "stdio") {
-			const transport = (this.client as any).transport;
-			if (transport && transport.process) {
-				return transport.process.pid;
+			const transport = this.client.transport;
+			// Only StdioTransport has a process property
+			if (
+				transport &&
+				typeof transport === "object" &&
+				"process" in transport
+			) {
+				const stdioTransport = transport as unknown as StdioTransport;
+				if (stdioTransport.process) {
+					return stdioTransport.process.pid;
+				}
 			}
 		}
 		return undefined;

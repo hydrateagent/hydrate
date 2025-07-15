@@ -16,13 +16,7 @@ export async function toolReadFile(app: App, path: string): Promise<string> {
 		: path;
 	const finalNormalizedPath = normalizePath(initialNormalizedPath);
 
-	console.log(
-		`Tool: Reading file. Original: '${path}', Initial Norm: '${initialNormalizedPath}', Final Norm: '${finalNormalizedPath}'`
-	);
 	const adapterExists = await app.vault.adapter.exists(finalNormalizedPath);
-	console.log(
-		`Tool: app.vault.adapter.exists('${finalNormalizedPath}') returned: ${adapterExists}`
-	);
 
 	const file = app.vault.getAbstractFileByPath(finalNormalizedPath);
 	if (!file) {
@@ -58,15 +52,11 @@ export async function toolEditFile(
 		? path.substring(2)
 		: path;
 	const finalNormalizedPath = normalizePath(initialNormalizedPath);
-	console.log(
-		`Tool: Applying content to ${finalNormalizedPath} (Instructions: ${instructions}) (Original Path: '${path}')`
-	);
 	const file = app.vault.getAbstractFileByPath(finalNormalizedPath);
 
 	// Check if file exists before deciding create vs modify
 	if (!file) {
 		// File does not exist, create it
-		console.log(`Tool: File ${finalNormalizedPath} not found. Creating...`);
 		try {
 			await app.vault.create(finalNormalizedPath, final_content);
 			const successMsg = `Successfully created file ${finalNormalizedPath}`;
@@ -83,7 +73,6 @@ export async function toolEditFile(
 		}
 	} else if (file instanceof TFile) {
 		// File exists, modify it
-		console.log(`Tool: File ${finalNormalizedPath} exists. Modifying...`);
 		try {
 			await app.vault.modify(file, final_content);
 			const successMsg = `Successfully applied changes to ${finalNormalizedPath}`;
@@ -125,13 +114,6 @@ export async function toolReplaceSelectionInFile(
 		? path.substring(2)
 		: path;
 	const finalNormalizedPath = normalizePath(initialNormalizedPath);
-	console.log(
-		`Tool: Replacing selection in ${finalNormalizedPath} (Original Selection: '${original_selection.substring(
-			0,
-			50
-		)}...') (Original Path: '${path}')`
-	);
-
 	const file = app.vault.getAbstractFileByPath(finalNormalizedPath);
 	if (!file) {
 		throw new Error(`File not found: ${finalNormalizedPath}`);
@@ -163,7 +145,6 @@ export async function toolReplaceSelectionInFile(
 	// Check if content actually changed (replacement might result in the same string)
 	if (final_content === originalContent) {
 		const noChangeMsg = `Replacement in ${finalNormalizedPath} resulted in no change to the file content.`;
-		console.log(noChangeMsg);
 		// Return success, as the intended state (post-replacement) matches current state.
 		return noChangeMsg;
 	}
@@ -195,8 +176,6 @@ export async function applyPatchesToFile(
 	plugin: HydratePlugin,
 	params: any
 ): Promise<string> {
-	console.log("Applying patches with params:", params);
-
 	const path = params.path as string;
 	const patches = params.patches as Patch[];
 
@@ -229,7 +208,6 @@ export async function applyPatchesToFile(
 		// Apply patches sequentially
 		for (let i = 0; i < patches.length; i++) {
 			const patch = patches[i];
-			console.log(`Processing patch ${i + 1}:`, patch);
 
 			// Validate patch structure
 			if (
@@ -313,7 +291,6 @@ export async function applyPatchesToFile(
 				newText +
 				currentContent.substring(endIndex);
 
-			console.log(`Patch ${i + 1} applied successfully.`);
 			contentChanged = true;
 		}
 

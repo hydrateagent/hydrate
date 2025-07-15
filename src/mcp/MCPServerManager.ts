@@ -399,14 +399,7 @@ export class MCPServerManager extends EventEmitter {
 	 * Get tools from a specific server
 	 */
 	getToolsFromServer(serverId: string): MCPToolSchemaWithMetadata[] {
-		console.log(
-			`MCPServerManager: getToolsFromServer called for ${serverId}`
-		);
 		const tools = this.discoveredTools.get(serverId) || [];
-		console.log(
-			`MCPServerManager: getToolsFromServer(${serverId}) returned:`,
-			tools
-		);
 		return tools;
 	}
 
@@ -711,15 +704,8 @@ export class MCPServerManager extends EventEmitter {
 		server: MCPServer
 	): void {
 		server.on("status-changed", async (status, previousStatus) => {
-			console.log(
-				`MCPServerManager: Server ${serverId} status changed from ${previousStatus} to ${status}`
-			);
-
 			// Trigger tool discovery when server becomes running
 			if (status === "running" && previousStatus !== "running") {
-				console.log(
-					`MCPServerManager: Triggering tool discovery for newly running server ${serverId}`
-				);
 				try {
 					await this.refreshServerTools(serverId);
 				} catch (error) {
@@ -784,27 +770,13 @@ export class MCPServerManager extends EventEmitter {
 	 * Get all discovered MCP tools from running servers
 	 */
 	async getAllDiscoveredTools(): Promise<any[]> {
-		console.log(
-			`MCPServerManager: Starting tool collection from ${this.servers.size} servers`
-		);
-		console.log(
-			`MCPServerManager: Server IDs:`,
-			Array.from(this.servers.keys())
-		);
-
 		const allTools: any[] = [];
 		let serverCount = 0;
 		let toolCount = 0;
 
 		for (const [serverId, server] of this.servers) {
 			try {
-				console.log(
-					`MCPServerManager: Getting tools from server ${serverId}...`
-				);
 				const tools = this.getToolsFromServer(serverId);
-				console.log(
-					`MCPServerManager: Server ${serverId} provided ${tools.length} tools`
-				);
 				allTools.push(...tools);
 				serverCount++;
 				toolCount += tools.length;
@@ -816,9 +788,6 @@ export class MCPServerManager extends EventEmitter {
 			}
 		}
 
-		console.log(
-			`MCPServerManager: Collected ${toolCount} tools from ${serverCount} servers`
-		);
 		return allTools;
 	}
 

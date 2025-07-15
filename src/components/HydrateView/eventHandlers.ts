@@ -35,10 +35,12 @@ export const handleClear = (view: HydrateView): void => {
 	view.appliedRuleIds.clear();
 
 	// Clear chat history state
-	(view as any).currentChatTurns = [];
-	(view as any).currentChatId = null;
+	view.currentChatTurns = [];
+	view.currentChatId = null;
 
-	view.chatContainer.innerHTML = "";
+	while (view.chatContainer.firstChild) {
+		view.chatContainer.removeChild(view.chatContainer.firstChild);
+	}
 	addMessageToChat(view, "system", "Chat cleared. New conversation started.");
 	view.textInput.style.height = "auto";
 	view.textInput.dispatchEvent(new Event("input"));
@@ -229,7 +231,6 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 
 	const originalMessageContent = view.textInput.value.trim();
 	let payloadContent = originalMessageContent;
-	console.log("[handleSend] Initial payloadContent:", payloadContent);
 
 	// --- Step 1: Handle /selectNN commands ---
 	const capturedSelections = [...view.capturedSelections]; // Copy array
@@ -260,31 +261,16 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 	}
 
 	if (capturedSelections.length > 0) {
-		console.log(
-			`[handleSend] Found ${capturedSelections.length} captured selection(s).`
-		);
-		console.log(
-			`[handleSend] Current payloadContent before replacement:`,
-			payloadContent
-		);
-		console.log(`[handleSend] Captured selections:`, capturedSelections);
-
 		for (let i = 0; i < capturedSelections.length; i++) {
 			const index = i + 1; // 1-based index for token
 			const formattedIndex = index.toString().padStart(2, "0");
 			const token = `/select${formattedIndex}`;
 			const selectionText = capturedSelections[i];
 
-			console.log(
-				`[handleSend] Looking for token: "${token}" in payloadContent`
-			);
 			if (payloadContent.includes(token)) {
 				const replacement = `\n\n--- Selected Text ${index} ---\n${selectionText}\n--- End Selected Text ${index} ---\n`;
 				// Use replaceAll in case the same token was somehow added multiple times (though command logic prevents this)
 				payloadContent = payloadContent.replaceAll(token, replacement);
-				console.log(
-					`[handleSend] Replaced ${token} with Selected Text ${index}.`
-				);
 			} else {
 				console.warn(
 					`[handleSend] Token ${token} not found in payloadContent, but selection ${index} was captured.`
@@ -295,13 +281,8 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 				);
 			}
 		}
-		console.log(
-			`[handleSend] PayloadContent after replacement:`,
-			payloadContent
-		);
 		// Clear the selections array in the view state AFTER processing
 		view.capturedSelections = [];
-		console.log("[handleSend] Cleared captured selections array.");
 	}
 	// --- End Step 1 ---
 
@@ -333,10 +314,6 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 			});
 		}
 	}
-	console.log(
-		"[handleSend] payloadContent after registered command processing:",
-		payloadContent
-	);
 	// --- End Step 2 ---
 
 	// --- Step 3: Read and Inject Attached File Contents ---
@@ -371,9 +348,6 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 							view.appliedRuleIds.add(ruleId);
 							// rulesToApplyThisTurn.push(rule); // Optional
 							rulesContextToSend += `\n\n--- Begin Applied Rule: ${rule.id} ---\n${rule.ruleText}\n--- End Applied Rule: ${rule.id} ---\n`;
-							console.log(
-								`[handleSend] Applying rule '${ruleId}' for the first time this conversation.`
-							);
 						}
 					}
 				}
@@ -410,11 +384,6 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 		}
 
 		if (shouldSendContent) {
-			console.log(
-				`[handleSend] Reading content for ${filePath} (Convo: ${
-					currentConvoId || "NEW"
-				})`
-			);
 			try {
 				const file = view.app.vault.getAbstractFileByPath(filePath);
 				if (file instanceof TFile) {
@@ -423,9 +392,6 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 					// Add to registry ONLY if we have a convo ID (won't have one on the very first send)
 					if (registryKey) {
 						view.sentFileContentRegistry.add(registryKey);
-						console.log(
-							`[handleSend] Added ${registryKey} to sent registry.`
-						);
 					}
 				} else {
 					console.warn(
@@ -460,11 +426,6 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 	}
 	// --- END: Corrected Payload Construction ---
 
-	console.log(
-		"[handleSend] Final combinedPayload (length):",
-		combinedPayload.length
-	);
-
 	// --- START: Apply diff for conditional send and user message ---
 	if (currentAttachedFiles.length === 0 && !originalMessageContent) return;
 
@@ -480,21 +441,7 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 	let mcpTools: any[] = [];
 	if (view.plugin.mcpManager) {
 		try {
-			console.log("[handleSend] MCP Manager found, checking servers...");
-			console.log(
-				"[handleSend] Number of servers:",
-				view.plugin.mcpManager.getServerCount()
-			);
-			console.log(
-				"[handleSend] Server statuses:",
-				view.plugin.mcpManager.getServerStatuses()
-			);
-
 			mcpTools = await view.plugin.mcpManager.getAllDiscoveredTools();
-			console.log(
-				`[handleSend] Collected ${mcpTools.length} MCP tools for backend:`,
-				mcpTools
-			);
 		} catch (error) {
 			console.warn("[handleSend] Error collecting MCP tools:", error);
 		}
@@ -509,11 +456,6 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 		mcp_tools: mcpTools, // Include MCP tools in the request
 	};
 
-	// --- START: Apply diff debug log for payload ---
-	console.log(
-		"[Hydrate - handleSend] Payload to be sent to agent:",
-		JSON.stringify(payload, null, 2)
-	);
 	// --- END: Apply diff debug log for payload ---
 
 	setDomTextContent(view, "");
@@ -544,11 +486,11 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
  */
 export const handleStop = async (view: HydrateView): Promise<void> => {
 	if (!view.isLoading || !view.abortController) {
-		console.log("Hydrate: Stop clicked, but no request is active.");
+		console.warn("Hydrate: Stop clicked, but no request is active.");
 		return;
 	}
 
-	console.log("Hydrate: Stop requested. Aborting current request...");
+	console.debug("Hydrate: Stop requested. Aborting current request...");
 	const currentConversationId = view.conversationId; // Capture ID before clearing
 
 	// Abort the frontend fetch request immediately
@@ -563,9 +505,6 @@ export const handleStop = async (view: HydrateView): Promise<void> => {
 
 	// If we have a conversation ID, tell the backend to stop too
 	if (currentConversationId) {
-		console.log(
-			`Hydrate: Sending stop signal to backend for conversation ${currentConversationId}...`
-		);
 		const stopUrl = `${view.plugin.settings.backendUrl}/stop/${currentConversationId}`;
 		const apiKey = view.plugin.settings.apiKey;
 
@@ -595,7 +534,7 @@ export const handleStop = async (view: HydrateView): Promise<void> => {
 				);
 				// Optionally notify user if backend stop failed, but might be noise
 			} else {
-				console.log(
+				console.debug(
 					"Hydrate: Backend acknowledged stop signal.",
 					stopResponse.json
 				);
@@ -608,7 +547,7 @@ export const handleStop = async (view: HydrateView): Promise<void> => {
 			// Optionally notify user of error sending stop signal
 		}
 	} else {
-		console.log(
+		console.warn(
 			"Hydrate: No conversation ID found, cannot send stop signal to backend."
 		);
 	}
@@ -667,9 +606,9 @@ export const handleInputChange = (view: HydrateView): void => {
 
 	// Track if user is deleting (shorter input than before)
 	const currentLength = value.length;
-	const isDeleting = currentLength < (view as any).lastInputLength;
-	(view as any).lastInputLength = currentLength;
-	(view as any).isDeleting = isDeleting;
+	const isDeleting = currentLength < view.lastInputLength;
+	view.lastInputLength = currentLength;
+	view.isDeleting = isDeleting;
 
 	if (cursorPos === null) {
 		return;

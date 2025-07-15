@@ -223,15 +223,11 @@ async function embedTextsViaRemoteApi(
 		throw new Error(errorMsg);
 	}
 	if (!texts || texts.length === 0) {
-		console.log("[embedTextsViaRemoteApi] No texts provided to embed.");
 		return []; // Nothing to embed
 	}
 	// Filter out any empty strings, as some APIs reject them
 	const validTexts = texts.filter((t) => t && t.trim().length > 0);
 	if (validTexts.length === 0) {
-		console.log(
-			"[embedTextsViaRemoteApi] All provided texts were empty after trimming."
-		);
 		return [];
 	}
 	if (validTexts.length < texts.length) {
@@ -244,14 +240,6 @@ async function embedTextsViaRemoteApi(
 		// The calling function needs to be aware of this or handle the mapping if necessary.
 		// For simplicity now, we proceed with validTexts.
 	}
-
-	// --- Logging ---
-	console.log(
-		`[embedTextsViaRemoteApi] Requesting embeddings for ${validTexts.length} non-empty text chunk(s)`
-	);
-	console.log(`[embedTextsViaRemoteApi] API URL: ${apiUrl}`);
-	console.log(`[embedTextsViaRemoteApi] API Key Provided: ${!!apiKey}`);
-	console.log(`[embedTextsViaRemoteApi] Model Name: ${modelName}`);
 
 	// --- Prepare Request ---
 	const requestBody = JSON.stringify({
@@ -271,29 +259,9 @@ async function embedTextsViaRemoteApi(
 		throw: false, // Handle errors manually
 	};
 
-	console.log("[embedTextsViaRemoteApi] Making request with params:", {
-		url: requestParams.url,
-		method: requestParams.method,
-		headers: {
-			...requestParams.headers,
-			Authorization: "Bearer [REDACTED]",
-		},
-		bodyLength: requestBody.length,
-	});
-
 	// --- Execute API Call ---
 	try {
 		const response = await requestUrl(requestParams); // <<< THE ACTUAL API CALL
-
-		// --- Log Raw Response ---
-		console.log(
-			"[embedTextsViaRemoteApi] Raw Response Status:",
-			response.status
-		);
-		console.log(
-			"[embedTextsViaRemoteApi] Raw Response JSON available:",
-			!!response.json
-		);
 
 		// --- Process Response ---
 		const responseData = response.json;
@@ -368,9 +336,6 @@ async function embedTextsViaRemoteApi(
 			);
 		}
 
-		console.log(
-			`[embedTextsViaRemoteApi] Successfully parsed ${embeddings.length} embeddings.`
-		);
 		return embeddings;
 	} catch (error) {
 		console.error(
@@ -421,7 +386,7 @@ function prepareDocumentContent(
 	// Ensure content is not empty or just whitespace
 	const trimmedContent = content.trim();
 	if (trimmedContent.length === 0) {
-		console.log(
+		console.warn(
 			`[prepareDocumentContent] Content for ${filePath} is empty after trimming. Returning null.`
 		);
 		return null;
@@ -456,9 +421,6 @@ export async function addOrUpdateDocumentRemote(
 	if (!settings.enableRemoteEmbeddings) {
 		// If remote embeddings are disabled, ensure the document is removed from the index
 		// as it might have been indexed previously when settings were different.
-		console.log(
-			`[addOrUpdateDocumentRemote] Remote embeddings disabled. Ensuring ${file.path} is not in index.`
-		);
 		await deleteDocumentFromIndex(app, file.path); // Call delete to ensure removal
 		return;
 	}
@@ -471,15 +433,11 @@ export async function addOrUpdateDocumentRemote(
 		.filter((ext) => ext.length > 0);
 
 	if (allowedExtensions.length === 0) {
-		console.log(
-			`[addOrUpdateDocumentRemote] No file extensions configured. Ensuring ${file.path} is not in index.`
-		);
 		await deleteDocumentFromIndex(app, file.path);
 		return;
 	}
 
 	if (!allowedExtensions.includes(fileExtension)) {
-		// console.log(`[addOrUpdateDocumentRemote] File extension '.${fileExtension}' not allowed. Ensuring ${file.path} is not in index.`);
 		await deleteDocumentFromIndex(app, file.path);
 		return;
 	}
@@ -490,16 +448,13 @@ export async function addOrUpdateDocumentRemote(
 		return;
 	}
 
-	console.log(
-		`[addOrUpdateDocumentRemote] Starting indexing for: ${file.path} (type: ${fileExtension})`
-	);
 	try {
 		const content = await app.vault.cachedRead(file);
 
 		// Additional safety check: Skip files that are too large or contain binary data
 		if (content.length > 1024 * 1024) {
 			// 1MB limit
-			console.log(
+			console.warn(
 				`[addOrUpdateDocumentRemote] File ${file.path} is too large (${content.length} chars). Skipping.`
 			);
 			return;
@@ -510,7 +465,7 @@ export async function addOrUpdateDocumentRemote(
 		const binaryRatio = 1 - printableChars / content.length;
 		if (binaryRatio > 0.3) {
 			// If more than 30% non-printable characters
-			console.log(
+			console.warn(
 				`[addOrUpdateDocumentRemote] File ${
 					file.path
 				} appears to be binary (${(binaryRatio * 100).toFixed(
@@ -523,9 +478,6 @@ export async function addOrUpdateDocumentRemote(
 		const documentForEmbedding = prepareDocumentContent(content, file.path);
 
 		if (!documentForEmbedding) {
-			console.log(
-				`[addOrUpdateDocumentRemote] No content to index for ${file.path}. Ensuring it's removed.`
-			);
 			await deleteDocumentFromIndex(app, file.path); // Ensure it's removed if it existed
 			return;
 		}
@@ -565,9 +517,6 @@ export async function addOrUpdateDocumentRemote(
 
 		try {
 			await localIndex.upsertItem(vectraItem);
-			console.log(
-				`[addOrUpdateDocumentRemote] Document ${file.path} indexed successfully.`
-			);
 		} catch (vectraError) {
 			console.error(
 				`[addOrUpdateDocumentRemote] Error upserting ${documentForEmbedding.id} for ${file.path}:`,
@@ -610,9 +559,6 @@ export async function addOrUpdateDocumentsBatch(
 	}
 
 	if (!settings.enableRemoteEmbeddings) {
-		console.log(
-			`[addOrUpdateDocumentsBatch] Remote embeddings disabled. Removing ${files.length} files from index.`
-		);
 		for (const file of files) {
 			await deleteDocumentFromIndex(app, file.path);
 		}
@@ -631,9 +577,6 @@ export async function addOrUpdateDocumentsBatch(
 		.filter((ext) => ext.length > 0);
 
 	if (allowedExtensions.length === 0) {
-		console.log(
-			`[addOrUpdateDocumentsBatch] No file extensions configured. Cannot index any files.`
-		);
 		return {
 			processed: 0,
 			indexed: 0,
@@ -715,10 +658,6 @@ export async function addOrUpdateDocumentsBatch(
 		const batchTexts = batch.map((item) => item.document.text);
 		const batchNumber = Math.floor(i / batchSize) + 1;
 
-		console.log(
-			`[addOrUpdateDocumentsBatch] Processing batch ${batchNumber}/${totalBatches} with ${batch.length} documents`
-		);
-
 		try {
 			const embeddings = await embedTextsViaRemoteApi(
 				batchTexts,
@@ -793,9 +732,6 @@ export async function deleteDocumentFromIndex(
 	try {
 		// deleteItem returns void, so don't check for truthiness
 		await localIndex.deleteItem(chunkIdToDelete);
-		console.log(
-			`[deleteDocumentFromIndex] Attempted removal of document chunk ${chunkIdToDelete} (for file ${filePath}) from Vectra index.`
-		);
 		// Note: Vectra's deleteItem doesn't explicitly confirm success/failure if item not found in same way.
 		// It will throw an error if the deletion fails for other reasons.
 	} catch (error) {
@@ -898,10 +834,6 @@ export async function searchIndexRemote(
 			return [];
 		}
 
-		console.log(
-			`[searchIndexRemote] Vectra query returned ${results.length} results.`
-		);
-
 		return results.map((res: VectraQueryResult<VectraMetadata>) => {
 			const metadata = res.item.metadata; // Access metadata safely
 			const filePath = metadata?.filePath || "unknown_filepath";
@@ -949,8 +881,6 @@ export async function searchIndexRemote(
  * @param app Obsidian App instance
  */
 export async function clearVectorIndex(app: App): Promise<void> {
-	console.log("[clearVectorIndex] Clearing existing vector index...");
-
 	try {
 		const adapter = app.vault.adapter;
 		if (!(adapter instanceof FileSystemAdapter)) {
@@ -965,11 +895,8 @@ export async function clearVectorIndex(app: App): Promise<void> {
 		if (await adapter.exists(indexDirVaultPath)) {
 			// Remove the entire index directory
 			await adapter.rmdir(indexDirVaultPath, true); // true = recursive
-			console.log(
-				`[clearVectorIndex] Deleted index directory: ${indexDirVaultPath}`
-			);
 		} else {
-			console.log(
+			console.warn(
 				"[clearVectorIndex] Index directory does not exist, nothing to clear."
 			);
 		}
@@ -992,15 +919,9 @@ export async function initializeVectorSystem(
 	app: App,
 	forceRebuild: boolean = false
 ) {
-	console.log(
-		"[initializeVectorSystem] Initializing Vectra vector system..."
-	);
 	try {
 		// If forceRebuild is requested, clear the existing index first
 		if (forceRebuild) {
-			console.log(
-				"[initializeVectorSystem] Force rebuild requested, clearing existing index..."
-			);
 			await clearVectorIndex(app);
 		}
 
@@ -1021,30 +942,17 @@ export async function initializeVectorSystem(
 			`${vaultBasePath}/${INDEX_DIR_NAME}`
 		);
 
-		console.log(
-			`[initializeVectorSystem] Vectra index path: ${absoluteIndexDirPath}`
-		);
-
 		const indexDirVaultPath = normalizePath(INDEX_DIR_NAME);
 		if (!(await app.vault.adapter.exists(indexDirVaultPath))) {
-			console.log(
-				`[initializeVectorSystem] Creating Vectra index directory: ${indexDirVaultPath}`
-			);
 			await app.vault.adapter.mkdir(indexDirVaultPath);
 		}
 
 		localIndex = new LocalIndex<VectraMetadata>(absoluteIndexDirPath); // Specify metadata type
 
 		if (!(await localIndex.isIndexCreated()) || forceRebuild) {
-			console.log(
-				"[initializeVectorSystem] Creating new Vectra index..."
-			);
 			await localIndex.createIndex();
-			console.log(
-				"[initializeVectorSystem] New Vectra index created successfully."
-			);
 		} else {
-			console.log(
+			console.warn(
 				"[initializeVectorSystem] Existing Vectra index loaded."
 			);
 		}

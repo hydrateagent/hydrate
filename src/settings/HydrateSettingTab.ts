@@ -260,6 +260,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 			.setName("OpenAI API Key")
 			.setDesc("Required for GPT models")
 			.addText((text) => {
+				let visible = false;
 				text.setPlaceholder("sk-...")
 					.setValue(this.plugin.settings.openaiApiKey)
 					.onChange(async (value) => {
@@ -274,10 +275,9 @@ export class HydrateSettingTab extends PluginSettingTab {
 				eyeBtn.style.background = "none";
 				eyeBtn.style.border = "none";
 				eyeBtn.style.cursor = "pointer";
-				const flatEye =
-					'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="10" ry="6"/><circle cx="12" cy="12" r="2.5"/></svg>';
-				let visible = false;
-				eyeBtn.innerHTML = flatEye;
+				// Use a Unicode eye character instead of SVG or innerHTML
+				const eyeChar = document.createTextNode("\u{1F441}");
+				eyeBtn.appendChild(eyeChar);
 				eyeBtn.onclick = (e) => {
 					e.preventDefault();
 					visible = !visible;
@@ -290,6 +290,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 			.setName("Anthropic API Key")
 			.setDesc("Required for Claude models")
 			.addText((text) => {
+				let visible = false;
 				text.setPlaceholder("sk-ant-...")
 					.setValue(this.plugin.settings.anthropicApiKey)
 					.onChange(async (value) => {
@@ -304,10 +305,9 @@ export class HydrateSettingTab extends PluginSettingTab {
 				eyeBtn.style.background = "none";
 				eyeBtn.style.border = "none";
 				eyeBtn.style.cursor = "pointer";
-				const flatEye =
-					'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="10" ry="6"/><circle cx="12" cy="12" r="2.5"/></svg>';
-				let visible = false;
-				eyeBtn.innerHTML = flatEye;
+				// Use a Unicode eye character instead of SVG or innerHTML
+				const eyeChar2 = document.createTextNode("\u{1F441}");
+				eyeBtn.appendChild(eyeChar2);
 				eyeBtn.onclick = (e) => {
 					e.preventDefault();
 					visible = !visible;
@@ -320,6 +320,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 			.setName("Google API Key")
 			.setDesc("Required for Gemini models")
 			.addText((text) => {
+				let visible = false;
 				text.setPlaceholder("AIza...")
 					.setValue(this.plugin.settings.googleApiKey)
 					.onChange(async (value) => {
@@ -334,10 +335,9 @@ export class HydrateSettingTab extends PluginSettingTab {
 				eyeBtn.style.background = "none";
 				eyeBtn.style.border = "none";
 				eyeBtn.style.cursor = "pointer";
-				const flatEye =
-					'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="10" ry="6"/><circle cx="12" cy="12" r="2.5"/></svg>';
-				let visible = false;
-				eyeBtn.innerHTML = flatEye;
+				// Use a Unicode eye character instead of SVG or innerHTML
+				const eyeChar3 = document.createTextNode("\u{1F441}");
+				eyeBtn.appendChild(eyeChar3);
 				eyeBtn.onclick = (e) => {
 					e.preventDefault();
 					visible = !visible;
@@ -491,12 +491,6 @@ export class HydrateSettingTab extends PluginSettingTab {
 					this.app,
 					this.plugin.settings.mcpServers || [],
 					async (newServers) => {
-						// Debug: Log the server names being saved
-						console.log(
-							"Saving MCP servers:",
-							newServers.map((s) => ({ id: s.id, name: s.name }))
-						);
-
 						// Save to settings
 						this.plugin.settings.mcpServers = newServers;
 						await this.plugin.saveSettings();
@@ -525,9 +519,6 @@ export class HydrateSettingTab extends PluginSettingTab {
 									await this.plugin.mcpManager.addServer(
 										config.id,
 										config
-									);
-									console.log(
-										`Added MCP server: ${config.id}`
 									);
 								} catch (error) {
 									console.error(
@@ -655,6 +646,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 					"Your API key for the embedding service. Will be sent with requests. Ensure you trust the endpoint."
 				)
 				.addText((text) => {
+					let visible = false;
 					text.setPlaceholder("Enter API key (e.g., sk-...)")
 						.setValue(this.plugin.settings.remoteEmbeddingApiKey)
 						.onChange(async (value: string) => {

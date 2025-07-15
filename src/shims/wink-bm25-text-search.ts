@@ -1,5 +1,3 @@
-console.log("[Hydrate Shim] wink-bm25-text-search.ts shim loaded.");
-
 // Export a dummy object or function as expected by Vectra if it tries to use it.
 // Based on typical usage, it might expect a constructor or a function.
 export default function WinkBM25TextSearch() {

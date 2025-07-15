@@ -1,5 +1,3 @@
-console.log("[Hydrate Shim] wink-eng-lite-web-model.ts shim loaded.");
-
 // Export a dummy object or function as expected by Vectra.
 // This model is typically used for language processing tasks.
 export default function WinkEngLiteWebModel() {

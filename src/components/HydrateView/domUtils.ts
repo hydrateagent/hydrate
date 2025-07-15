@@ -15,8 +15,8 @@ export function addMessageToChat(
 	content: string | HTMLElement,
 	isError: boolean = false
 ): void {
-	const chatContainer = (view as any).chatContainer as HTMLDivElement; // Access private member
-	const plugin = (view as any).plugin; // Access private member
+	const chatContainer = view.chatContainer as HTMLDivElement; // Access private member
+	const plugin = view.plugin; // Access private member
 
 	if (!chatContainer) {
 		console.error("Hydrate DOM Utils: chatContainer is null!");
@@ -178,14 +178,14 @@ export function addMessageToChat(
 			timestamp: new Date().toISOString(),
 		};
 		// Only add to history if we're not currently restoring from history
-		if (!(view as any).isRestoringFromHistory) {
-			(view as any).currentChatTurns.push(chatTurn);
+		if (!view.isRestoringFromHistory) {
+			view.currentChatTurns.push(chatTurn);
 
 			// Refresh context suggestions after new messages (but not for system messages)
 			if (role === "user" || role === "agent") {
 				// Use setTimeout to avoid blocking the UI
 				setTimeout(() => {
-					(view as any).refreshContextSuggestions?.();
+					view.refreshContextSuggestions?.();
 				}, 1000);
 			}
 		}
@@ -201,12 +201,11 @@ export function setLoadingState(
 	customMessage?: string
 ): void {
 	// Access private members via 'any' cast or make them accessible
-	(view as any).isLoading = loading;
-	const textInput = (view as any).textInput as HTMLTextAreaElement;
-	const stopButton = (view as any).stopButton as HTMLButtonElement | null;
-	const loadingIndicator = (view as any)
-		.loadingIndicator as HTMLDivElement | null;
-	const chatContainer = (view as any).chatContainer as HTMLDivElement;
+	view.isLoading = loading;
+	const textInput = view.textInput as HTMLTextAreaElement;
+	const stopButton = view.stopButton as HTMLButtonElement | null;
+	const loadingIndicator = view.loadingIndicator as HTMLDivElement | null;
+	const chatContainer = view.chatContainer as HTMLDivElement;
 	const containerEl = view.containerEl; // Public member
 
 	// Find the actual send button (it has class 'hydrate-overlay-button' and text 'Send')
@@ -310,15 +309,6 @@ export function renderFilePills(view: HydrateView): void {
 		return;
 	}
 
-	console.log(
-		"Hydrate DOM Utils: renderFilePills called. Attached files:",
-		attachedFiles,
-		"wasInitiallyAttached:",
-		wasInitiallyAttached,
-		"initialFilePath:",
-		initialFilePathFromState
-	);
-
 	filePillsContainer.empty();
 	if (attachedFiles.length === 0) {
 		filePillsContainer.style.display = "none";
@@ -351,10 +341,10 @@ export function renderFilePills(view: HydrateView): void {
  * Renders the slash command suggestions.
  */
 export function renderSuggestions(view: HydrateView): void {
-	const suggestionsContainer = (view as any)
-		.suggestionsContainer as HTMLDivElement | null;
-	const suggestions = (view as any).suggestions as RegistryEntry[];
-	const activeSuggestionIndex = (view as any).activeSuggestionIndex as number;
+	const suggestionsContainer =
+		view.suggestionsContainer as HTMLDivElement | null;
+	const suggestions = view.suggestions as RegistryEntry[];
+	const activeSuggestionIndex = view.activeSuggestionIndex as number;
 
 	if (!suggestionsContainer) {
 		console.error("Hydrate DOM Utils: suggestionsContainer is null!");
@@ -411,8 +401,8 @@ export function setSuggestions(
 	view: HydrateView,
 	newSuggestions: RegistryEntry[]
 ): void {
-	(view as any).suggestions = newSuggestions;
-	(view as any).activeSuggestionIndex = -1;
+	view.suggestions = newSuggestions;
+	view.activeSuggestionIndex = -1;
 	renderSuggestions(view); // Call the renderer also in this file
 }
 
@@ -420,7 +410,7 @@ export function setSuggestions(
  * Sets the text content of the input text area and dispatches an input event.
  */
 export function setTextContent(view: HydrateView, text: string): void {
-	const textInput = (view as any).textInput as HTMLTextAreaElement;
+	const textInput = view.textInput as HTMLTextAreaElement;
 	if (textInput) {
 		textInput.value = text;
 		textInput.dispatchEvent(new Event("input", { bubbles: true }));
@@ -431,10 +421,10 @@ export function setTextContent(view: HydrateView, text: string): void {
  * Renders note search suggestions for [[ note linking.
  */
 export function renderNoteSearchSuggestions(view: HydrateView): void {
-	const suggestionsContainer = (view as any)
-		.suggestionsContainer as HTMLDivElement | null;
-	const noteSearchResults = (view as any).noteSearchResults as any[];
-	const activeSuggestionIndex = (view as any).activeSuggestionIndex as number;
+	const suggestionsContainer =
+		view.suggestionsContainer as HTMLDivElement | null;
+	const noteSearchResults = view.noteSearchResults;
+	const activeSuggestionIndex = view.activeSuggestionIndex as number;
 
 	if (!suggestionsContainer) {
 		console.error("Hydrate DOM Utils: suggestionsContainer is null!");
@@ -492,8 +482,8 @@ export function renderNoteSearchSuggestions(view: HydrateView): void {
  * Selects a note from the search results and adds it to attached files.
  */
 export function selectNoteSearchResult(view: HydrateView, index: number): void {
-	const noteSearchResults = (view as any).noteSearchResults as any[];
-	const noteSearchStartIndex = (view as any).noteSearchStartIndex as number;
+	const noteSearchResults = view.noteSearchResults;
+	const noteSearchStartIndex = view.noteSearchStartIndex as number;
 
 	if (
 		index < 0 ||
@@ -539,16 +529,16 @@ export function selectNoteSearchResult(view: HydrateView, index: number): void {
  * Updates the note search results and re-renders the suggestions UI.
  */
 export function setNoteSearchResults(view: HydrateView, results: any[]): void {
-	(view as any).noteSearchResults = results;
-	(view as any).activeSuggestionIndex = -1;
-	(view as any).noteSearchActive = results.length > 0;
+	view.noteSearchResults = results;
+	view.activeSuggestionIndex = -1;
+	view.noteSearchActive = results.length > 0;
 
 	if (results.length > 0) {
 		renderNoteSearchSuggestions(view);
 	} else {
 		// Hide suggestions container
-		const suggestionsContainer = (view as any)
-			.suggestionsContainer as HTMLDivElement | null;
+		const suggestionsContainer =
+			view.suggestionsContainer as HTMLDivElement | null;
 		if (suggestionsContainer) {
 			suggestionsContainer.style.display = "none";
 		}
