@@ -105,7 +105,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 		containerEl.empty();
 
-		containerEl.createEl("h2", { text: "Hydrate Settings" });
+		containerEl.createEl("h1", { text: "Hydrate Settings" });
 
 		// --- General Settings ---
 		containerEl.createEl("h3", { text: "General" });
@@ -336,36 +336,36 @@ export class HydrateSettingTab extends PluginSettingTab {
 				text.inputEl.parentElement?.appendChild(eyeBtn);
 			});
 
-		// API Key Registration Status Section
-		if (this.plugin.settings.licenseKey) {
-			const registrationSection = containerEl.createEl("div", {
-				cls: "hydrate-registration-section",
-			});
-			registrationSection.createEl("h4", {
-				text: "API Key Registration Status",
-			});
+		// // API Key Registration Status Section
+		// if (this.plugin.settings.licenseKey) {
+		// 	const registrationSection = containerEl.createEl("div", {
+		// 		cls: "hydrate-registration-section",
+		// 	});
+		// 	registrationSection.createEl("h4", {
+		// 		text: "API Key Registration Status",
+		// 	});
 
-			const statusDiv = registrationSection.createEl("div", {
-				cls: "registration-status",
-			});
-			statusDiv.createEl("p", { text: "Loading registration status..." });
+		// 	const statusDiv = registrationSection.createEl("div", {
+		// 		cls: "registration-status",
+		// 	});
+		// 	statusDiv.createEl("p", { text: "Loading registration status..." });
 
-			this.loadRegistrationStatus(statusDiv);
+		// 	this.loadRegistrationStatus(statusDiv);
 
-			new Setting(registrationSection)
-				.setName("Re-register API Keys")
-				.setDesc(
-					"If your API keys are compromised, you can re-register them (limited to 3 times per year)"
-				)
-				.addButton((button) => {
-					button
-						.setButtonText("Re-register Keys")
-						.setCta()
-						.onClick(async () => {
-							await this.handleAPIKeyReregistration();
-						});
-				});
-		}
+		// 	new Setting(registrationSection)
+		// 		.setName("Re-register API Keys")
+		// 		.setDesc(
+		// 			"If your API keys are compromised, you can re-register them (limited to 3 times per year)"
+		// 		)
+		// 		.addButton((button) => {
+		// 			button
+		// 				.setButtonText("Re-register Keys")
+		// 				.setCta()
+		// 				.onClick(async () => {
+		// 					await this.handleAPIKeyReregistration();
+		// 				});
+		// 		});
+		// }
 
 		// --- END BYOK SUBSCRIPTION SETTINGS ---
 
@@ -531,7 +531,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 			});
 
 		mcpServersSection.createEl("p", {
-			text: "Configure Model Context Protocol (MCP) servers to extend agent capabilities with external tools and data sources.",
+			text: "Configure Model Context Protocol (MCP) servers to extend agent capabilities with external tools and data sources. Only available with paid plans.",
 			cls: "setting-item-description",
 		});
 
@@ -558,8 +558,8 @@ export class HydrateSettingTab extends PluginSettingTab {
 					})
 			);
 
-		// --- Remote Embeddings Section ---
-		containerEl.createEl("h3", { text: "Remote Embeddings Configuration" });
+		// --- Embeddings Section ---
+		containerEl.createEl("h3", { text: "Embeddings Configuration" });
 
 		// Add helpful notice for new users
 		if (!this.plugin.settings.enableRemoteEmbeddings) {
@@ -567,15 +567,15 @@ export class HydrateSettingTab extends PluginSettingTab {
 				cls: "hydrate-embeddings-notice",
 			});
 			noticeEl.createEl("p", {
-				text: "💡 Enable remote embeddings to use AI-powered context search and document indexing. This requires an API key from a service like OpenAI.",
+				text: "💡 Enable embeddings to use AI-powered context search and document indexing. This requires an API key from a service like OpenAI.",
 				cls: "hydrate-embeddings-help",
 			});
 		}
 
 		new Setting(containerEl)
-			.setName("Enable Remote Embeddings")
+			.setName("Enable Embeddings")
 			.setDesc(
-				"Use a remote API endpoint (like OpenAI) to generate embeddings instead of running a local model. Requires separate configuration below."
+				"Use an API endpoint (like OpenAI) to generate embeddings instead of running a local model. Requires separate configuration below."
 			)
 			.addToggle((toggle) =>
 				toggle
