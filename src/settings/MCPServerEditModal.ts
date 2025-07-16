@@ -43,18 +43,25 @@ export class MCPServersConfigModal extends Modal {
 		});
 
 		// JSON Configuration
-		new Setting(contentEl)
-			.setName("MCP Servers JSON")
-			.setDesc("Paste your complete MCP servers configuration")
-			.addTextArea((text) => {
-				this.jsonTextArea = text;
-				text.inputEl.rows = 20;
-				text.inputEl.addClass("hydrate-mcp-textarea");
-
-				text.setValue(this.currentJson).setPlaceholder(
-					this.getExampleJson()
-				);
-			});
+		// Add a header and description above the textarea
+		contentEl.createEl("h4", { text: "MCP Servers JSON" });
+		contentEl.createEl("p", {
+			text: "Paste your complete MCP servers configuration",
+		});
+		const jsonTextAreaEl = contentEl.createEl("textarea");
+		jsonTextAreaEl.rows = 20;
+		jsonTextAreaEl.style.width = "100%";
+		jsonTextAreaEl.classList.add("hydrate-mcp-textarea");
+		jsonTextAreaEl.value = this.currentJson;
+		jsonTextAreaEl.placeholder = this.getExampleJson();
+		this.jsonTextArea = {
+			getValue: () => jsonTextAreaEl.value,
+			setValue: (v: string) => {
+				jsonTextAreaEl.value = v;
+				return this.jsonTextArea;
+			},
+			inputEl: jsonTextAreaEl,
+		} as any;
 
 		// Example section
 		const exampleEl = contentEl.createDiv({ cls: "mcp-config-example" });
