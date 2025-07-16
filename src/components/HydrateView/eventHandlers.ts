@@ -505,7 +505,7 @@ export const handleStop = async (view: HydrateView): Promise<void> => {
 
 	// If we have a conversation ID, tell the backend to stop too
 	if (currentConversationId) {
-		const stopUrl = `${view.plugin.settings.backendUrl}/stop/${currentConversationId}`;
+		const stopUrl = `${view.plugin.getBackendUrl()}/stop/${currentConversationId}`;
 		const apiKey = view.plugin.settings.apiKey;
 
 		if (!apiKey) {

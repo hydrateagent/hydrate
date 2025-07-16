@@ -68,6 +68,7 @@ const context = await esbuild.context({
 		"process.env.NODE_ENV": JSON.stringify(
 			prod ? "production" : "development"
 		),
+		__HYDRATE_DEV__: prod ? "false" : "true",
 	},
 });
 

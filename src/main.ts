@@ -170,7 +170,7 @@ const DEFAULT_CONVERSATION_RULE: RuleEntry = {
 const DEFAULT_SETTINGS: HydratePluginSettings = {
 	mySetting: "default",
 	developmentPath: "", // <<< ADDED default empty developmentPath set dynamically
-	backendUrl: "http://localhost:8000",
+	backendUrl: "https://api.hydrateagent.com",
 	registryEntries: [], // Existing initialization
 	rulesRegistryEntries: [], // <<< Initialized as empty
 	chatHistories: [], // Initialize chat histories as empty
@@ -932,13 +932,17 @@ export default class HydratePlugin extends Plugin {
 			: "gpt-4.1-mini";
 	}
 
+	// NOTE: __HYDRATE_DEV__ must be set by the bundler at build time (true for dev, false for prod)
 	getBackendUrl(): string {
-		// In production, always use the hardcoded production URL
-		if (!this.isDevelopmentMode()) {
-			return "https://api.hydrateagent.com";
+		// Only use the user-configured backend in true development builds
+		if (
+			typeof __HYDRATE_DEV__ !== "undefined" &&
+			(__HYDRATE_DEV__ === true || __HYDRATE_DEV__ === "true")
+		) {
+			return this.settings.backendUrl || "http://localhost:8000";
 		}
-		// In development, use the configured URL or fallback to localhost
-		return this.settings.backendUrl || "http://localhost:8000";
+		// In all other cases, always use the production backend
+		return "https://api.hydrateagent.com";
 	}
 
 	private isDevelopmentMode(): boolean {

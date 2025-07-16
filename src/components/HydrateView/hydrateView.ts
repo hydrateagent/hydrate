@@ -805,7 +805,7 @@ export class HydrateView extends ItemView {
 			}
 
 			const response = await requestUrl({
-				url: `${this.plugin.settings.backendUrl}${endpoint}`,
+				url: `${this.plugin.getBackendUrl()}${endpoint}`,
 				method: "POST",
 				headers,
 				body: JSON.stringify(payload),
