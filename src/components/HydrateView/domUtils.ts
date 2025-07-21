@@ -13,7 +13,7 @@ export function addMessageToChat(
 	view: HydrateView,
 	role: "user" | "agent" | "system",
 	content: string | HTMLElement,
-	isError: boolean = false
+	isError: boolean = false,
 ): void {
 	const chatContainer = view.chatContainer as HTMLDivElement; // Access private member
 	const plugin = view.plugin; // Access private member
@@ -39,7 +39,7 @@ export function addMessageToChat(
 		messageClasses.push(
 			"ml-auto",
 			"bg-[var(--interactive-accent)]",
-			"text-[var(--text-on-accent)]"
+			"text-[var(--text-on-accent)]",
 		);
 	} else if (role === "agent") {
 		messageClasses.push("mr-auto", "bg-[var(--background-secondary)]");
@@ -49,7 +49,7 @@ export function addMessageToChat(
 			"text-xs",
 			"text-[var(--text-muted)]",
 			"italic",
-			"text-center"
+			"text-center",
 		);
 	}
 
@@ -57,7 +57,7 @@ export function addMessageToChat(
 		messageClasses.push(
 			"hydrate-error-message",
 			"bg-[var(--background-modifier-error)]",
-			"text-[var(--text-error)]"
+			"text-[var(--text-error)]",
 		);
 	}
 
@@ -125,11 +125,11 @@ export function addMessageToChat(
 
 		if (allCommandsToHighlight.length > 0) {
 			const escapedCommands = allCommandsToHighlight.map((cmd: string) =>
-				cmd.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&")
+				cmd.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&"),
 			);
 			const commandRegex = new RegExp(
 				`(${escapedCommands.join("|")})(?=\\s|$)`,
-				"g"
+				"g",
 			);
 
 			let lastIndex = 0;
@@ -140,8 +140,8 @@ export function addMessageToChat(
 				if (match.index > lastIndex) {
 					fragment.appendChild(
 						document.createTextNode(
-							content.substring(lastIndex, match.index)
-						)
+							content.substring(lastIndex, match.index),
+						),
 					);
 				}
 				const strongEl = document.createElement("strong");
@@ -153,7 +153,7 @@ export function addMessageToChat(
 
 			if (lastIndex < content.length) {
 				fragment.appendChild(
-					document.createTextNode(content.substring(lastIndex))
+					document.createTextNode(content.substring(lastIndex)),
 				);
 			}
 			messageEl.appendChild(fragment);
@@ -196,7 +196,7 @@ export function addMessageToChat(
 export function setLoadingState(
 	view: HydrateView,
 	loading: boolean,
-	customMessage?: string
+	customMessage?: string,
 ): void {
 	// Access private members via 'any' cast or make them accessible
 	view.isLoading = loading;
@@ -208,7 +208,7 @@ export function setLoadingState(
 
 	// Find the actual send button (it has class 'hydrate-overlay-button' and text 'Send')
 	const buttons = Array.from(
-		containerEl.querySelectorAll(".hydrate-overlay-button")
+		containerEl.querySelectorAll(".hydrate-overlay-button"),
 	);
 	let sendButton: HTMLButtonElement | null = null;
 
@@ -256,10 +256,10 @@ export function setLoadingState(
 			const message = customMessage || "Agent is thinking";
 
 			// Create animated dots
-			const loadingText = loadingIndicator.createEl("span", {
+			loadingIndicator.createEl("span", {
 				text: message,
 			});
-			const dotsContainer = loadingIndicator.createEl("span", {
+			loadingIndicator.createEl("span", {
 				cls: "hydrate-loading-dots",
 				text: "...",
 			});
@@ -301,8 +301,6 @@ export function setLoadingState(
 export function renderFilePills(view: HydrateView): void {
 	const filePillsContainer = view.filePillsContainer;
 	const attachedFiles = view.attachedFiles; // Public member
-	const initialFilePathFromState = view.initialFilePathFromState;
-	const wasInitiallyAttached = view.wasInitiallyAttached;
 
 	if (!filePillsContainer) {
 		console.error("Hydrate DOM Utils: filePillsContainer is null!");
@@ -334,7 +332,7 @@ export function renderFilePills(view: HydrateView): void {
 			cls: "hydrate-pill-remove",
 		});
 		removeBtn.addEventListener("click", () =>
-			removeEventHandlerFilePill(view, filePath)
+			removeEventHandlerFilePill(view, filePath),
 		);
 	});
 }
@@ -392,7 +390,7 @@ export function renderSuggestions(view: HydrateView): void {
 
 	if (activeSuggestionIndex !== -1) {
 		const activeEl = suggestionsContainer.querySelector(
-			`#hydrate-suggestion-${activeSuggestionIndex}`
+			`#hydrate-suggestion-${activeSuggestionIndex}`,
 		);
 		activeEl?.scrollIntoView({ block: "nearest" });
 	}
@@ -403,7 +401,7 @@ export function renderSuggestions(view: HydrateView): void {
  */
 export function setSuggestions(
 	view: HydrateView,
-	newSuggestions: RegistryEntry[]
+	newSuggestions: RegistryEntry[],
 ): void {
 	view.suggestions = newSuggestions;
 	view.activeSuggestionIndex = -1;
@@ -478,7 +476,7 @@ export function renderNoteSearchSuggestions(view: HydrateView): void {
 
 	if (activeSuggestionIndex !== -1) {
 		const activeEl = suggestionsContainer.querySelector(
-			`#hydrate-note-suggestion-${activeSuggestionIndex}`
+			`#hydrate-note-suggestion-${activeSuggestionIndex}`,
 		);
 		activeEl?.scrollIntoView({ block: "nearest" });
 	}
@@ -514,7 +512,7 @@ export function selectNoteSearchResult(view: HydrateView, index: number): void {
 	const currentValue = view.textInput.value;
 	const beforeTrigger = currentValue.substring(0, noteSearchStartIndex);
 	const afterCursor = currentValue.substring(
-		view.textInput.selectionStart || 0
+		view.textInput.selectionStart || 0,
 	);
 
 	const newValue = beforeTrigger + afterCursor;

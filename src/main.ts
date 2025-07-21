@@ -1,23 +1,10 @@
 import {
-	App,
-	Editor,
 	MarkdownView,
-	Modal,
 	Notice,
 	Plugin,
 	TFile, // Added
-	TFolder, // <<< ADD THIS IMPORT
-	ViewStateResult, // Added
-	MetadataCache, // Added
-	FrontMatterCache, // Added
-	PluginSettingTab, // Keep this for HydratePlugin base class if needed, but SettingTab itself is moved
-	Setting, // Keep for potential direct use, though unlikely now
 	WorkspaceLeaf,
 	ItemView,
-	ViewCreator,
-	TextComponent, // Keep for potential direct use
-	TextAreaComponent, // Keep for potential direct use
-	DropdownComponent, // Keep for potential direct use
 } from "obsidian";
 
 import {
@@ -25,11 +12,9 @@ import {
 	HYDRATE_VIEW_TYPE,
 } from "./components/HydrateView/hydrateView";
 import * as React from "react"; // Added
-import { Root, createRoot } from "react-dom/client"; // Added
 import {
 	ReactViewProps,
 	RegistryEntry,
-	RegistryEntryContentType, // Keep this as it's used in settings default
 	RuleEntry, // <<< ADDED IMPORT
 	ChatHistory, // Added for chat history feature
 } from "./types"; // Corrected path
@@ -40,11 +25,8 @@ import { HydrateSettingTab } from "./settings/HydrateSettingTab"; // Corrected p
 
 import {
 	initializeVectorSystem, // Only loads local index now
-	addOrUpdateDocumentRemote, // Use this for create/modify
 	addOrUpdateDocumentsBatch, // Use this for bulk indexing
 	deleteDocumentFromIndex, // Use this for delete (no remote call needed)
-	searchIndexRemote, // Use this for search
-	clearVectorIndex, // Use this to clear corrupted index
 	shouldSkipPath, // Import shouldSkipPath from vectorIndex
 } from "./vectorIndex"; // Updated imports
 
@@ -63,7 +45,7 @@ const reactViewRegistry = new Map<
 
 export function registerReactView(
 	key: string,
-	component: React.ComponentType<ReactViewProps>
+	component: React.ComponentType<ReactViewProps>,
 ): void {
 	if (reactViewRegistry.has(key)) {
 		console.warn(`Hydrate: Overwriting React view for key "${key}"`);
@@ -72,7 +54,7 @@ export function registerReactView(
 }
 
 export function getReactViewComponent(
-	key: string
+	key: string,
 ): React.ComponentType<ReactViewProps> | undefined {
 	return reactViewRegistry.get(key);
 }
@@ -233,7 +215,7 @@ export default class HydratePlugin extends Plugin {
 			await initializeVectorSystem(this.app);
 		} else {
 			console.warn(
-				"Embeddings are disabled or not configured, skipping vector system initialization."
+				"Embeddings are disabled or not configured, skipping vector system initialization.",
 			);
 		}
 
@@ -281,13 +263,13 @@ export default class HydratePlugin extends Plugin {
 					try {
 						await this.mcpManager.addServer(
 							serverConfig.id,
-							serverConfig
+							serverConfig,
 						);
 						loadedCount++;
 					} catch (error) {
 						console.error(
 							`✗ Failed to load server ${serverConfig.id} (${serverConfig.name}):`,
-							error
+							error,
 						);
 						failedCount++;
 					}
@@ -305,13 +287,13 @@ export default class HydratePlugin extends Plugin {
 						try {
 							const tools =
 								await this.mcpManager.refreshServerTools(
-									serverId
+									serverId,
 								);
 							discoveryCount++;
 						} catch (error) {
 							console.error(
 								`✗ Tool discovery failed for ${serverId}:`,
-								error
+								error,
 							);
 						}
 					}
@@ -322,7 +304,7 @@ export default class HydratePlugin extends Plugin {
 		} catch (error) {
 			console.error("Failed to initialize MCP Server Manager:", error);
 			new Notice(
-				"Failed to initialize MCP Server Manager. MCP tools will not be available."
+				"Failed to initialize MCP Server Manager. MCP tools will not be available.",
 			);
 		}
 
@@ -353,16 +335,16 @@ export default class HydratePlugin extends Plugin {
 						(err: any) =>
 							console.error(
 								`Error removing deleted file ${file.path} from index:`,
-								err
-							)
+								err,
+							),
 					);
 				}
-			})
+			}),
 		);
 
 		// --- Event Listener for File Open (Re-enabled for file attachment logic) ---
 		this.registerEvent(
-			this.app.workspace.on("file-open", this.handleFileOpen)
+			this.app.workspace.on("file-open", this.handleFileOpen),
 		);
 
 		// --- Toggle Command ---
@@ -374,7 +356,7 @@ export default class HydratePlugin extends Plugin {
 
 		// --- Add Layout Change Handler ---
 		this.registerEvent(
-			this.app.workspace.on("layout-change", this.handleLayoutChange)
+			this.app.workspace.on("layout-change", this.handleLayoutChange),
 		);
 
 		// This creates an icon in the left ribbon to open the Hydrate pane
@@ -384,7 +366,7 @@ export default class HydratePlugin extends Plugin {
 			async (evt: MouseEvent) => {
 				// Open the pane when the icon is clicked
 				await this.activateView();
-			}
+			},
 		);
 		// Perform additional things with the ribbon
 		ribbonIconEl.addClass("hydrate-ribbon-class");
@@ -446,14 +428,14 @@ export default class HydratePlugin extends Plugin {
 
 				// Trigger input event for potential UI updates (like textarea resize)
 				hydrateView.textInput.dispatchEvent(
-					new Event("input", { bubbles: true })
+					new Event("input", { bubbles: true }),
 				);
 
 				// Focus the input area
 				hydrateView.textInput.focus();
 
 				new Notice(
-					"Selected text captured and /select added to Hydrate."
+					"Selected text captured and /select added to Hydrate.",
 				);
 			},
 		});
@@ -469,12 +451,12 @@ export default class HydratePlugin extends Plugin {
 							.onClick(() => {
 								// Execute the same logic as the command
 								(this.app as any).commands.executeCommandById(
-									"add-selection-to-hydrate"
+									"add-selection-to-hydrate",
 								);
 							});
 					});
 				}
-			})
+			}),
 		);
 		// --- End Add Selection Command ---
 
@@ -521,7 +503,7 @@ export default class HydratePlugin extends Plugin {
 				const state = currentView.getState();
 				if (state?.file) {
 					const file = this.app.vault.getAbstractFileByPath(
-						state.file
+						state.file,
 					);
 					if (file instanceof TFile) {
 						sourceFilePath = file.path;
@@ -529,7 +511,7 @@ export default class HydratePlugin extends Plugin {
 				}
 			} else {
 				console.warn(
-					`Hydrate activateView: Active view is not Markdown or ReactViewHost or did not yield a file path.`
+					`Hydrate activateView: Active view is not Markdown or ReactViewHost or did not yield a file path.`,
 				);
 			}
 		} else {
@@ -548,11 +530,11 @@ export default class HydratePlugin extends Plugin {
 				existingLeaf.view.attachedFiles.length === 0
 			) {
 				(existingLeaf.view as HydrateView).attachInitialFile(
-					sourceFilePath
+					sourceFilePath,
 				);
 			} else {
 				console.warn(
-					`Hydrate activateView: Existing view revealed. Source file: ${sourceFilePath}. View state not modified.`
+					`Hydrate activateView: Existing view revealed. Source file: ${sourceFilePath}. View state not modified.`,
 				);
 			}
 			return;
@@ -601,7 +583,7 @@ export default class HydratePlugin extends Plugin {
 			this.view.handleActiveFileChange(file?.path ?? null);
 		} else {
 			console.warn(
-				`Hydrate [file-open]: Hydrate view is not open or not visible, ignoring file change.`
+				`Hydrate [file-open]: Hydrate view is not open or not visible, ignoring file change.`,
 			);
 		}
 
@@ -609,7 +591,7 @@ export default class HydratePlugin extends Plugin {
 		const leaf = this.app.workspace.getActiveViewOfType(ItemView)?.leaf; // Get active leaf first
 		if (!leaf) {
 			console.warn(
-				"Hydrate [file-open]: No active leaf found. Cannot switch view."
+				"Hydrate [file-open]: No active leaf found. Cannot switch view.",
 			);
 			return; // Exit if no active leaf
 		}
@@ -620,7 +602,7 @@ export default class HydratePlugin extends Plugin {
 		if (!file) {
 			if (currentView instanceof ReactViewHost) {
 				console.warn(
-					"Hydrate [file-open]: File is null, switching React Host back to Markdown."
+					"Hydrate [file-open]: File is null, switching React Host back to Markdown.",
 				);
 				// Check if ReactViewHost expects a file path; might need adjustment if it crashes on null
 				// Assuming switchToMarkdownView handles the transition gracefully
@@ -628,12 +610,12 @@ export default class HydratePlugin extends Plugin {
 					currentView.switchToMarkdownView();
 				} else {
 					console.warn(
-						"Hydrate [file-open]: Already switching to markdown, skipping."
+						"Hydrate [file-open]: Already switching to markdown, skipping.",
 					);
 				}
 			} else {
 				console.warn(
-					"Hydrate [file-open]: File is null, current view is not React Host. No action needed."
+					"Hydrate [file-open]: File is null, current view is not React Host. No action needed.",
 				);
 			}
 			return; // Stop processing if file is null
@@ -713,7 +695,7 @@ export default class HydratePlugin extends Plugin {
 			const fileCache = this.app.metadataCache.getFileCache(file);
 			if (!fileCache) {
 				console.debug(
-					"Hydrate [layout-change]: File cache not ready, skipping check."
+					"Hydrate [layout-change]: File cache not ready, skipping check.",
 				);
 				return;
 			}
@@ -741,7 +723,7 @@ export default class HydratePlugin extends Plugin {
 					} catch (error) {
 						console.error(
 							"Hydrate [layout-change]: Error switching Markdown to React:",
-							error
+							error,
 						);
 					}
 				}
@@ -758,7 +740,7 @@ export default class HydratePlugin extends Plugin {
 			const file = this.app.vault.getAbstractFileByPath(filePath);
 			if (!(file instanceof TFile)) {
 				console.warn(
-					`Hydrate [layout-change]: ReactHost has path ${filePath}, but it's not a valid file. Switching to Markdown.`
+					`Hydrate [layout-change]: ReactHost has path ${filePath}, but it's not a valid file. Switching to Markdown.`,
 				);
 				await currentView.switchToMarkdownView();
 				return;
@@ -767,7 +749,7 @@ export default class HydratePlugin extends Plugin {
 			const fileCache = this.app.metadataCache.getFileCache(file);
 			if (!fileCache) {
 				console.debug(
-					"Hydrate [layout-change]: File cache not ready for ReactHost file, skipping check."
+					"Hydrate [layout-change]: File cache not ready for ReactHost file, skipping check.",
 				);
 				return;
 			}
@@ -780,7 +762,7 @@ export default class HydratePlugin extends Plugin {
 
 			if (!ReactComponent || !viewKey) {
 				console.debug(
-					`Hydrate [layout-change]: Active view is React for ${filePath}, but should be Markdown (key missing or invalid). Switching back...`
+					`Hydrate [layout-change]: Active view is React for ${filePath}, but should be Markdown (key missing or invalid). Switching back...`,
 				);
 				await currentView.switchToMarkdownView();
 			}
@@ -802,7 +784,7 @@ export default class HydratePlugin extends Plugin {
 			} catch (error) {
 				console.error(
 					"Error during MCP Server Manager shutdown:",
-					error
+					error,
 				);
 			}
 		}
@@ -812,7 +794,7 @@ export default class HydratePlugin extends Plugin {
 		this.settings = Object.assign(
 			{},
 			DEFAULT_SETTINGS,
-			await this.loadData()
+			await this.loadData(),
 		);
 
 		// --- Initialize Default Format Registry Entry ---
@@ -838,7 +820,7 @@ export default class HydratePlugin extends Plugin {
 			const defaultIssueExists = this.settings.registryEntries.some(
 				(entry) =>
 					entry.id === "default-issue-board" ||
-					entry.slashCommandTrigger === "/issue"
+					entry.slashCommandTrigger === "/issue",
 			);
 			if (!defaultIssueExists) {
 				// Add it if missing
@@ -867,11 +849,11 @@ export default class HydratePlugin extends Plugin {
 			// Check if the default conversation rule is present if array already exists
 			const defaultConversationRuleExists =
 				this.settings.rulesRegistryEntries.some(
-					(rule) => rule.id === DEFAULT_CONVERSATION_RULE.id
+					(rule) => rule.id === DEFAULT_CONVERSATION_RULE.id,
 				);
 			if (!defaultConversationRuleExists) {
 				this.settings.rulesRegistryEntries.push(
-					DEFAULT_CONVERSATION_RULE
+					DEFAULT_CONVERSATION_RULE,
 				);
 			}
 		}
@@ -900,7 +882,7 @@ export default class HydratePlugin extends Plugin {
 	getRegistryEntryByTrigger(trigger: string): RegistryEntry | undefined {
 		// Ensure array exists before searching
 		return this.settings.registryEntries?.find(
-			(entry) => entry.slashCommandTrigger === trigger
+			(entry) => entry.slashCommandTrigger === trigger,
 		);
 	}
 
@@ -919,7 +901,7 @@ export default class HydratePlugin extends Plugin {
 	getRuleById(id: string): RuleEntry | undefined {
 		// Ensure array exists before searching
 		return this.settings.rulesRegistryEntries?.find(
-			(entry) => entry.id === id
+			(entry) => entry.id === id,
 		);
 	}
 	// --- End Rules Registry Helper functions ---
@@ -966,7 +948,7 @@ export default class HydratePlugin extends Plugin {
 		}
 
 		const existingIndex = this.settings.chatHistories.findIndex(
-			(chat) => chat.id === chatHistory.id
+			(chat) => chat.id === chatHistory.id,
 		);
 
 		if (existingIndex >= 0) {
@@ -984,7 +966,7 @@ export default class HydratePlugin extends Plugin {
 		if (!this.settings.chatHistories) return;
 
 		this.settings.chatHistories = this.settings.chatHistories.filter(
-			(chat) => chat.id !== id
+			(chat) => chat.id !== id,
 		);
 
 		await this.saveSettings();
@@ -1006,7 +988,7 @@ export default class HydratePlugin extends Plugin {
 	async triggerInitialIndexing(forceRebuild: boolean = false) {
 		if (!this.settings.enableRemoteEmbeddings) {
 			new Notice(
-				"Remote embeddings are disabled in settings. Cannot start indexing."
+				"Remote embeddings are disabled in settings. Cannot start indexing.",
 			);
 			return;
 		}
@@ -1017,7 +999,7 @@ export default class HydratePlugin extends Plugin {
 			!this.settings.remoteEmbeddingModelName
 		) {
 			new Notice(
-				"Remote embedding configuration is incomplete. Please check settings in Hydrate plugin options."
+				"Remote embedding configuration is incomplete. Please check settings in Hydrate plugin options.",
 			);
 			return;
 		}
@@ -1035,7 +1017,7 @@ export default class HydratePlugin extends Plugin {
 			await initializeVectorSystem(this.app, true);
 		} else {
 			new Notice(
-				"Starting vault indexing... This will be much faster with batch processing."
+				"Starting vault indexing... This will be much faster with batch processing.",
 			);
 		}
 
@@ -1070,7 +1052,7 @@ export default class HydratePlugin extends Plugin {
 			const result = await addOrUpdateDocumentsBatch(
 				this.app,
 				filteredFiles,
-				this.settings
+				this.settings,
 			);
 
 			const completionMessage = `Vault indexing completed! Processed: ${result.processed}, Indexed: ${result.indexed}, Skipped: ${result.skipped}, Errors: ${result.errors}`;
@@ -1104,7 +1086,7 @@ export default class HydratePlugin extends Plugin {
 	 * @returns A promise that resolves to an array of tool execution results.
 	 */
 	async processAgentToolCalls(
-		preparedCalls: AgentPreparedToolCall[]
+		preparedCalls: AgentPreparedToolCall[],
 	): Promise<ToolExecutionResult[]> {
 		const toolResults: ToolExecutionResult[] = [];
 
@@ -1123,7 +1105,7 @@ export default class HydratePlugin extends Plugin {
 				const searchResult = await handleSearchProject(
 					searchCall,
 					this.app,
-					this.settings
+					this.settings,
 				);
 				toolResults.push(searchResult);
 			}
@@ -1141,7 +1123,7 @@ export default class HydratePlugin extends Plugin {
 			// }
 			else {
 				console.warn(
-					`[Hydrate Plugin] Unknown tool call received: ${call.tool}`
+					`[Hydrate Plugin] Unknown tool call received: ${call.tool}`,
 				);
 				toolResults.push({
 					id: call.id,
@@ -1152,7 +1134,7 @@ export default class HydratePlugin extends Plugin {
 
 		console.debug(
 			"[Hydrate Plugin] Sending tool results back to agent:",
-			toolResults
+			toolResults,
 		);
 		// Here, you would typically send these toolResults back to your FastAPI /tool_result endpoint.
 		// For example, via another fetch/requestUrl call if this is not already part of that flow.

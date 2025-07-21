@@ -4,40 +4,28 @@ import {
 	requestUrl,
 	Notice,
 	TFile,
-	Editor,
-	parseYaml,
-	MarkdownRenderer,
 	ViewStateResult,
-	sanitizeHTMLToDom,
 } from "obsidian";
 import HydratePlugin from "../../main"; // Corrected path to be relative to current dir
 import { DiffReviewModal, DiffReviewResult } from "../DiffReviewModal"; // Corrected path (assuming same dir as view)
-import { ReactViewHost } from "../../ReactViewHost"; // Corrected path
 import { RegistryEntry, Patch, ChatHistory, ChatTurn } from "../../types"; // Corrected path
 import {
 	toolReadFile,
-	toolEditFile,
 	toolReplaceSelectionInFile,
-	applyPatchesToFile,
 } from "./toolImplementations"; // Ensure this path is correct for your setup
 import { handleSearchProject } from "../../toolHandlers"; // <<< ADD THIS IMPORT
 import {
 	addMessageToChat,
-	renderFilePills as renderDomFilePills, // Alias dom utils
-	renderSuggestions as renderDomSuggestions, // Alias dom utils
-	setLoadingState as setDomLoadingState, // Alias dom utils
-	setSuggestions as setDomSuggestions, // Alias dom utils
-	setTextContent,
+	renderFilePills, // Alias dom utils
+	setLoadingState, // Alias dom utils
 } from "./domUtils"; // Corrected path
 import {
 	handleClear,
 	handleDrop,
 	handleSend,
 	handleStop,
-	handleSuggestionSelect,
 	handleInputChange,
 	handleInputKeydown,
-	removeFilePill as removeEventHandlerFilePill, // Alias event handler
 } from "./eventHandlers"; // Corrected path
 import { ChatHistoryModal } from "./ChatHistoryModal";
 
@@ -50,11 +38,6 @@ interface HistoryMessage {
 	// Optional fields from Langchain messages
 	tool_calls?: { id: string; name: string; args: any }[];
 	tool_call_id?: string;
-}
-
-interface ChatMessage {
-	role: "user" | "agent";
-	content: string;
 }
 
 interface MCPToolInfo {
@@ -172,7 +155,7 @@ export class HydrateView extends ItemView {
 			fileToAttachPath = state.sourceFilePath;
 		} else {
 			console.warn(
-				"HydrateView setState: No sourceFilePath found in state."
+				"HydrateView setState: No sourceFilePath found in state.",
 			);
 		}
 
@@ -182,7 +165,7 @@ export class HydrateView extends ItemView {
 			this.attachInitialFile(fileToAttachPath);
 		} else if (fileToAttachPath && this.attachedFiles.length > 0) {
 			console.warn(
-				"Hydrate [setState]: Files already attached, skipping auto-attach from state."
+				"Hydrate [setState]: Files already attached, skipping auto-attach from state.",
 			);
 		}
 	}
@@ -197,20 +180,20 @@ export class HydrateView extends ItemView {
 				this.wasInitiallyAttached = true;
 				if (this.filePillsContainer) {
 					// Call the aliased dom util function
-					renderDomFilePills(this); // Pass the view instance
+					renderFilePills(this); // Pass the view instance
 				}
 			} else {
 				console.warn(
-					`Hydrate [attachInitialFile]: File path '${filePath}' does not exist or is not a TFile. Not attaching.`
+					`Hydrate [attachInitialFile]: File path '${filePath}' does not exist or is not a TFile. Not attaching.`,
 				);
 			}
 		} else if (filePath && this.attachedFiles.includes(filePath)) {
 			console.warn(
-				`Hydrate [attachInitialFile]: File ${filePath} already attached.`
+				`Hydrate [attachInitialFile]: File ${filePath} already attached.`,
 			);
 		} else {
 			console.warn(
-				"Hydrate [attachInitialFile]: File path variable was null/empty."
+				"Hydrate [attachInitialFile]: File path variable was null/empty.",
 			);
 		}
 	}
@@ -220,7 +203,7 @@ export class HydrateView extends ItemView {
 	public handleActiveFileChange(newFilePath: string | null) {
 		if (!newFilePath) {
 			console.warn(
-				"Hydrate [handleActiveFileChange]: No active file to auto-attach."
+				"Hydrate [handleActiveFileChange]: No active file to auto-attach.",
 			);
 			return;
 		}
@@ -238,7 +221,7 @@ export class HydrateView extends ItemView {
 
 			if (this.filePillsContainer) {
 				// Call the aliased dom util function
-				renderDomFilePills(this); // Pass the view instance
+				renderFilePills(this); // Pass the view instance
 			}
 		}
 	}
@@ -495,20 +478,20 @@ export class HydrateView extends ItemView {
 				border: 2px dashed var(--text-accent);
 				border-radius: 8px;
 			}
-			
+
 			/* Chat message styling improvements */
 			.hydrate-message {
 				overflow: hidden;
 				word-wrap: break-word;
 				box-sizing: border-box;
 			}
-			
+
 			/* Ensure all content within agent messages stays contained */
 			.hydrate-agent-message * {
 				max-width: 100%;
 				box-sizing: border-box;
 			}
-			
+
 			/* Fix ordered and unordered lists in chat bubbles */
 			.hydrate-agent-message ol,
 			.hydrate-agent-message ul {
@@ -517,34 +500,34 @@ export class HydrateView extends ItemView {
 				box-sizing: border-box;
 				overflow: hidden;
 			}
-			
+
 			.hydrate-agent-message li {
 				margin: 0.25em 0;
 				word-wrap: break-word;
 				overflow-wrap: break-word;
 			}
-			
+
 			/* Fix paragraphs and other block elements */
 			.hydrate-agent-message p {
 				margin: 0.5em 0;
 				word-wrap: break-word;
 				overflow-wrap: break-word;
 			}
-			
+
 			/* Fix code blocks */
 			.hydrate-agent-message pre {
 				overflow-x: auto;
 				max-width: 100%;
 				box-sizing: border-box;
 			}
-			
+
 			.hydrate-agent-message code {
 				word-wrap: break-word;
 				overflow-wrap: break-word;
 			}
-			
+
 			/* Fix headings */
-			
+
 			/* Reusable popup component */
 			.hydrate-popup {
 				position: absolute;
@@ -558,7 +541,7 @@ export class HydrateView extends ItemView {
 				gap: 8px;
 				min-width: 200px;
 			}
-			
+
 			.hydrate-popup-button {
 				background: var(--background-secondary);
 				border: 1px solid var(--background-modifier-border);
@@ -571,12 +554,12 @@ export class HydrateView extends ItemView {
 				flex: 1;
 				text-align: center;
 			}
-			
+
 			.hydrate-popup-button:hover {
 				background: var(--background-modifier-hover);
 				border-color: var(--text-accent);
 			}
-			
+
 			.hydrate-popup-button:active {
 				transform: translateY(1px);
 			}
@@ -590,7 +573,7 @@ export class HydrateView extends ItemView {
 				word-wrap: break-word;
 				overflow-wrap: break-word;
 			}
-			
+
 			/* Fix links to prevent overflow */
 			.hydrate-agent-message a {
 				word-wrap: break-word;
@@ -604,7 +587,7 @@ export class HydrateView extends ItemView {
 		const adjustTextareaHeight = () => {
 			// Note: Dynamic height adjustment disabled to avoid direct style manipulation
 			// The textarea will use fixed CSS height classes instead
-			this.textInput.classList.add('hydrate-textarea-auto-height');
+			this.textInput.classList.add("hydrate-textarea-auto-height");
 		};
 
 		// Create suggestion pills container (above chat area)
@@ -704,17 +687,17 @@ export class HydrateView extends ItemView {
 		// Bind event handlers using imported functions
 		this.textInput.addEventListener("input", () => handleInputChange(this));
 		this.textInput.addEventListener("keydown", (e) =>
-			handleInputKeydown(this, e)
+			handleInputKeydown(this, e),
 		);
 		sendButton.addEventListener("click", () => handleSend(this));
 		clearButton.addEventListener("click", () => handleClear(this));
 		this.stopButton.addEventListener("click", () => handleStop(this));
 		newChatButton.addEventListener("click", () => this.handleNewChat());
 		chatHistoryButton.addEventListener("click", () =>
-			this.handleChatHistory()
+			this.handleChatHistory(),
 		);
 		exportChatButton.addEventListener("click", () =>
-			this.handleExportChat()
+			this.handleExportChat(),
 		);
 
 		// Add drag and drop support
@@ -722,7 +705,7 @@ export class HydrateView extends ItemView {
 		container.addEventListener("dragenter", (e) => {
 			e.preventDefault();
 			const inputSection = container.querySelector(
-				".hydrate-input-section"
+				".hydrate-input-section",
 			);
 			if (inputSection) {
 				inputSection.classList.add("hydrate-drag-over");
@@ -734,7 +717,7 @@ export class HydrateView extends ItemView {
 			// Only remove the class if we're leaving the container entirely
 			if (!container.contains(dragEvent.relatedTarget as Node)) {
 				const inputSection = container.querySelector(
-					".hydrate-input-section"
+					".hydrate-input-section",
 				);
 				if (inputSection) {
 					inputSection.classList.remove("hydrate-drag-over");
@@ -742,7 +725,7 @@ export class HydrateView extends ItemView {
 			}
 		});
 		container.addEventListener("drop", (e) =>
-			handleDrop(this, e as DragEvent)
+			handleDrop(this, e as DragEvent),
 		);
 
 		// Auto-adjust textarea height on input
@@ -775,7 +758,7 @@ export class HydrateView extends ItemView {
 		}
 
 		// Set loading state with appropriate message
-		setDomLoadingState(this, true, loadingMessage);
+		setLoadingState(this, true, loadingMessage);
 
 		try {
 			// Prepare headers with authentication
@@ -816,7 +799,7 @@ export class HydrateView extends ItemView {
 				throw new Error(
 					`HTTP ${response.status}: ${
 						response.text || "Unknown error"
-					}`
+					}`,
 				);
 			}
 
@@ -839,10 +822,10 @@ export class HydrateView extends ItemView {
 					addMessageToChat(
 						this,
 						"agent",
-						responseData.agent_message.content
+						responseData.agent_message.content,
 					);
 				}
-				setDomLoadingState(this, false);
+				setLoadingState(this, false);
 			}
 		} catch (error: any) {
 			// Reset abort controller on error
@@ -855,7 +838,7 @@ export class HydrateView extends ItemView {
 				new Notice(`Backend error: ${error.message}`);
 				addMessageToChat(this, "agent", `Error: ${error.message}`);
 			}
-			setDomLoadingState(this, false);
+			setLoadingState(this, false);
 		}
 	}
 
@@ -868,7 +851,7 @@ export class HydrateView extends ItemView {
 			} catch (error) {
 				console.warn(
 					"Error collecting MCP tools for tool result:",
-					error
+					error,
 				);
 			}
 		} else {
@@ -885,7 +868,7 @@ export class HydrateView extends ItemView {
 	}
 
 	private async processToolCalls(
-		toolCalls: BackendToolCall[]
+		toolCalls: BackendToolCall[],
 	): Promise<void> {
 		// Add tool call indication to chat for each tool being called
 		for (const toolCall of toolCalls) {
@@ -895,7 +878,7 @@ export class HydrateView extends ItemView {
 			addMessageToChat(
 				this,
 				"system",
-				`Calling tool: ${toolDisplayName}`
+				`Calling tool: ${toolDisplayName}`,
 			);
 		}
 
@@ -905,7 +888,7 @@ export class HydrateView extends ItemView {
 				"editFile",
 				"replaceSelectionInFile",
 				"applyPatchesToFile",
-			].includes(call.tool)
+			].includes(call.tool),
 		);
 		const otherToolCalls = toolCalls.filter(
 			(call) =>
@@ -913,7 +896,7 @@ export class HydrateView extends ItemView {
 					"editFile",
 					"replaceSelectionInFile",
 					"applyPatchesToFile",
-				].includes(call.tool)
+				].includes(call.tool),
 		);
 
 		const results: ToolResult[] = [];
@@ -921,9 +904,8 @@ export class HydrateView extends ItemView {
 		// Process edit tools through review modal
 		if (editToolCalls.length > 0) {
 			try {
-				const editResults = await this.reviewAndExecuteEdits(
-					editToolCalls
-				);
+				const editResults =
+					await this.reviewAndExecuteEdits(editToolCalls);
 				results.push(...editResults);
 			} catch (error) {
 				console.error("Error processing edit tools:", error);
@@ -962,33 +944,32 @@ export class HydrateView extends ItemView {
 	}
 
 	private async reviewAndExecuteEdits(
-		pendingEdits: BackendToolCall[]
+		pendingEdits: BackendToolCall[],
 	): Promise<ToolResult[]> {
 		const results: ToolResult[] = [];
 
 		for (const toolCall of pendingEdits) {
 			try {
 				// Show diff modal for review
-				const reviewResult = await this.displayDiffModalForReview(
-					toolCall
-				);
+				const reviewResult =
+					await this.displayDiffModalForReview(toolCall);
 
 				if (reviewResult.applied) {
 					// Actually apply the changes to the file
 					try {
 						const file = this.app.vault.getAbstractFileByPath(
-							toolCall.params.path
+							toolCall.params.path,
 						);
 						if (file instanceof TFile) {
 							await this.app.vault.modify(
 								file,
-								reviewResult.finalContent || ""
+								reviewResult.finalContent || "",
 							);
 						} else {
 							// File doesn't exist, create it
 							await this.app.vault.create(
 								toolCall.params.path,
-								reviewResult.finalContent || ""
+								reviewResult.finalContent || "",
 							);
 						}
 
@@ -1001,7 +982,7 @@ export class HydrateView extends ItemView {
 					} catch (writeError) {
 						console.error(
 							`Failed to write changes to ${toolCall.params.path}:`,
-							writeError
+							writeError,
 						);
 						results.push({
 							id: toolCall.id,
@@ -1026,7 +1007,7 @@ export class HydrateView extends ItemView {
 			} catch (error) {
 				console.error(
 					`Error in review process for ${toolCall.tool}:`,
-					error
+					error,
 				);
 				results.push({
 					id: toolCall.id,
@@ -1041,7 +1022,7 @@ export class HydrateView extends ItemView {
 	}
 
 	private displayDiffModalForReview(
-		toolCall: BackendToolCall
+		toolCall: BackendToolCall,
 	): Promise<DiffReviewResult> {
 		return new Promise(async (resolve) => {
 			// Determine the target file path
@@ -1073,25 +1054,25 @@ export class HydrateView extends ItemView {
 						// If original selection isn't found, maybe show modal with error or just the new content?
 						// For now, let's show the diff against the original, highlighting the intended change might fail.
 						console.warn(
-							`Original selection for replaceSelectionInFile not found in ${targetPath}. Diff may be inaccurate.`
+							`Original selection for replaceSelectionInFile not found in ${targetPath}. Diff may be inaccurate.`,
 						);
 						// Fallback: show the new content as the proposed change for review, although tool execution might fail later.
 						// Alternatively, we could reject here? Let's show the diff for now.
 						proposedContent = originalContent.replace(
 							original_selection,
-							new_content
+							new_content,
 						);
 					} else {
 						proposedContent = originalContent.replace(
 							original_selection,
-							new_content
+							new_content,
 						);
 					}
 				} else if (toolCall.tool === "applyPatchesToFile") {
 					const patches = toolCall.params.patches as Patch[];
 					if (!Array.isArray(patches)) {
 						throw new Error(
-							"Invalid patches data for applyPatchesToFile."
+							"Invalid patches data for applyPatchesToFile.",
 						);
 					}
 					// Simulate applying patches to get proposed content
@@ -1107,18 +1088,18 @@ export class HydrateView extends ItemView {
 						if (contextIndex === -1) {
 							console.error(
 								`Context not found during simulation. Searching for:\n${JSON.stringify(
-									contextString
+									contextString,
 								)}\nin content:\n${JSON.stringify(
-									simulatedContent
-								)}`
+									simulatedContent,
+								)}`,
 							);
 							console.warn(
 								`Context for patch not found during simulation: ${JSON.stringify(
-									patch
-								)}`
+									patch,
+								)}`,
 							);
 							simulationErrors.push(
-								"Context not found for patch."
+								"Context not found for patch.",
 							); // Record error
 							continue;
 						}
@@ -1127,16 +1108,16 @@ export class HydrateView extends ItemView {
 							contextString &&
 							simulatedContent.indexOf(
 								contextString,
-								contextIndex + 1
+								contextIndex + 1,
 							) !== -1
 						) {
 							console.warn(
 								`Ambiguous context for patch found during simulation: ${JSON.stringify(
-									patch
-								)}`
+									patch,
+								)}`,
 							);
 							simulationErrors.push(
-								"Ambiguous context for patch."
+								"Ambiguous context for patch.",
 							); // Record error
 							continue;
 						}
@@ -1157,12 +1138,12 @@ export class HydrateView extends ItemView {
 				if (simulationErrors.length > 0) {
 					console.error(
 						"Simulation failed, cannot show diff modal reliably.",
-						simulationErrors
+						simulationErrors,
 					);
 					resolve({
 						applied: false,
 						message: `Could not apply patches due to context errors: ${simulationErrors.join(
-							", "
+							", ",
 						)}`,
 						finalContent: originalContent, // Return original content
 						toolCallId: toolCall.id,
@@ -1182,12 +1163,12 @@ export class HydrateView extends ItemView {
 					(result: DiffReviewResult) => {
 						// Add type to result
 						resolve(result);
-					}
+					},
 				).open();
 			} catch (error) {
 				console.error(
 					`Error preparing data for DiffReviewModal for ${targetPath}:`,
-					error
+					error,
 				);
 				// Resolve the promise with a rejected state if we can't even show the modal
 				resolve({
@@ -1214,25 +1195,25 @@ export class HydrateView extends ItemView {
 				// This case should ideally not be hit directly anymore if filtering is correct,
 				// but kept for safety. Review logic handles execution.
 				console.warn(
-					"executeSingleTool called for replaceSelectionInFile - should go through review."
+					"executeSingleTool called for replaceSelectionInFile - should go through review.",
 				);
 				// Fallback to direct execution if somehow called directly (not ideal)
 				return await toolReplaceSelectionInFile(
 					this.app,
 					toolCall.params.path,
 					toolCall.params.original_selection,
-					toolCall.params.new_content
+					toolCall.params.new_content,
 				);
 			case "search_project": // <<< ADD THIS CASE
 				return await handleSearchProject(
 					toolCall,
 					this.app,
-					this.plugin.settings
+					this.plugin.settings,
 				);
 
 			default:
 				throw new Error(
-					`Unknown or unsupported tool for direct execution: ${toolCall.tool}`
+					`Unknown or unsupported tool for direct execution: ${toolCall.tool}`,
 				);
 		}
 	}
@@ -1266,29 +1247,29 @@ export class HydrateView extends ItemView {
 			const result = await this.plugin.mcpManager.executeToolCall(
 				toolCall.mcp_info.server_id,
 				toolCall.tool,
-				actualParams
+				actualParams,
 			);
 
 			return result;
 		} catch (error) {
 			console.error(
 				`MCP tool execution failed for ${toolCall.tool}:`,
-				error
+				error,
 			);
 
 			// Provide more specific error messages
 			if (error instanceof Error) {
 				if (error.message.includes("Server not found")) {
 					throw new Error(
-						`MCP server '${toolCall.mcp_info.server_name}' (${toolCall.mcp_info.server_id}) is not available. Please check server configuration.`
+						`MCP server '${toolCall.mcp_info.server_name}' (${toolCall.mcp_info.server_id}) is not available. Please check server configuration.`,
 					);
 				} else if (error.message.includes("Tool not found")) {
 					throw new Error(
-						`Tool '${toolCall.tool}' not found on MCP server '${toolCall.mcp_info.server_name}'. The tool may have been removed or the server may need to be restarted.`
+						`Tool '${toolCall.tool}' not found on MCP server '${toolCall.mcp_info.server_name}'. The tool may have been removed or the server may need to be restarted.`,
 					);
 				} else if (error.message.includes("timeout")) {
 					throw new Error(
-						`MCP tool '${toolCall.tool}' timed out. The operation may be taking longer than expected.`
+						`MCP tool '${toolCall.tool}' timed out. The operation may be taking longer than expected.`,
 					);
 				}
 			}
@@ -1296,7 +1277,7 @@ export class HydrateView extends ItemView {
 			throw new Error(
 				`MCP tool execution failed: ${
 					error instanceof Error ? error.message : String(error)
-				}`
+				}`,
 			);
 		}
 	}
@@ -1372,7 +1353,7 @@ export class HydrateView extends ItemView {
 
 		// Generate title from first user message
 		const firstUserTurn = this.currentChatTurns.find(
-			(turn) => turn.role === "user"
+			(turn) => turn.role === "user",
 		);
 		const title = firstUserTurn
 			? firstUserTurn.content.length > 50
@@ -1390,7 +1371,7 @@ export class HydrateView extends ItemView {
 			attachedFiles: [...this.attachedFiles],
 			created: this.currentChatId
 				? this.plugin.getChatHistoryById(this.currentChatId)?.created ||
-				  now
+					now
 				: now,
 			lastModified: now,
 		};
@@ -1448,7 +1429,7 @@ export class HydrateView extends ItemView {
 		this.capturedSelections = [];
 
 		// Update UI
-		renderDomFilePills(this);
+		renderFilePills(this);
 
 		// Clear suggestions
 		this.suggestedNotes = [];
@@ -1474,7 +1455,7 @@ export class HydrateView extends ItemView {
 		this.isRestoringFromHistory = false;
 
 		// Update file pills
-		renderDomFilePills(this);
+		renderFilePills(this);
 
 		// Refresh suggestions based on loaded conversation
 		setTimeout(() => {
@@ -1544,7 +1525,7 @@ export class HydrateView extends ItemView {
 					const searchResults = await searchIndexRemote(
 						queryInfo.query,
 						this.plugin.settings, // VectorIndexSettings compatible
-						3 // Limit results per query
+						3, // Limit results per query
 					);
 
 					for (const result of searchResults) {
@@ -1555,7 +1536,7 @@ export class HydrateView extends ItemView {
 
 						// Use the highest score if file appears in multiple queries
 						const existingSuggestion = allSuggestions.get(
-							result.filePath
+							result.filePath,
 						);
 						if (
 							!existingSuggestion ||
@@ -1571,7 +1552,7 @@ export class HydrateView extends ItemView {
 				} catch (error) {
 					console.warn(
 						`Search failed for query "${queryInfo.query}":`,
-						error
+						error,
 					);
 				}
 			}
@@ -1680,7 +1661,7 @@ export class HydrateView extends ItemView {
 	 */
 	private createPopup(
 		anchorElement: HTMLElement,
-		buttons: Array<{ text: string; action: () => void }>
+		buttons: Array<{ text: string; action: () => void }>,
 	): HTMLDivElement {
 		// Close any existing popup
 		this.closeActivePopup();
@@ -1797,11 +1778,11 @@ export class HydrateView extends ItemView {
 		this.wasInitiallyAttached = false; // User manually added
 
 		// Update file pills display
-		renderDomFilePills(this);
+		renderFilePills(this);
 
 		// Remove from suggestions since it's now attached
 		this.suggestedNotes = this.suggestedNotes.filter(
-			(s) => s.filePath !== filePath
+			(s) => s.filePath !== filePath,
 		);
 		this.renderSuggestionPills();
 
@@ -1837,7 +1818,7 @@ export class HydrateView extends ItemView {
 
 		// Generate filename from first user message or timestamp
 		const firstUserTurn = this.currentChatTurns.find(
-			(turn) => turn.role === "user"
+			(turn) => turn.role === "user",
 		);
 		let baseTitle = firstUserTurn
 			? firstUserTurn.content
