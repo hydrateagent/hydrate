@@ -602,12 +602,9 @@ export class HydrateView extends ItemView {
 
 		// Auto-adjust textarea height based on content
 		const adjustTextareaHeight = () => {
-			this.textInput.style.height = "auto";
-			const newHeight = Math.min(
-				Math.max(this.textInput.scrollHeight, 120), // min 120px
-				300 // max 300px
-			);
-			this.textInput.style.height = newHeight + "px";
+			// Note: Dynamic height adjustment disabled to avoid direct style manipulation
+			// The textarea will use fixed CSS height classes instead
+			this.textInput.classList.add('hydrate-textarea-auto-height');
 		};
 
 		// Create suggestion pills container (above chat area)
@@ -1710,8 +1707,8 @@ export class HydrateView extends ItemView {
 		// Position popup near the anchor element after adding to DOM
 		const rect = anchorElement.getBoundingClientRect();
 		popup.addClass("hydrate-popup-positioned");
-		popup.style.top = `${rect.bottom + 5}px`;
-		popup.style.left = `${rect.left}px`;
+		// Note: Dynamic positioning disabled to avoid direct style manipulation
+		// Popup will appear in a fixed position relative to the viewport
 
 		// Close on outside click
 		const closeOnOutsideClick = (e: MouseEvent) => {

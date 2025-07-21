@@ -524,3 +524,37 @@
 .modal-button-container .mod-cta:hover {
     background: var(--interactive-accent-hover);
 }
+
+/* --- Status and Error Message Styles --- */
+.hydrate-error-message {
+    color: var(--text-error);
+}
+
+.hydrate-status-active {
+    color: var(--text-success, #22c55e);
+}
+
+.hydrate-status-inactive {
+    color: var(--text-error, #ef4444);
+}
+
+/* --- Full Width Utility --- */
+.hydrate-full-width {
+    width: 100%;
+}
+
+/* --- Textarea Height Management --- */
+.hydrate-textarea-auto-height {
+    height: 180px; /* Fixed height since dynamic adjustment is disabled */
+    min-height: 120px;
+    max-height: 300px;
+    resize: vertical; /* Allow manual resizing */
+}
+
+/* --- Popup Positioning (Fixed position since dynamic positioning is disabled) --- */
+.hydrate-popup-positioned {
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    /* Center the popup in the viewport */
+}

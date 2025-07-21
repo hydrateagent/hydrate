@@ -43,7 +43,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 		const statusChangeHandler = (
 			serverId: string,
 			status: MCPServerStatus,
-			previousStatus: MCPServerStatus
+			previousStatus: MCPServerStatus,
 		) => {
 			if (this.mcpServersContainer) {
 				this.renderMCPServersList(this.mcpServersContainer);
@@ -53,7 +53,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 		const healthChangeHandler = (
 			serverId: string,
 			health: MCPServerHealth,
-			previousHealth: MCPServerHealth
+			previousHealth: MCPServerHealth,
 		) => {
 			if (this.mcpServersContainer) {
 				this.renderMCPServersList(this.mcpServersContainer);
@@ -77,13 +77,13 @@ export class HydrateSettingTab extends PluginSettingTab {
 			if (statusHandler) {
 				this.plugin.mcpManager.off(
 					"server-status-changed",
-					statusHandler
+					statusHandler,
 				);
 			}
 			if (healthHandler) {
 				this.plugin.mcpManager.off(
 					"server-health-changed",
-					healthHandler
+					healthHandler,
 				);
 			}
 		}
@@ -113,7 +113,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("Default LLM Model")
 			.setDesc(
-				"Select the language model to use for the agent. Ensure you have the corresponding API key set in the backend environment (e.g., .env file with OPENAI_API_KEY, ANTHROPIC_API_KEY, or GOOGLE_API_KEY)."
+				"Select the language model to use for the agent. Ensure you have the corresponding API key set in the backend environment (e.g., .env file with OPENAI_API_KEY, ANTHROPIC_API_KEY, or GOOGLE_API_KEY).",
 			)
 			.addDropdown((dropdown) => {
 				// Add options dynamically from the allowed list
@@ -135,7 +135,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 			new Setting(containerEl)
 				.setName("Backend URL")
 				.setDesc(
-					"URL of the Hydrate agent backend (e.g., http://localhost:8000). In production, this is hardcoded to https://api.hydrateagent.com/"
+					"URL of the Hydrate agent backend (e.g., http://localhost:8000). In production, this is hardcoded to https://api.hydrateagent.com/",
 				)
 				.addText((text) => {
 					text.setPlaceholder("http://localhost:8000")
@@ -226,7 +226,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("License Key")
 			.setDesc(
-				"Enter your Hydrate license key for paid subscriptions. Leave empty for free tier."
+				"Enter your Hydrate license key for paid subscriptions. Leave empty for free tier.",
 			)
 			.addText((text) =>
 				text
@@ -237,7 +237,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 						// Refresh the display to show/hide subscription status
 						this.display();
-					})
+					}),
 			);
 		// Add a link to the Hydrate home page for subscriptions
 		const licenseLink = document.createElement("a");
@@ -271,7 +271,6 @@ export class HydrateSettingTab extends PluginSettingTab {
 				const eyeBtn = document.createElement("button");
 				eyeBtn.type = "button";
 				eyeBtn.addClass("hydrate-eye-button");
-				// Use a Unicode eye character instead of SVG or innerHTML
 				const eyeChar = document.createTextNode("\u{1F441}");
 				eyeBtn.appendChild(eyeChar);
 				eyeBtn.onclick = (e) => {
@@ -298,7 +297,6 @@ export class HydrateSettingTab extends PluginSettingTab {
 				const eyeBtn = document.createElement("button");
 				eyeBtn.type = "button";
 				eyeBtn.addClass("hydrate-eye-button");
-				// Use a Unicode eye character instead of SVG or innerHTML
 				const eyeChar2 = document.createTextNode("\u{1F441}");
 				eyeBtn.appendChild(eyeChar2);
 				eyeBtn.onclick = (e) => {
@@ -325,7 +323,6 @@ export class HydrateSettingTab extends PluginSettingTab {
 				const eyeBtn = document.createElement("button");
 				eyeBtn.type = "button";
 				eyeBtn.addClass("hydrate-eye-button");
-				// Use a Unicode eye character instead of SVG or innerHTML
 				const eyeChar3 = document.createTextNode("\u{1F441}");
 				eyeBtn.appendChild(eyeChar3);
 				eyeBtn.onclick = (e) => {
@@ -371,7 +368,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 		// --- Format & Context Registry Section ---
 		const formatRegistrySection = containerEl.createDiv(
-			"hydrate-settings-section"
+			"hydrate-settings-section",
 		);
 		const formatHeadingEl = formatRegistrySection.createEl("div", {
 			cls: "hydrate-settings-heading",
@@ -400,9 +397,9 @@ export class HydrateSettingTab extends PluginSettingTab {
 						new Notice(
 							`Added format entry: ${
 								newEntry.description || newEntry.id
-							}`
+							}`,
 						);
-					}
+					},
 				);
 				modal.open();
 			});
@@ -413,14 +410,14 @@ export class HydrateSettingTab extends PluginSettingTab {
 		});
 
 		const formatRegistryListEl = formatRegistrySection.createDiv(
-			"hydrate-registry-list"
+			"hydrate-registry-list",
 		); // Container for the list items
 
 		this.renderFormatRegistryList(formatRegistryListEl); // Call helper to render the list items
 
 		// --- Rules Registry Section ---
 		const rulesRegistrySection = containerEl.createDiv(
-			"hydrate-settings-section"
+			"hydrate-settings-section",
 		);
 		const rulesHeadingEl = rulesRegistrySection.createEl("div", {
 			cls: "hydrate-settings-heading",
@@ -445,9 +442,9 @@ export class HydrateSettingTab extends PluginSettingTab {
 						this.plugin.saveSettings();
 						this.renderRulesRegistryList(rulesRegistryListEl); // Re-render the rules list
 						new Notice(
-							`Added rule: ${newRule.description || newRule.id}`
+							`Added rule: ${newRule.description || newRule.id}`,
 						);
-					}
+					},
 				);
 				modal.open();
 			});
@@ -456,13 +453,13 @@ export class HydrateSettingTab extends PluginSettingTab {
 			cls: "setting-item-description",
 		});
 		const rulesRegistryListEl = rulesRegistrySection.createDiv(
-			"hydrate-registry-list"
+			"hydrate-registry-list",
 		);
 		this.renderRulesRegistryList(rulesRegistryListEl); // Call rules list renderer
 
 		// --- MCP Servers Section ---
 		const mcpServersSection = containerEl.createDiv(
-			"hydrate-settings-section"
+			"hydrate-settings-section",
 		);
 		const mcpHeadingEl = mcpServersSection.createEl("div", {
 			cls: "hydrate-settings-heading",
@@ -493,12 +490,12 @@ export class HydrateSettingTab extends PluginSettingTab {
 							for (const id of existingIds) {
 								try {
 									await this.plugin.mcpManager.removeServer(
-										id
+										id,
 									);
 								} catch (error) {
 									console.warn(
 										`Failed to remove server ${id}:`,
-										error
+										error,
 									);
 								}
 							}
@@ -508,12 +505,12 @@ export class HydrateSettingTab extends PluginSettingTab {
 								try {
 									await this.plugin.mcpManager.addServer(
 										config.id,
-										config
+										config,
 									);
 								} catch (error) {
 									console.error(
 										`Failed to add server ${config.id}:`,
-										error
+										error,
 									);
 								}
 							}
@@ -523,9 +520,9 @@ export class HydrateSettingTab extends PluginSettingTab {
 						new Notice(
 							`Configured ${newServers.length} MCP server${
 								newServers.length === 1 ? "" : "s"
-							}`
+							}`,
 						);
-					}
+					},
 				);
 				modal.open();
 			});
@@ -536,7 +533,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 		});
 
 		const mcpServersListEl = mcpServersSection.createDiv(
-			"hydrate-registry-list"
+			"hydrate-registry-list",
 		);
 		this.mcpServersContainer = mcpServersListEl;
 		this.renderMCPServersList(mcpServersListEl);
@@ -546,7 +543,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("MCP Custom PATH")
 			.setDesc(
-				"Comma-separated list of paths to add to PATH environment variable when starting MCP servers. This is needed if Obsidian can't find 'npx' or 'node'. Example: /usr/local/bin,/opt/homebrew/bin"
+				"Comma-separated list of paths to add to PATH environment variable when starting MCP servers. This is needed if Obsidian can't find 'npx' or 'node'. Example: /usr/local/bin,/opt/homebrew/bin",
 			)
 			.addText((text) =>
 				text
@@ -555,7 +552,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 					.onChange(async (value) => {
 						this.plugin.settings.mcpCustomPaths = value.trim();
 						await this.plugin.saveSettings();
-					})
+					}),
 			);
 
 		// --- Embeddings Section ---
@@ -575,7 +572,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("Enable Embeddings")
 			.setDesc(
-				"Use an API endpoint (like OpenAI) to generate embeddings instead of running a local model. Requires separate configuration below."
+				"Use an API endpoint (like OpenAI) to generate embeddings instead of running a local model. Requires separate configuration below.",
 			)
 			.addToggle((toggle) =>
 				toggle
@@ -593,47 +590,47 @@ export class HydrateSettingTab extends PluginSettingTab {
 									this.plugin.settings.remoteEmbeddingApiKey
 								) {
 									new Notice(
-										"Vector system initialized. You can now index your vault."
+										"Vector system initialized. You can now index your vault.",
 									);
 								}
 							} catch (error) {
 								console.error(
 									"Failed to initialize vector system:",
-									error
+									error,
 								);
 								new Notice(
-									"Failed to initialize vector system. Check console for details."
+									"Failed to initialize vector system. Check console for details.",
 								);
 							}
 						}
 
 						this.display();
-					})
+					}),
 			);
 
 		if (this.plugin.settings.enableRemoteEmbeddings) {
 			new Setting(containerEl)
 				.setName("Embedding API URL")
 				.setDesc(
-					"The full URL of the OpenAI-compatible embedding API endpoint."
+					"The full URL of the OpenAI-compatible embedding API endpoint.",
 				)
 				.addText((text) =>
 					text
 						.setPlaceholder(
-							"e.g., https://api.openai.com/v1/embeddings"
+							"e.g., https://api.openai.com/v1/embeddings",
 						)
 						.setValue(this.plugin.settings.remoteEmbeddingUrl)
 						.onChange(async (value) => {
 							this.plugin.settings.remoteEmbeddingUrl =
 								value.trim();
 							await this.plugin.saveSettings();
-						})
+						}),
 				);
 
 			new Setting(containerEl)
 				.setName("Embedding API Key")
 				.setDesc(
-					"Your API key for the embedding service. Will be sent with requests. Ensure you trust the endpoint."
+					"Your API key for the embedding service. Will be sent with requests. Ensure you trust the endpoint.",
 				)
 				.addText((text) => {
 					let visible = false;
@@ -651,7 +648,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 			new Setting(containerEl)
 				.setName("Embedding Model Name")
 				.setDesc(
-					"The exact name of the embedding model to use with the API (e.g., text-embedding-3-small)."
+					"The exact name of the embedding model to use with the API (e.g., text-embedding-3-small).",
 				)
 				.addText((text) =>
 					text
@@ -661,13 +658,13 @@ export class HydrateSettingTab extends PluginSettingTab {
 							this.plugin.settings.remoteEmbeddingModelName =
 								value.trim();
 							await this.plugin.saveSettings();
-						})
+						}),
 				);
 
 			new Setting(containerEl)
 				.setName("Indexed File Extensions")
 				.setDesc(
-					"Comma-separated list of file extensions to index (e.g., md,txt,js). Leave empty to index no files. Changes require re-indexing."
+					"Comma-separated list of file extensions to index (e.g., md,txt,js). Leave empty to index no files. Changes require re-indexing.",
 				)
 				.addText((text) =>
 					text
@@ -680,7 +677,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 								.filter((ext) => ext.length > 0)
 								.join(",");
 							await this.plugin.saveSettings();
-						})
+						}),
 				);
 
 			const indexingDesc = document.createDocumentFragment();
@@ -688,7 +685,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 				"Scan the entire vault and generate embeddings for specified file types using the configured remote endpoint.",
 				indexingDesc.createEl("br"),
 				indexingDesc.createEl("strong", { text: "Warning:" }),
-				" This may take a long time and may incur costs."
+				" This may take a long time and may incur costs.",
 			);
 
 			new Setting(containerEl)
@@ -706,7 +703,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 							if (this.startIndexingButton) {
 								this.startIndexingButton.setDisabled(true);
 								this.startIndexingButton.setButtonText(
-									"Indexing..."
+									"Indexing...",
 								);
 							}
 							try {
@@ -714,16 +711,16 @@ export class HydrateSettingTab extends PluginSettingTab {
 							} catch (error) {
 								console.error(
 									"Initial indexing trigger failed:",
-									error
+									error,
 								);
 								new Notice(
-									"Failed to start indexing. Check console."
+									"Failed to start indexing. Check console.",
 								);
 							} finally {
 								if (this.startIndexingButton) {
 									this.startIndexingButton.setDisabled(false);
 									this.startIndexingButton.setButtonText(
-										"Start Full Vault Indexing"
+										"Start Full Vault Indexing",
 									);
 								}
 							}
@@ -738,7 +735,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 						.setButtonText("Rebuild Index")
 						.setWarning()
 						.setTooltip(
-							"Clear corrupted index and rebuild from scratch"
+							"Clear corrupted index and rebuild from scratch",
 						)
 						.onClick(async () => {
 							if (this.plugin.isIndexing) {
@@ -793,7 +790,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 										}
 									})(this.app);
 									modal.open();
-								}
+								},
 							);
 
 							if (!confirmed) return;
@@ -801,7 +798,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 							if (this.startIndexingButton) {
 								this.startIndexingButton.setDisabled(true);
 								this.startIndexingButton.setButtonText(
-									"Rebuilding..."
+									"Rebuilding...",
 								);
 							}
 							button.setDisabled(true);
@@ -813,13 +810,13 @@ export class HydrateSettingTab extends PluginSettingTab {
 							} catch (error) {
 								console.error("Index rebuild failed:", error);
 								new Notice(
-									"Failed to rebuild index. Check console for details."
+									"Failed to rebuild index. Check console for details.",
 								);
 							} finally {
 								if (this.startIndexingButton) {
 									this.startIndexingButton.setDisabled(false);
 									this.startIndexingButton.setButtonText(
-										"Start Full Vault Indexing"
+										"Start Full Vault Indexing",
 									);
 								}
 								button.setDisabled(false);
@@ -853,7 +850,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 		// Sort alphabetically by description for consistent order
 		entries.sort((a, b) =>
-			(a.description || a.id).localeCompare(b.description || b.id)
+			(a.description || a.id).localeCompare(b.description || b.id),
 		);
 
 		entries.forEach((entry) => {
@@ -862,7 +859,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 				.setDesc(
 					`Trigger: ${entry.slashCommandTrigger || "None"} | Type: ${
 						entry.contentType
-					} | v${entry.version}`
+					} | v${entry.version}`,
 				)
 				.setClass("hydrate-registry-item") // Custom class for item styling
 
@@ -884,7 +881,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 											.map((e) =>
 												e.id === updatedEntry.id
 													? updatedEntry
-													: e
+													: e,
 											);
 									this.plugin.saveSettings();
 									this.renderFormatRegistryList(containerEl); // Use specific renderer
@@ -892,12 +889,12 @@ export class HydrateSettingTab extends PluginSettingTab {
 										`Updated format entry: ${
 											updatedEntry.description ||
 											updatedEntry.id
-										}`
+										}`,
 									);
-								}
+								},
 							);
 							modal.open();
-						})
+						}),
 				)
 				// Delete Button
 				.addButton((button) =>
@@ -911,7 +908,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 								confirm(
 									`Are you sure you want to delete "${
 										entry.description || entry.id
-									}"?`
+									}"?`,
 								)
 							) {
 								this.plugin.settings.registryEntries =
@@ -923,10 +920,10 @@ export class HydrateSettingTab extends PluginSettingTab {
 								new Notice(
 									`Deleted format entry: ${
 										entry.description || entry.id
-									}`
+									}`,
 								);
 							}
-						})
+						}),
 				);
 		});
 	}
@@ -947,7 +944,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 		// Sort alphabetically by description or ID for consistent order
 		rules.sort((a, b) =>
-			(a.description || a.id).localeCompare(b.description || b.id)
+			(a.description || a.id).localeCompare(b.description || b.id),
 		);
 
 		rules.forEach((rule) => {
@@ -974,7 +971,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 											.map((r) =>
 												r.id === updatedRule.id
 													? updatedRule
-													: r
+													: r,
 											);
 									this.plugin.saveSettings();
 									this.renderRulesRegistryList(containerEl); // Re-render this list
@@ -982,12 +979,12 @@ export class HydrateSettingTab extends PluginSettingTab {
 										`Updated rule: ${
 											updatedRule.description ||
 											updatedRule.id
-										}`
+										}`,
 									);
-								}
+								},
 							);
 							modal.open();
-						})
+						}),
 				)
 				// Delete Button
 				.addButton((button) =>
@@ -1000,7 +997,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 								confirm(
 									`Are you sure you want to delete the rule "${
 										rule.description || rule.id
-									}"?`
+									}"?`,
 								)
 							) {
 								this.plugin.settings.rulesRegistryEntries =
@@ -1012,10 +1009,10 @@ export class HydrateSettingTab extends PluginSettingTab {
 								new Notice(
 									`Deleted rule: ${
 										rule.description || rule.id
-									}`
+									}`,
 								);
 							}
-						})
+						}),
 				);
 		});
 	}
@@ -1064,7 +1061,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 			// Server Controls
 			const serverControls = serverRow.createDiv(
-				"hydrate-mcp-server-controls"
+				"hydrate-mcp-server-controls",
 			);
 
 			// Enable/Disable Toggle
@@ -1101,7 +1098,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 							server.id,
 							{
 								enabled: server.enabled,
-							}
+							},
 						);
 					}
 
@@ -1118,7 +1115,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 						`Failed to ${
 							toggle.checked ? "start" : "stop"
 						} server ${server.id}:`,
-						error
+						error,
 					);
 					// Revert the toggle state on error
 					toggle.checked = originalChecked;
@@ -1134,7 +1131,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 							server.id,
 							{
 								enabled: server.enabled,
-							}
+							},
 						);
 					}
 				} finally {
@@ -1152,7 +1149,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 			// Action Buttons
 			const actionButtons = serverControls.createDiv(
-				"hydrate-mcp-actions"
+				"hydrate-mcp-actions",
 			);
 
 			// Settings Button
@@ -1162,7 +1159,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 			});
 			settingsButton.onclick = () => {
 				new MCPServerSettingsModal(this.app, server, (updatedServer) =>
-					this.updateServerSettings(index, updatedServer)
+					this.updateServerSettings(index, updatedServer),
 				).open();
 			};
 
@@ -1212,19 +1209,18 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 		try {
 			new Notice("Testing server connection...");
-			const result = await this.plugin.mcpManager.testServerConnection(
-				server
-			);
+			const result =
+				await this.plugin.mcpManager.testServerConnection(server);
 
 			if (result.success) {
 				new Notice(
 					`✅ ${server.name}: Connected successfully! Found ${
 						result.toolCount || 0
-					} tools.`
+					} tools.`,
 				);
 			} else {
 				new Notice(
-					`❌ ${server.name}: Connection failed - ${result.error}`
+					`❌ ${server.name}: Connection failed - ${result.error}`,
 				);
 			}
 		} catch (error) {
@@ -1363,7 +1359,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 	private updateServerSettings(
 		index: number,
-		updatedServer: MCPServerConfig
+		updatedServer: MCPServerConfig,
 	) {
 		this.plugin.settings.mcpServers[index] = updatedServer;
 		this.plugin.saveSettings();
@@ -1377,11 +1373,15 @@ export class HydrateSettingTab extends PluginSettingTab {
 				`${this.getBackendUrl()}/subscriptions/license/${
 					this.plugin.settings.licenseKey
 				}/status`,
-				{}
+				{},
 			);
 
 			if (!response.ok) {
-				statusDiv.innerHTML = `<p style="color: red;">Error loading subscription status: ${response.status}</p>`;
+				statusDiv.empty();
+				statusDiv.createEl("p", {
+					text: `Error loading subscription status: ${response.status}`,
+					cls: "hydrate-error-message",
+				});
 				return;
 			}
 
@@ -1390,32 +1390,79 @@ export class HydrateSettingTab extends PluginSettingTab {
 			const statusColor = licenseInfo.is_active ? "green" : "red";
 			const statusText = licenseInfo.is_active ? "Active" : "Inactive";
 
-			statusDiv.innerHTML = `
-				<div class="subscription-status-info">
-					<p><strong>Tier:</strong> <span style="color: ${statusColor}">${tierName}</span></p>
-					<p><strong>Status:</strong> <span style="color: ${statusColor}">${statusText}</span></p>
-					${
-						licenseInfo.expires_at
-							? `<p><strong>Expires:</strong> ${new Date(
-									licenseInfo.expires_at
-							  ).toLocaleDateString()}</p>`
-							: ""
-					}
-				</div>
-				<div class="subscription-features">
-					<h5>Available Features:</h5>
-					<ul>
-						<li>✓ Basic AI chat with your own API keys</li>
-						<li>✓ File operations and editing</li>
-						<li>${licenseInfo.tier === "free" ? "✗" : "✓"} MCP server integrations</li>
-						<li>${licenseInfo.tier === "free" ? "✗" : "✓"} Advanced file operations</li>
-						<li>${licenseInfo.tier === "free" ? "✗" : "✓"} Priority support</li>
-						<li>${licenseInfo.tier === "max" ? "✓" : "✗"} Custom integrations</li>
-					</ul>
-				</div>
-			`;
+			statusDiv.empty();
+
+			// Create subscription status info container
+			const infoContainer = statusDiv.createDiv({
+				cls: "subscription-status-info",
+			});
+
+			// Tier information
+			const tierP = infoContainer.createEl("p");
+			tierP.createEl("strong", { text: "Tier: " });
+			tierP.createEl("span", {
+				text: tierName,
+				cls: licenseInfo.is_active ? "hydrate-status-active" : "hydrate-status-inactive",
+			});
+
+			// Status information
+			const statusP = infoContainer.createEl("p");
+			statusP.createEl("strong", { text: "Status: " });
+			statusP.createEl("span", {
+				text: statusText,
+				cls: licenseInfo.is_active ? "hydrate-status-active" : "hydrate-status-inactive",
+			});
+
+			// Expiration information (if available)
+			if (licenseInfo.expires_at) {
+				const expiresP = infoContainer.createEl("p");
+				expiresP.createEl("strong", { text: "Expires: " });
+				expiresP.createSpan({
+					text: new Date(licenseInfo.expires_at).toLocaleDateString(),
+				});
+			}
+
+			// Create subscription features container
+			const featuresContainer = statusDiv.createDiv({
+				cls: "subscription-features",
+			});
+			featuresContainer.createEl("h5", { text: "Available Features:" });
+
+			const featuresList = featuresContainer.createEl("ul");
+
+			// Add feature list items
+			featuresList.createEl("li", {
+				text: "✓ Basic AI chat with your own API keys",
+			});
+			featuresList.createEl("li", {
+				text: "✓ File operations and editing",
+			});
+
+			const mcpIcon = licenseInfo.tier === "free" ? "✗" : "✓";
+			featuresList.createEl("li", {
+				text: `${mcpIcon} MCP server integrations`,
+			});
+
+			const advancedIcon = licenseInfo.tier === "free" ? "✗" : "✓";
+			featuresList.createEl("li", {
+				text: `${advancedIcon} Advanced file operations`,
+			});
+
+			const supportIcon = licenseInfo.tier === "free" ? "✗" : "✓";
+			featuresList.createEl("li", {
+				text: `${supportIcon} Priority support`,
+			});
+
+			const customIcon = licenseInfo.tier === "max" ? "✓" : "✗";
+			featuresList.createEl("li", {
+				text: `${customIcon} Custom integrations`,
+			});
 		} catch (error) {
-			statusDiv.innerHTML = `<p style="color: red;">Error loading subscription status: ${error.message}</p>`;
+			statusDiv.empty();
+			statusDiv.createEl("p", {
+				text: `Error loading subscription status: ${error.message}`,
+				cls: "hydrate-error-message",
+			});
 		}
 	}
 
@@ -1426,33 +1473,50 @@ export class HydrateSettingTab extends PluginSettingTab {
 				`${this.getBackendUrl()}/subscriptions/license/${
 					this.plugin.settings.licenseKey
 				}/registration-quota`,
-				{}
+				{},
 			);
 
 			if (!response.ok) {
-				statusDiv.innerHTML = `<p style="color: red;">Error loading registration status: ${response.status}</p>`;
+				statusDiv.empty();
+				statusDiv.createEl("p", {
+					text: `Error loading registration status: ${response.status}`,
+					cls: "hydrate-error-message",
+				});
 				return;
 			}
 
 			const quota = await response.json();
-			statusDiv.innerHTML = `
-				<p><strong>Registration Status:</strong></p>
-				<ul>
-					<li>Re-registrations used: ${quota.registration_count} / ${
-				quota.max_reregistrations
-			}</li>
-					<li>Quota resets: ${new Date(quota.next_reset).toLocaleDateString()}</li>
-					<li>Remaining: ${quota.max_reregistrations - quota.registration_count}</li>
-				</ul>
-			`;
+			statusDiv.empty();
+
+			statusDiv
+				.createEl("p")
+				.createEl("strong", { text: "Registration Status:" });
+
+			const quotaList = statusDiv.createEl("ul");
+			quotaList.createEl("li", {
+				text: `Re-registrations used: ${quota.registration_count} / ${quota.max_reregistrations}`,
+			});
+			quotaList.createEl("li", {
+				text: `Quota resets: ${new Date(quota.next_reset).toLocaleDateString()}`,
+			});
+			quotaList.createEl("li", {
+				text: `Remaining: ${quota.max_reregistrations - quota.registration_count}`,
+			});
 		} catch (error) {
-			statusDiv.innerHTML = `<p style="color: red;">Error loading registration status: ${error.message}</p>`;
+			statusDiv.empty();
+			statusDiv.createEl("p", {
+				text: `Error loading registration status: ${error.message}`,
+				cls: "hydrate-error-message",
+			});
 		}
 	}
 
 	private async handleAPIKeyReregistration() {
 		const modal = new (class extends Modal {
-			constructor(app: App, private settingsTab: HydrateSettingTab) {
+			constructor(
+				app: App,
+				private settingsTab: HydrateSettingTab,
+			) {
 				super(app);
 			}
 
@@ -1502,13 +1566,13 @@ export class HydrateSettingTab extends PluginSettingTab {
 			// Filter out empty keys
 			const validKeys = Object.fromEntries(
 				Object.entries(apiKeys).filter(
-					([_, value]) => value && value.trim()
-				)
+					([_, value]) => value && value.trim(),
+				),
 			);
 
 			if (Object.keys(validKeys).length === 0) {
 				new Notice(
-					"No API keys to register. Please configure your API keys first."
+					"No API keys to register. Please configure your API keys first.",
 				);
 				return;
 			}
@@ -1519,14 +1583,14 @@ export class HydrateSettingTab extends PluginSettingTab {
 					license_key: this.plugin.settings.licenseKey,
 					api_keys: validKeys,
 					reason: "User initiated re-registration from plugin settings",
-				}
+				},
 			);
 
 			if (response.ok) {
 				new Notice("API keys re-registered successfully!");
 				// Refresh the status display
 				const statusDiv = document.querySelector(
-					".registration-status"
+					".registration-status",
 				) as HTMLElement;
 				if (statusDiv) {
 					await this.loadRegistrationStatus(statusDiv);

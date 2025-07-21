@@ -50,8 +50,7 @@ export class MCPServersConfigModal extends Modal {
 		});
 		const jsonTextAreaEl = contentEl.createEl("textarea");
 		jsonTextAreaEl.rows = 20;
-		jsonTextAreaEl.style.width = "100%";
-		jsonTextAreaEl.classList.add("hydrate-mcp-textarea");
+		jsonTextAreaEl.classList.add("hydrate-mcp-textarea", "hydrate-full-width");
 		jsonTextAreaEl.value = this.currentJson;
 		jsonTextAreaEl.placeholder = this.getExampleJson();
 		this.jsonTextArea = {
