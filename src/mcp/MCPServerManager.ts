@@ -8,6 +8,7 @@ import {
 	MCPServerConfigValidator,
 } from "./MCPServerConfig";
 import { devLog } from "../utils/logger";
+import { debounce } from "obsidian";
 // MCPToolDiscovery types - inline definitions
 export interface MCPToolSchemaWithMetadata {
 	name: string;
@@ -88,8 +89,21 @@ export class MCPServerManager extends EventEmitter {
 	private storage: MCPConfigStorage | null = null;
 	private startTime = new Date();
 	private autoSaveEnabled = true;
-	private autoSaveDelay = 1000; // 1 second debounce
-	private autoSaveTimeout: NodeJS.Timeout | null = null;
+	private debouncedAutoSave = debounce(
+		async () => {
+			if (!this.autoSaveEnabled || !this.storage) {
+				return;
+			}
+			try {
+				await this.saveConfiguration();
+			} catch (error) {
+				devLog.warn("Auto-save failed:", error);
+				this.emit("error", error as Error);
+			}
+		},
+		1000,
+		true,
+	); // 1 second delay, reset timer on each call
 	private customPaths: string[] = [];
 
 	constructor() {
@@ -160,7 +174,7 @@ export class MCPServerManager extends EventEmitter {
 		}
 
 		this.emit("server-added", serverId, fullConfig);
-		this.scheduleAutoSave();
+		this.debouncedAutoSave();
 	}
 
 	/**
@@ -190,7 +204,7 @@ export class MCPServerManager extends EventEmitter {
 		this.servers.delete(serverId);
 
 		this.emit("server-removed", serverId);
-		this.scheduleAutoSave();
+		this.debouncedAutoSave();
 	}
 
 	/**
@@ -209,7 +223,7 @@ export class MCPServerManager extends EventEmitter {
 		entry.config = entry.server.getConfig();
 		entry.lastSeen = new Date();
 
-		this.scheduleAutoSave();
+		this.debouncedAutoSave();
 	}
 
 	/**
@@ -654,10 +668,7 @@ export class MCPServerManager extends EventEmitter {
 					await testServer.stop();
 					testServer.dispose();
 				} catch (cleanupError) {
-					devLog.warn(
-						"Error cleaning up test server:",
-						cleanupError,
-					);
+					devLog.warn("Error cleaning up test server:", cleanupError);
 				}
 			}
 		} catch (error) {
@@ -673,11 +684,8 @@ export class MCPServerManager extends EventEmitter {
 	 * Dispose of all resources
 	 */
 	async dispose(): Promise<void> {
-		// Clear auto-save timeout
-		if (this.autoSaveTimeout) {
-			clearTimeout(this.autoSaveTimeout);
-			this.autoSaveTimeout = null;
-		}
+		// Cancel any pending auto-save
+		this.debouncedAutoSave.cancel();
 
 		// Stop all servers
 		await this.stopAllServers();
@@ -741,30 +749,6 @@ export class MCPServerManager extends EventEmitter {
 		server.on("tools-discovered", (toolCount) => {
 			this.emit("tools-discovered", serverId, toolCount);
 		});
-	}
-
-	/**
-	 * Schedule automatic configuration save
-	 */
-	private scheduleAutoSave(): void {
-		if (!this.autoSaveEnabled || !this.storage) {
-			return;
-		}
-
-		// Clear existing timeout
-		if (this.autoSaveTimeout) {
-			clearTimeout(this.autoSaveTimeout);
-		}
-
-		// Schedule new save
-		this.autoSaveTimeout = setTimeout(async () => {
-			try {
-				await this.saveConfiguration();
-			} catch (error) {
-				devLog.warn("Auto-save failed:", error);
-				this.emit("error", error as Error);
-			}
-		}, this.autoSaveDelay);
 	}
 
 	/**
