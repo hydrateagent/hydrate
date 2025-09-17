@@ -542,12 +542,6 @@ export default class HydratePlugin extends Plugin {
 		workspace.revealLeaf(leaf); // Reveal after setting state
 	}
 
-	async deactivateView() {
-		const { workspace } = this.app;
-		const leaves = workspace.getLeavesOfType(HYDRATE_VIEW_TYPE);
-		leaves.forEach((leaf) => leaf.detach());
-	}
-
 	// --- File Open Handler (Simplified for File Attachment Logic) ---
 	handleFileOpen = async (file: TFile | null) => {
 		// --- Part 1: Notify the Hydrate Pane (Keep this logic) ---
@@ -772,8 +766,8 @@ export default class HydratePlugin extends Plugin {
 	// --- End Layout Change Handler ---
 
 	onunload() {
-		// Clean up when the plugin is disabled
-		this.deactivateView(); // This will also detach leaves
+		// Clean up internal resources only
+		// Note: We don't detach leaves as this is an antipattern - Obsidian manages view lifecycle
 
 		// Clean up MCP Server Manager
 		if (this.mcpManager) {
