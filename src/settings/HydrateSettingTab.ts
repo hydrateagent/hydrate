@@ -107,7 +107,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		// --- General Settings ---
-		containerEl.createEl("h3", { text: "General" });
+		new Setting(containerEl).setName("General").setHeading();
 
 		new Setting(containerEl)
 			.setName("Default LLM Model")
@@ -176,7 +176,9 @@ export class HydrateSettingTab extends PluginSettingTab {
 		}
 
 		// --- BYOK SUBSCRIPTION SETTINGS ---
-		containerEl.createEl("h3", { text: "Subscription & API Keys" });
+		new Setting(containerEl)
+			.setName("Subscription & API Keys")
+			.setHeading();
 
 		// Subscription Status Display
 		const subscriptionStatusSection = containerEl.createEl("div", {
@@ -372,7 +374,9 @@ export class HydrateSettingTab extends PluginSettingTab {
 		const formatHeadingEl = formatRegistrySection.createEl("div", {
 			cls: "hydrate-settings-heading",
 		});
-		formatHeadingEl.createEl("h3", { text: "Format & Context Registry" });
+		new Setting(formatHeadingEl)
+			.setName("Format & Context Registry")
+			.setHeading();
 		const formatAddButtonContainer = formatHeadingEl.createDiv({
 			cls: "hydrate-heading-actions",
 		}); // Container for button
@@ -421,7 +425,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 		const rulesHeadingEl = rulesRegistrySection.createEl("div", {
 			cls: "hydrate-settings-heading",
 		});
-		rulesHeadingEl.createEl("h3", { text: "Rules Registry" });
+		new Setting(rulesHeadingEl).setName("Rules Registry").setHeading();
 		const rulesAddButtonContainer = rulesHeadingEl.createDiv({
 			cls: "hydrate-heading-actions",
 		});
@@ -463,7 +467,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 		const mcpHeadingEl = mcpServersSection.createEl("div", {
 			cls: "hydrate-settings-heading",
 		});
-		mcpHeadingEl.createEl("h3", { text: "MCP Servers" });
+		new Setting(mcpHeadingEl).setName("MCP Servers").setHeading();
 		const mcpAddButtonContainer = mcpHeadingEl.createDiv({
 			cls: "hydrate-heading-actions",
 		});
@@ -555,7 +559,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 			);
 
 		// --- Embeddings Section ---
-		containerEl.createEl("h3", { text: "Embeddings" });
+		new Setting(containerEl).setName("Embeddings").setHeading();
 
 		// Add helpful notice for new users
 		if (!this.plugin.settings.enableRemoteEmbeddings) {
