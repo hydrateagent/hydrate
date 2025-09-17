@@ -118,4 +118,4 @@ BRAT (Beta Reviewer's Auto-update Tool) lets you easily install and update plugi
 
 ## 📝 License
 
-MIT
+Apache 2
