@@ -106,8 +106,6 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 		containerEl.empty();
 
-		containerEl.createEl("h1", { text: "Hydrate Settings" });
-
 		// --- General Settings ---
 		containerEl.createEl("h3", { text: "General" });
 
@@ -557,7 +555,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 			);
 
 		// --- Embeddings Section ---
-		containerEl.createEl("h3", { text: "Embeddings Configuration" });
+		containerEl.createEl("h3", { text: "Embeddings" });
 
 		// Add helpful notice for new users
 		if (!this.plugin.settings.enableRemoteEmbeddings) {
