@@ -193,7 +193,6 @@ interface ToolExecutionResult {
 export default class HydratePlugin extends Plugin {
 	settings: HydratePluginSettings;
 	isSwitchingToMarkdown: boolean = false;
-	view: HydrateView | null = null; // Keep reference to the view instance
 	isIndexing: boolean = false; // Flag to prevent concurrent indexing
 	mcpManager: MCPServerManager | null = null; // MCP Server Manager
 
@@ -310,9 +309,7 @@ export default class HydratePlugin extends Plugin {
 
 		// Register the custom view
 		this.registerView(HYDRATE_VIEW_TYPE, (leaf: WorkspaceLeaf) => {
-			// Store the view instance when created
-			this.view = new HydrateView(leaf, this);
-			return this.view;
+			return new HydrateView(leaf, this);
 		});
 
 		// Register example component (we'll create this later)
@@ -559,10 +556,6 @@ export default class HydratePlugin extends Plugin {
 
 		await leaf.setViewState(viewStateToSet);
 
-		// 'this.view' will be set by the view factory function registered earlier
-		if (leaf.view instanceof HydrateView) {
-			this.view = leaf.view; // Ensure our reference is correct
-		}
 		workspace.revealLeaf(leaf); // Reveal after setting state
 	}
 
@@ -570,18 +563,26 @@ export default class HydratePlugin extends Plugin {
 		const { workspace } = this.app;
 		const leaves = workspace.getLeavesOfType(HYDRATE_VIEW_TYPE);
 		leaves.forEach((leaf) => leaf.detach());
-		this.view = null; // Clear the reference
 	}
 
 	// --- File Open Handler (Simplified for File Attachment Logic) ---
 	handleFileOpen = async (file: TFile | null) => {
 		// --- Part 1: Notify the Hydrate Pane (Keep this logic) ---
-		if (this.view && this.view.containerEl.isShown()) {
-			// Pass the new file path (or null) to the view instance
-			this.view.handleActiveFileChange(file?.path ?? null);
+		const hydrateLeaves =
+			this.app.workspace.getLeavesOfType(HYDRATE_VIEW_TYPE);
+		if (hydrateLeaves.length > 0) {
+			const hydrateView = hydrateLeaves[0].view as HydrateView;
+			if (hydrateView && hydrateView.containerEl.isShown()) {
+				// Pass the new file path (or null) to the view instance
+				hydrateView.handleActiveFileChange(file?.path ?? null);
+			} else {
+				devLog.warn(
+					`Hydrate [file-open]: Hydrate view is not visible, ignoring file change.`,
+				);
+			}
 		} else {
 			devLog.warn(
-				`Hydrate [file-open]: Hydrate view is not open or not visible, ignoring file change.`,
+				`Hydrate [file-open]: Hydrate view is not open, ignoring file change.`,
 			);
 		}
 
@@ -771,7 +772,6 @@ export default class HydratePlugin extends Plugin {
 	onunload() {
 		// Clean up when the plugin is disabled
 		this.deactivateView(); // This will also detach leaves
-		this.view = null; // Ensure reference is cleared
 
 		// Clean up MCP Server Manager
 		if (this.mcpManager) {
