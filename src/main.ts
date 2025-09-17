@@ -479,38 +479,21 @@ export default class HydratePlugin extends Plugin {
 		let sourceFilePath: string | null = null;
 
 		// Get active file path BEFORE activating Hydrate view
-		const currentActiveLeaf = workspace.activeLeaf;
-		if (currentActiveLeaf) {
-			const currentView = currentActiveLeaf.view;
-			// Get path from MarkdownView or ReactViewHost (if applicable)
-			if (currentView instanceof MarkdownView && currentView.file) {
-				sourceFilePath = currentView.file.path;
-			} else if (
-				currentView instanceof ReactViewHost &&
-				currentView.currentFilePath
-			) {
-				sourceFilePath = currentView.currentFilePath;
-			} else if (
-				currentView instanceof ItemView &&
-				currentView.getViewType() !== HYDRATE_VIEW_TYPE
-			) {
-				// Try to get file from generic ItemView if possible (might not always work)
-				const state = currentView.getState();
-				if (state?.file) {
-					const file = this.app.vault.getAbstractFileByPath(
-						state.file,
-					);
-					if (file instanceof TFile) {
-						sourceFilePath = file.path;
-					}
-				}
+		// Try to get current file from active Markdown view first
+		const activeMarkdownView = workspace.getActiveViewOfType(MarkdownView);
+		if (activeMarkdownView && activeMarkdownView.file) {
+			sourceFilePath = activeMarkdownView.file.path;
+		} else {
+			// Try ReactViewHost if no Markdown view
+			const activeReactView =
+				workspace.getActiveViewOfType(ReactViewHost);
+			if (activeReactView && activeReactView.currentFilePath) {
+				sourceFilePath = activeReactView.currentFilePath;
 			} else {
 				devLog.warn(
-					`Hydrate activateView: Active view is not Markdown or ReactViewHost or did not yield a file path.`,
+					`Hydrate activateView: No active Markdown or React view found with a file.`,
 				);
 			}
-		} else {
-			devLog.warn(`Hydrate activateView: No active leaf found.`);
 		}
 
 		// If view is already open in a leaf, reveal that leaf
@@ -587,26 +570,17 @@ export default class HydratePlugin extends Plugin {
 		}
 
 		// --- Part 2: Handle Main Editor View Switching (Uncommented and Refined) ---
-		const leaf = this.app.workspace.getActiveViewOfType(ItemView)?.leaf; // Get active leaf first
-		if (!leaf) {
-			devLog.warn(
-				"Hydrate [file-open]: No active leaf found. Cannot switch view.",
-			);
-			return; // Exit if no active leaf
-		}
-
-		const currentView = leaf.view;
-
 		// Handle case where file becomes null (e.g., closing last tab)
 		if (!file) {
-			if (currentView instanceof ReactViewHost) {
+			// Check if we have an active ReactViewHost that needs to switch back to Markdown
+			const activeReactView =
+				this.app.workspace.getActiveViewOfType(ReactViewHost);
+			if (activeReactView) {
 				devLog.warn(
 					"Hydrate [file-open]: File is null, switching React Host back to Markdown.",
 				);
-				// Check if ReactViewHost expects a file path; might need adjustment if it crashes on null
-				// Assuming switchToMarkdownView handles the transition gracefully
 				if (!this.isSwitchingToMarkdown) {
-					currentView.switchToMarkdownView();
+					activeReactView.switchToMarkdownView();
 				} else {
 					devLog.warn(
 						"Hydrate [file-open]: Already switching to markdown, skipping.",
@@ -614,7 +588,7 @@ export default class HydratePlugin extends Plugin {
 				}
 			} else {
 				devLog.warn(
-					"Hydrate [file-open]: File is null, current view is not React Host. No action needed.",
+					"Hydrate [file-open]: File is null, no active React Host. No action needed.",
 				);
 			}
 			return; // Stop processing if file is null
@@ -631,20 +605,25 @@ export default class HydratePlugin extends Plugin {
 
 	// --- Toggle Command Check Callback ---
 	checkToggleReactView = (checking: boolean): boolean => {
-		const leaf = this.app.workspace.activeLeaf;
-		if (!leaf) return false;
-
-		const currentView = leaf.view;
-
-		if (currentView instanceof ReactViewHost) {
+		// Check for active ReactViewHost first
+		const activeReactView =
+			this.app.workspace.getActiveViewOfType(ReactViewHost);
+		if (activeReactView) {
 			// Can always toggle back to Markdown from React Host
 			if (!checking) {
-				currentView.switchToMarkdownView(); // Use the host's method
+				activeReactView.switchToMarkdownView(); // Use the host's method
 			}
 			return true;
-		} else if (currentView instanceof MarkdownView && currentView.file) {
+		}
+
+		// Check for active MarkdownView
+		const activeMarkdownView =
+			this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (!activeMarkdownView) return false;
+
+		if (activeMarkdownView.file) {
 			// Check if the Markdown view *should* have a React view
-			const file = currentView.file;
+			const file = activeMarkdownView.file;
 			const fileCache = this.app.metadataCache.getFileCache(file);
 			const frontmatter = fileCache?.frontmatter;
 			const triggerKey = "hydrate-plugin"; // Consistent key
@@ -656,12 +635,15 @@ export default class HydratePlugin extends Plugin {
 			if (ReactComponent) {
 				// Can toggle to React view
 				if (!checking && viewKey) {
-					// Ensure viewKey is valid before setting state
-					leaf.setViewState({
-						type: REACT_HOST_VIEW_TYPE,
-						state: { filePath: file.path, viewKey: viewKey },
-						active: true, // Ensure the leaf becomes active
-					} as any);
+					// Get the active leaf to switch the view
+					const activeLeaf = this.app.workspace.getLeaf();
+					if (activeLeaf) {
+						activeLeaf.setViewState({
+							type: REACT_HOST_VIEW_TYPE,
+							state: { filePath: file.path, viewKey: viewKey },
+							active: true, // Ensure the leaf becomes active
+						} as any);
+					}
 				}
 				return true;
 			}
@@ -680,14 +662,28 @@ export default class HydratePlugin extends Plugin {
 			return;
 		}
 
-		const leaf = this.app.workspace.activeLeaf;
-		if (!leaf) {
-			devLog.debug("Hydrate [layout-change]: No active leaf.");
+		// Check for active MarkdownView first
+		const activeMarkdownView =
+			this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (activeMarkdownView) {
+			await this.handleMarkdownViewInLayoutChange(activeMarkdownView);
 			return;
 		}
 
-		const currentView = leaf.view;
+		// Check for active ReactViewHost
+		const activeReactView =
+			this.app.workspace.getActiveViewOfType(ReactViewHost);
+		if (activeReactView) {
+			await this.handleReactViewInLayoutChange(activeReactView);
+			return;
+		}
 
+		devLog.debug(
+			"Hydrate [layout-change]: No active Markdown or React view.",
+		);
+	};
+
+	private async handleMarkdownViewInLayoutChange(currentView: MarkdownView) {
 		// Scenario 1: Active view is Markdown, but should it be React?
 		if (currentView instanceof MarkdownView && currentView.file) {
 			const file = currentView.file;
@@ -714,11 +710,17 @@ export default class HydratePlugin extends Plugin {
 				// Switch if in Reading ("preview") or Live Preview (mode=="source" AND state.source==false)
 				if (currentMode === "preview" || !isSourceMode) {
 					try {
-						await leaf.setViewState({
-							type: REACT_HOST_VIEW_TYPE,
-							state: { filePath: file.path, viewKey: viewKey },
-							active: true,
-						});
+						const activeLeaf = this.app.workspace.getLeaf();
+						if (activeLeaf) {
+							await activeLeaf.setViewState({
+								type: REACT_HOST_VIEW_TYPE,
+								state: {
+									filePath: file.path,
+									viewKey: viewKey,
+								},
+								active: true,
+							});
+						}
 					} catch (error) {
 						devLog.error(
 							"Hydrate [layout-change]: Error switching Markdown to React:",
@@ -728,45 +730,45 @@ export default class HydratePlugin extends Plugin {
 				}
 			}
 		}
-		// Scenario 2: Active view is React, but should it be Markdown?
-		else if (currentView instanceof ReactViewHost) {
-			const filePath = currentView.currentFilePath;
-			if (!filePath) {
-				await currentView.switchToMarkdownView();
-				return;
-			}
+	}
 
-			const file = this.app.vault.getAbstractFileByPath(filePath);
-			if (!(file instanceof TFile)) {
-				devLog.warn(
-					`Hydrate [layout-change]: ReactHost has path ${filePath}, but it's not a valid file. Switching to Markdown.`,
-				);
-				await currentView.switchToMarkdownView();
-				return;
-			}
-
-			const fileCache = this.app.metadataCache.getFileCache(file);
-			if (!fileCache) {
-				devLog.debug(
-					"Hydrate [layout-change]: File cache not ready for ReactHost file, skipping check.",
-				);
-				return;
-			}
-			const frontmatter = fileCache.frontmatter;
-			const triggerKey = "hydrate-plugin";
-			const viewKey = frontmatter?.[triggerKey] as string | undefined;
-			const ReactComponent = viewKey
-				? getReactViewComponent(viewKey)
-				: undefined;
-
-			if (!ReactComponent || !viewKey) {
-				devLog.debug(
-					`Hydrate [layout-change]: Active view is React for ${filePath}, but should be Markdown (key missing or invalid). Switching back...`,
-				);
-				await currentView.switchToMarkdownView();
-			}
+	private async handleReactViewInLayoutChange(currentView: ReactViewHost) {
+		const filePath = currentView.currentFilePath;
+		if (!filePath) {
+			await currentView.switchToMarkdownView();
+			return;
 		}
-	};
+
+		const file = this.app.vault.getAbstractFileByPath(filePath);
+		if (!(file instanceof TFile)) {
+			devLog.warn(
+				`Hydrate [layout-change]: ReactHost has path ${filePath}, but it's not a valid file. Switching to Markdown.`,
+			);
+			await currentView.switchToMarkdownView();
+			return;
+		}
+
+		const fileCache = this.app.metadataCache.getFileCache(file);
+		if (!fileCache) {
+			devLog.debug(
+				"Hydrate [layout-change]: File cache not ready for ReactHost file, skipping check.",
+			);
+			return;
+		}
+		const frontmatter = fileCache.frontmatter;
+		const triggerKey = "hydrate-plugin";
+		const viewKey = frontmatter?.[triggerKey] as string | undefined;
+		const ReactComponent = viewKey
+			? getReactViewComponent(viewKey)
+			: undefined;
+
+		if (!ReactComponent || !viewKey) {
+			devLog.debug(
+				`Hydrate [layout-change]: Active view is React for ${filePath}, but should be Markdown (key missing or invalid). Switching back...`,
+			);
+			await currentView.switchToMarkdownView();
+		}
+	}
 	// --- End Layout Change Handler ---
 
 	onunload() {
