@@ -34,6 +34,7 @@ import { handleSearchProject } from "./toolHandlers"; // <<< ADD IMPORT
 
 // MCP imports
 import { MCPServerManager, MCPConfigStorage } from "./mcp/MCPServerManager";
+import { devLog } from "./utils/logger";
 
 // Remember to rename these classes and interfaces!
 
@@ -48,7 +49,7 @@ export function registerReactView(
 	component: React.ComponentType<ReactViewProps>,
 ): void {
 	if (reactViewRegistry.has(key)) {
-		console.warn(`Hydrate: Overwriting React view for key "${key}"`);
+		devLog.warn(`Hydrate: Overwriting React view for key "${key}"`);
 	}
 	reactViewRegistry.set(key, component);
 }
@@ -211,7 +212,7 @@ export default class HydratePlugin extends Plugin {
 		) {
 			await initializeVectorSystem(this.app);
 		} else {
-			console.warn(
+			devLog.warn(
 				"Embeddings are disabled or not configured, skipping vector system initialization.",
 			);
 		}
@@ -264,7 +265,7 @@ export default class HydratePlugin extends Plugin {
 						);
 						loadedCount++;
 					} catch (error) {
-						console.error(
+						devLog.error(
 							`✗ Failed to load server ${serverConfig.id} (${serverConfig.name}):`,
 							error,
 						);
@@ -288,7 +289,7 @@ export default class HydratePlugin extends Plugin {
 								);
 							discoveryCount++;
 						} catch (error) {
-							console.error(
+							devLog.error(
 								`✗ Tool discovery failed for ${serverId}:`,
 								error,
 							);
@@ -296,10 +297,10 @@ export default class HydratePlugin extends Plugin {
 					}
 				}
 			} else {
-				console.warn("No MCP servers configured in settings");
+				devLog.warn("No MCP servers configured in settings");
 			}
 		} catch (error) {
-			console.error("Failed to initialize MCP Server Manager:", error);
+			devLog.error("Failed to initialize MCP Server Manager:", error);
 			new Notice(
 				"Failed to initialize MCP Server Manager. MCP tools will not be available.",
 			);
@@ -330,7 +331,7 @@ export default class HydratePlugin extends Plugin {
 					// No need to await, let it run in the background
 					deleteDocumentFromIndex(this.app, file.path).catch(
 						(err: any) =>
-							console.error(
+							devLog.error(
 								`Error removing deleted file ${file.path} from index:`,
 								err,
 							),
@@ -507,12 +508,12 @@ export default class HydratePlugin extends Plugin {
 					}
 				}
 			} else {
-				console.warn(
+				devLog.warn(
 					`Hydrate activateView: Active view is not Markdown or ReactViewHost or did not yield a file path.`,
 				);
 			}
 		} else {
-			console.warn(`Hydrate activateView: No active leaf found.`);
+			devLog.warn(`Hydrate activateView: No active leaf found.`);
 		}
 
 		// If view is already open in a leaf, reveal that leaf
@@ -530,7 +531,7 @@ export default class HydratePlugin extends Plugin {
 					sourceFilePath,
 				);
 			} else {
-				console.warn(
+				devLog.warn(
 					`Hydrate activateView: Existing view revealed. Source file: ${sourceFilePath}. View state not modified.`,
 				);
 			}
@@ -541,7 +542,7 @@ export default class HydratePlugin extends Plugin {
 		const leaf = workspace.getRightLeaf(false);
 
 		if (!leaf) {
-			console.error("Hydrate: Could not get right sidebar leaf");
+			devLog.error("Hydrate: Could not get right sidebar leaf");
 			return;
 		}
 
@@ -579,7 +580,7 @@ export default class HydratePlugin extends Plugin {
 			// Pass the new file path (or null) to the view instance
 			this.view.handleActiveFileChange(file?.path ?? null);
 		} else {
-			console.warn(
+			devLog.warn(
 				`Hydrate [file-open]: Hydrate view is not open or not visible, ignoring file change.`,
 			);
 		}
@@ -587,7 +588,7 @@ export default class HydratePlugin extends Plugin {
 		// --- Part 2: Handle Main Editor View Switching (Uncommented and Refined) ---
 		const leaf = this.app.workspace.getActiveViewOfType(ItemView)?.leaf; // Get active leaf first
 		if (!leaf) {
-			console.warn(
+			devLog.warn(
 				"Hydrate [file-open]: No active leaf found. Cannot switch view.",
 			);
 			return; // Exit if no active leaf
@@ -598,7 +599,7 @@ export default class HydratePlugin extends Plugin {
 		// Handle case where file becomes null (e.g., closing last tab)
 		if (!file) {
 			if (currentView instanceof ReactViewHost) {
-				console.warn(
+				devLog.warn(
 					"Hydrate [file-open]: File is null, switching React Host back to Markdown.",
 				);
 				// Check if ReactViewHost expects a file path; might need adjustment if it crashes on null
@@ -606,12 +607,12 @@ export default class HydratePlugin extends Plugin {
 				if (!this.isSwitchingToMarkdown) {
 					currentView.switchToMarkdownView();
 				} else {
-					console.warn(
+					devLog.warn(
 						"Hydrate [file-open]: Already switching to markdown, skipping.",
 					);
 				}
 			} else {
-				console.warn(
+				devLog.warn(
 					"Hydrate [file-open]: File is null, current view is not React Host. No action needed.",
 				);
 			}
@@ -680,7 +681,7 @@ export default class HydratePlugin extends Plugin {
 
 		const leaf = this.app.workspace.activeLeaf;
 		if (!leaf) {
-			console.debug("Hydrate [layout-change]: No active leaf.");
+			devLog.debug("Hydrate [layout-change]: No active leaf.");
 			return;
 		}
 
@@ -691,7 +692,7 @@ export default class HydratePlugin extends Plugin {
 			const file = currentView.file;
 			const fileCache = this.app.metadataCache.getFileCache(file);
 			if (!fileCache) {
-				console.debug(
+				devLog.debug(
 					"Hydrate [layout-change]: File cache not ready, skipping check.",
 				);
 				return;
@@ -718,7 +719,7 @@ export default class HydratePlugin extends Plugin {
 							active: true,
 						});
 					} catch (error) {
-						console.error(
+						devLog.error(
 							"Hydrate [layout-change]: Error switching Markdown to React:",
 							error,
 						);
@@ -736,7 +737,7 @@ export default class HydratePlugin extends Plugin {
 
 			const file = this.app.vault.getAbstractFileByPath(filePath);
 			if (!(file instanceof TFile)) {
-				console.warn(
+				devLog.warn(
 					`Hydrate [layout-change]: ReactHost has path ${filePath}, but it's not a valid file. Switching to Markdown.`,
 				);
 				await currentView.switchToMarkdownView();
@@ -745,7 +746,7 @@ export default class HydratePlugin extends Plugin {
 
 			const fileCache = this.app.metadataCache.getFileCache(file);
 			if (!fileCache) {
-				console.debug(
+				devLog.debug(
 					"Hydrate [layout-change]: File cache not ready for ReactHost file, skipping check.",
 				);
 				return;
@@ -758,7 +759,7 @@ export default class HydratePlugin extends Plugin {
 				: undefined;
 
 			if (!ReactComponent || !viewKey) {
-				console.debug(
+				devLog.debug(
 					`Hydrate [layout-change]: Active view is React for ${filePath}, but should be Markdown (key missing or invalid). Switching back...`,
 				);
 				await currentView.switchToMarkdownView();
@@ -779,7 +780,7 @@ export default class HydratePlugin extends Plugin {
 				this.mcpManager.stopAllServers();
 				this.mcpManager = null;
 			} catch (error) {
-				console.error(
+				devLog.error(
 					"Error during MCP Server Manager shutdown:",
 					error,
 				);
@@ -1055,12 +1056,12 @@ export default class HydratePlugin extends Plugin {
 			const completionMessage = `Vault indexing completed! Processed: ${result.processed}, Indexed: ${result.indexed}, Skipped: ${result.skipped}, Errors: ${result.errors}`;
 
 			if (result.errors > 0) {
-				console.warn(completionMessage);
+				devLog.warn(completionMessage);
 			}
 
 			new Notice(completionMessage);
 		} catch (error) {
-			console.error("Vault indexing failed:", error);
+			devLog.error("Vault indexing failed:", error);
 			new Notice("Vault indexing failed. Check console for details.");
 		}
 
@@ -1114,12 +1115,12 @@ export default class HydratePlugin extends Plugin {
 			//         const content = await this.app.vault.adapter.read(path);
 			//         toolResults.push({ id: call.id, result: content });
 			//     } catch (error) {
-			//         console.error(`Error reading file ${path}:`, error);
+			//         devLog.error(`Error reading file ${path}:`, error);
 			//         toolResults.push({ id: call.id, result: `Error reading file: ${error.message}` });
 			//     }
 			// }
 			else {
-				console.warn(
+				devLog.warn(
 					`[Hydrate Plugin] Unknown tool call received: ${call.tool}`,
 				);
 				toolResults.push({
@@ -1129,7 +1130,7 @@ export default class HydratePlugin extends Plugin {
 			}
 		}
 
-		console.debug(
+		devLog.debug(
 			"[Hydrate Plugin] Sending tool results back to agent:",
 			toolResults,
 		);

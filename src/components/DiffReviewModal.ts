@@ -1,5 +1,6 @@
 import { App, Modal, ButtonComponent } from "obsidian";
 import { diff_match_patch, Diff, patch_obj } from "diff-match-patch";
+import { devLog } from "../utils/logger";
 import HydratePlugin from "../main"; // May need plugin/app access later
 
 // Define the structure for a diff hunk
@@ -291,7 +292,7 @@ export class DiffReviewModal extends Modal {
 		if (successful) {
 			return newContent;
 		} else {
-			console.error("Patch application failed for some hunks:", results);
+			devLog.error("Patch application failed for some hunks:", results);
 			throw new Error(
 				"Failed to apply selected changes. Please review the console."
 			);

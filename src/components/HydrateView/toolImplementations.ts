@@ -3,6 +3,7 @@ import HydratePlugin from "../../main";
 import { Patch } from "../../types";
 
 import * as path from "path";
+import { devLog } from "../../utils/logger";
 /**
  * Reads the content of a file within the Obsidian vault.
  * @param app - The Obsidian App instance.
@@ -22,7 +23,7 @@ export async function toolReadFile(app: App, path: string): Promise<string> {
 	if (!file) {
 		// Add more context to the error
 		const activeFilePath = app.workspace.getActiveFile()?.path;
-		console.error(
+		devLog.error(
 			`toolReadFile: File not found. Path='${finalNormalizedPath}', ActiveFile='${activeFilePath}'. Adapter says exists: ${adapterExists}`
 		);
 		throw new Error(`File not found: ${finalNormalizedPath}`);
@@ -63,7 +64,7 @@ export async function toolEditFile(
 			new Notice(successMsg);
 			return successMsg;
 		} catch (error: any) {
-			console.error(
+			devLog.error(
 				`Error during vault.create for ${finalNormalizedPath}:`,
 				error
 			);
@@ -79,7 +80,7 @@ export async function toolEditFile(
 			new Notice(successMsg);
 			return successMsg;
 		} catch (error: any) {
-			console.error(
+			devLog.error(
 				`Error during vault.modify for ${finalNormalizedPath}:`,
 				error
 			);
@@ -126,7 +127,7 @@ export async function toolReplaceSelectionInFile(
 
 	// Check if the exact selection exists in the file
 	if (!originalContent.includes(original_selection)) {
-		console.warn(
+		devLog.warn(
 			`Original selection not found in ${finalNormalizedPath}. Content may have changed.`
 		);
 		// Consider if we should still attempt replacement or throw a more specific error.
@@ -155,7 +156,7 @@ export async function toolReplaceSelectionInFile(
 		new Notice(successMsg);
 		return successMsg;
 	} catch (error: any) {
-		console.error(
+		devLog.error(
 			`Error during vault.modify for selection replacement in ${finalNormalizedPath}:`,
 			error
 		);
@@ -219,7 +220,7 @@ export async function applyPatchesToFile(
 				errors.push(
 					`Patch ${i + 1} is invalid: missing 'old' or 'new' field.`
 				);
-				console.error(`Patch ${i + 1} invalid:`, patch);
+				devLog.error(`Patch ${i + 1} invalid:`, patch);
 				continue;
 			}
 
@@ -238,7 +239,7 @@ export async function applyPatchesToFile(
 						i + 1
 					} is invalid: cannot apply patch with empty context (before, old, and after are all effectively empty).`
 				);
-				console.error(
+				devLog.error(
 					`Patch ${i + 1} invalid due to empty context:`,
 					patch
 				);
@@ -262,7 +263,7 @@ export async function applyPatchesToFile(
 					2
 				)}\n\nThis often happens when:\n1. The text was modified since the patch was created\n2. The 'before' or 'after' context doesn't match exactly\n3. The 'old' text is no longer present in the file`;
 				errors.push(errorMsg);
-				console.error(errorMsg);
+				devLog.error(errorMsg);
 				continue;
 			}
 
@@ -277,7 +278,7 @@ export async function applyPatchesToFile(
 					patch
 				)}`;
 				errors.push(errorMsg);
-				console.error(errorMsg);
+				devLog.error(errorMsg);
 				continue;
 			}
 
@@ -300,7 +301,7 @@ export async function applyPatchesToFile(
 				file.basename
 			}:\n- ${errors.join("\n- ")}`;
 			new Notice(errorSummary, 10000);
-			console.error("Patch application failed with errors:", errors);
+			devLog.error("Patch application failed with errors:", errors);
 			return `Failed to apply all patches:\n${errors.join("\n")}`;
 		}
 
@@ -313,7 +314,7 @@ export async function applyPatchesToFile(
 			return "No changes applied (patches might have been invalid or context not found).";
 		}
 	} catch (error) {
-		console.error(`Error applying patches to file ${path}:`, error);
+		devLog.error(`Error applying patches to file ${path}:`, error);
 		new Notice(
 			`Error applying patches to file ${file.basename}: ${error.message}`
 		);

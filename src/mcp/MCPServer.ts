@@ -8,6 +8,7 @@ import {
 	MCPServerStats,
 	MCPServerConfigValidator,
 } from "./MCPServerConfig";
+import { devLog } from "../utils/logger";
 
 /**
  * Events emitted by MCPServer
@@ -15,11 +16,11 @@ import {
 export interface MCPServerEvents {
 	"status-changed": (
 		status: MCPServerStatus,
-		previousStatus: MCPServerStatus
+		previousStatus: MCPServerStatus,
 	) => void;
 	"health-changed": (
 		health: MCPServerHealth,
-		previousHealth: MCPServerHealth
+		previousHealth: MCPServerHealth,
 	) => void;
 	error: (error: Error) => void;
 	restart: (attempt: number, maxAttempts: number) => void;
@@ -49,7 +50,7 @@ export class MCPServer extends EventEmitter {
 		const errors = MCPServerConfigValidator.validate(config);
 		if (errors.length > 0) {
 			throw new Error(
-				`Invalid MCP server configuration: ${errors.join(", ")}`
+				`Invalid MCP server configuration: ${errors.join(", ")}`,
 			);
 		}
 
@@ -76,7 +77,7 @@ export class MCPServer extends EventEmitter {
 
 		if (errors.length > 0) {
 			throw new Error(
-				`Invalid configuration update: ${errors.join(", ")}`
+				`Invalid configuration update: ${errors.join(", ")}`,
 			);
 		}
 
@@ -117,7 +118,7 @@ export class MCPServer extends EventEmitter {
 					throw new Error("URL required for SSE transport");
 				}
 				const transport = new WebSocketTransport(
-					this.config.transport.url
+					this.config.transport.url,
 				);
 				this.client = new MCPClient(transport);
 			} else {
@@ -146,7 +147,7 @@ export class MCPServer extends EventEmitter {
 				const transport = new StdioTransport(
 					this.config.command,
 					this.config.args,
-					envVars
+					envVars,
 				);
 				this.client = new MCPClient(transport);
 			}
@@ -216,7 +217,7 @@ export class MCPServer extends EventEmitter {
 					this.shutdownTimeout = null;
 				}
 			} catch (error) {
-				console.warn("Error during client disconnect:", error);
+				devLog.warn("Error during client disconnect:", error);
 			}
 
 			this.client = null;
@@ -291,9 +292,9 @@ export class MCPServer extends EventEmitter {
 			await this.client.listTools();
 			return true;
 		} catch (error) {
-			console.warn(
+			devLog.warn(
 				`Health check failed for server ${this.config.id}:`,
-				error
+				error,
 			);
 			return false;
 		}
@@ -355,7 +356,7 @@ export class MCPServer extends EventEmitter {
 		});
 
 		this.client.on("stderr", (data: string) => {
-			console.warn(`[${this.config.id}] Server stderr:`, data.trim());
+			devLog.warn(`${this.config.id} Server stderr:`, data.trim());
 		});
 	}
 
@@ -404,7 +405,7 @@ export class MCPServer extends EventEmitter {
 	}
 
 	private handleClientError(error: Error): void {
-		console.error(`[${this.config.id}] Client error:`, error);
+		devLog.error(`${this.config.id} Client error:`, error);
 		this.stats.errorCount++;
 		this.stats.lastError = new Date();
 		this.emit("error", error);
@@ -422,7 +423,7 @@ export class MCPServer extends EventEmitter {
 	}
 
 	private handleClientDisconnect(info: any): void {
-		console.warn(`[${this.config.id}] Client disconnected:`, info);
+		devLog.warn(`${this.config.id} Client disconnected:`, info);
 
 		if (this.status === MCPServerStatus.RUNNING) {
 			this.setStatus(MCPServerStatus.CRASHED);
@@ -437,15 +438,14 @@ export class MCPServer extends EventEmitter {
 	}
 
 	private handleStartupTimeout(): void {
-		console.error(
-			`[${this.config.id}] Startup timeout after ${this.config.startupTimeout}ms`
+		devLog.error(`${this.config.id} Startup timeout after ${this.config.startupTimeout}ms`,
 		);
 		this.setStatus(MCPServerStatus.FAILED);
 		this.cleanup();
 	}
 
 	private handleStartupError(error: Error): void {
-		console.error(`[${this.config.id}] Startup error:`, error);
+		devLog.error(`${this.config.id} Startup error:`, error);
 		this.stats.errorCount++;
 		this.stats.lastError = new Date();
 		this.setStatus(MCPServerStatus.FAILED);
@@ -454,8 +454,7 @@ export class MCPServer extends EventEmitter {
 	}
 
 	private handleShutdownTimeout(): void {
-		console.warn(
-			`[${this.config.id}] Shutdown timeout, forcing termination`
+		devLog.warn(`${this.config.id} Shutdown timeout, forcing termination`,
 		);
 		if (this.client) {
 			// Force disconnect
@@ -475,7 +474,7 @@ export class MCPServer extends EventEmitter {
 
 		const delay = Math.min(
 			1000 * Math.pow(2, this.stats.restartCount),
-			30000
+			30000,
 		); // Exponential backoff, max 30s
 
 		this.emit("restart", this.stats.restartCount, this.config.maxRestarts);
@@ -484,7 +483,7 @@ export class MCPServer extends EventEmitter {
 			try {
 				await this.start();
 			} catch (error) {
-				console.error(`[${this.config.id}] Restart failed:`, error);
+				devLog.error(`${this.config.id} Restart failed:`, error);
 				this.setStatus(MCPServerStatus.FAILED);
 			}
 		}, delay);

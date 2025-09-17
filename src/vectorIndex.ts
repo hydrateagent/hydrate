@@ -9,6 +9,7 @@ import {
 	FileSystemAdapter, // Import FileSystemAdapter
 } from "obsidian";
 import { LocalIndex, QueryResult as VectraQueryResult } from "vectra";
+import { devLog } from "./utils/logger";
 
 // Manually define the Item interface based on Vectra's expected structure
 interface VectraItem<M extends Record<string, unknown>> {
@@ -23,8 +24,8 @@ class SimpleObsidianTokenizer {
 		// This is a placeholder. Vectra might use it for internal purposes we are not aware of.
 		// For our primary use (semantic search with externally provided embeddings), this should suffice.
 		// If Vectra uses token counts for something critical even in vector-only mode, this might need refinement.
-		console.warn(
-			"[SimpleObsidianTokenizer] encode called. This is a basic placeholder."
+		devLog.warn(
+			"[SimpleObsidianTokenizer] encode called. This is a basic placeholder.",
 		);
 		return text.split(" ").map((s) => s.length); // Example: return array of word lengths
 	}
@@ -206,7 +207,7 @@ async function embedTextsViaRemoteApi(
 	texts: string[],
 	apiUrl: string,
 	apiKey: string,
-	modelName: string
+	modelName: string,
 ): Promise<number[][]> {
 	// --- Parameter Validation ---
 	if (!apiUrl || !apiKey || !modelName) {
@@ -216,9 +217,9 @@ async function embedTextsViaRemoteApi(
 		if (!apiKey) missing.push("API Key");
 		if (!modelName) missing.push("Model Name");
 		const errorMsg = `Remote embedding configuration (${missing.join(
-			", "
+			", ",
 		)}) is incomplete.`;
-		console.error(`[embedTextsViaRemoteApi] Error: ${errorMsg}`);
+		devLog.error(`[embedTextsViaRemoteApi] Error: ${errorMsg}`);
 		new Notice(`Error: ${errorMsg}`); // Notify user
 		throw new Error(errorMsg);
 	}
@@ -231,10 +232,10 @@ async function embedTextsViaRemoteApi(
 		return [];
 	}
 	if (validTexts.length < texts.length) {
-		console.warn(
+		devLog.warn(
 			`[embedTextsViaRemoteApi] Filtered out ${
 				texts.length - validTexts.length
-			} empty texts.`
+			} empty texts.`,
 		);
 		// Note: This means the returned embeddings array might not map 1:1 to the original `texts` array if it contained empties.
 		// The calling function needs to be aware of this or handle the mapping if necessary.
@@ -272,9 +273,9 @@ async function embedTextsViaRemoteApi(
 				responseData?.detail ||
 				JSON.stringify(responseData); // Try common error fields
 			const errorMsg = `Remote Embedding API request failed with status ${response.status}: ${errorDetail}`;
-			console.error(
+			devLog.error(
 				"[embedTextsViaRemoteApi] API Error Response:",
-				responseData
+				responseData,
 			);
 			new Notice(`Embedding Error: ${errorMsg}`);
 			throw new Error(errorMsg);
@@ -285,25 +286,25 @@ async function embedTextsViaRemoteApi(
 			!responseData.data ||
 			!Array.isArray(responseData.data)
 		) {
-			console.error(
+			devLog.error(
 				"[embedTextsViaRemoteApi] Invalid response structure:",
-				responseData
+				responseData,
 			);
 			throw new Error(
-				"Invalid response structure from Remote Embedding API."
+				"Invalid response structure from Remote Embedding API.",
 			);
 		}
 
 		// Ensure the number of embeddings matches the number of valid inputs sent
 		if (responseData.data.length !== validTexts.length) {
-			console.warn(
-				`[embedTextsViaRemoteApi] Mismatch: ${validTexts.length} texts sent, ${responseData.data.length} embeddings received.`
+			devLog.warn(
+				`[embedTextsViaRemoteApi] Mismatch: ${validTexts.length} texts sent, ${responseData.data.length} embeddings received.`,
 			);
 			// Decide how to handle: throw error, return partial, or try to map. For now, throwing if mismatch.
 			// If the API guarantees order and length, this check is crucial.
 			// If it can return fewer for some reason (e.g. internal errors on specific texts), this needs robust handling.
 			throw new Error(
-				"Mismatch between number of input texts and returned embeddings."
+				"Mismatch between number of input texts and returned embeddings.",
 			);
 		}
 
@@ -313,13 +314,13 @@ async function embedTextsViaRemoteApi(
 				if (item && item.embedding && Array.isArray(item.embedding)) {
 					return item.embedding;
 				} else {
-					console.error(
+					devLog.error(
 						`[embedTextsViaRemoteApi] Invalid embedding item structure at index ${index}:`,
-						item
+						item,
 					);
 					// Throw an error if any item is invalid, preventing partial results
 					throw new Error(
-						`Invalid embedding item received at index ${index}.`
+						`Invalid embedding item received at index ${index}.`,
 					);
 				}
 			})
@@ -328,26 +329,26 @@ async function embedTextsViaRemoteApi(
 
 		// Final check if filtering/mapping resulted in unexpected length
 		if (embeddings.length !== responseData.data.length) {
-			console.error(
-				"[embedTextsViaRemoteApi] Error processing embedding items from response data."
+			devLog.error(
+				"[embedTextsViaRemoteApi] Error processing embedding items from response data.",
 			);
 			throw new Error(
-				"Failed to process all embedding items from API response."
+				"Failed to process all embedding items from API response.",
 			);
 		}
 
 		return embeddings;
 	} catch (error) {
-		console.error(
+		devLog.error(
 			"[embedTextsViaRemoteApi] Error during API call or processing:",
-			error
+			error,
 		);
 		// Make error message more informative if possible
 		const message = error instanceof Error ? error.message : String(error);
 		if (!message.startsWith("Remote Embedding API request failed")) {
 			// Avoid redundant notices if error came from status check
 			new Notice(
-				`Failed to fetch remote embeddings. Check console/settings. Error: ${message}`
+				`Failed to fetch remote embeddings. Check console/settings. Error: ${message}`,
 			);
 		}
 		// Re-throw the original error or a new one
@@ -381,13 +382,13 @@ async function embedTextsViaRemoteApi(
  */
 function prepareDocumentContent(
 	content: string,
-	filePath: string
+	filePath: string,
 ): { id: string; text: string } | null {
 	// Ensure content is not empty or just whitespace
 	const trimmedContent = content.trim();
 	if (trimmedContent.length === 0) {
-		console.warn(
-			`[prepareDocumentContent] Content for ${filePath} is empty after trimming. Returning null.`
+		devLog.warn(
+			`[prepareDocumentContent] Content for ${filePath} is empty after trimming. Returning null.`,
 		);
 		return null;
 	}
@@ -409,11 +410,11 @@ function prepareDocumentContent(
 export async function addOrUpdateDocumentRemote(
 	app: App,
 	file: TFile,
-	settings: VectorIndexSettings // Use the specific settings type defined in this file
+	settings: VectorIndexSettings, // Use the specific settings type defined in this file
 ): Promise<void> {
 	if (!localIndex) {
-		console.error(
-			"[addOrUpdateDocumentRemote] Vectra index not initialized. Cannot index document."
+		devLog.error(
+			"[addOrUpdateDocumentRemote] Vectra index not initialized. Cannot index document.",
 		);
 		return;
 	}
@@ -454,8 +455,8 @@ export async function addOrUpdateDocumentRemote(
 		// Additional safety check: Skip files that are too large or contain binary data
 		if (content.length > 1024 * 1024) {
 			// 1MB limit
-			console.warn(
-				`[addOrUpdateDocumentRemote] File ${file.path} is too large (${content.length} chars). Skipping.`
+			devLog.warn(
+				`[addOrUpdateDocumentRemote] File ${file.path} is too large (${content.length} chars). Skipping.`,
 			);
 			return;
 		}
@@ -465,12 +466,12 @@ export async function addOrUpdateDocumentRemote(
 		const binaryRatio = 1 - printableChars / content.length;
 		if (binaryRatio > 0.3) {
 			// If more than 30% non-printable characters
-			console.warn(
+			devLog.warn(
 				`[addOrUpdateDocumentRemote] File ${
 					file.path
 				} appears to be binary (${(binaryRatio * 100).toFixed(
-					1
-				)}% non-printable). Skipping.`
+					1,
+				)}% non-printable). Skipping.`,
 			);
 			return;
 		}
@@ -488,19 +489,19 @@ export async function addOrUpdateDocumentRemote(
 				[documentForEmbedding.text],
 				settings.remoteEmbeddingUrl,
 				settings.remoteEmbeddingApiKey,
-				settings.remoteEmbeddingModelName
+				settings.remoteEmbeddingModelName,
 			);
 		} catch (embeddingError) {
-			console.error(
+			devLog.error(
 				`[addOrUpdateDocumentRemote] Failed to get embeddings for ${file.path}:`,
-				embeddingError
+				embeddingError,
 			);
 			return;
 		}
 
 		if (embeddings.length !== 1) {
-			console.error(
-				`[addOrUpdateDocumentRemote] Expected 1 embedding, got ${embeddings.length} for ${file.path}. Aborting update.`
+			devLog.error(
+				`[addOrUpdateDocumentRemote] Expected 1 embedding, got ${embeddings.length} for ${file.path}. Aborting update.`,
 			);
 			return;
 		}
@@ -518,16 +519,16 @@ export async function addOrUpdateDocumentRemote(
 		try {
 			await localIndex.upsertItem(vectraItem);
 		} catch (vectraError) {
-			console.error(
+			devLog.error(
 				`[addOrUpdateDocumentRemote] Error upserting ${documentForEmbedding.id} for ${file.path}:`,
-				vectraError
+				vectraError,
 			);
 		}
 		// No explicit saveIndex(app) needed; Vectra manages its persistence.
 	} catch (error) {
-		console.error(
+		devLog.error(
 			`[addOrUpdateDocumentRemote] Unexpected error indexing document ${file.path}:`,
-			error
+			error,
 		);
 	}
 }
@@ -544,7 +545,7 @@ export async function addOrUpdateDocumentsBatch(
 	app: App,
 	files: TFile[],
 	settings: VectorIndexSettings,
-	batchSize: number = 50
+	batchSize: number = 50,
 ): Promise<{
 	processed: number;
 	indexed: number;
@@ -552,8 +553,8 @@ export async function addOrUpdateDocumentsBatch(
 	errors: number;
 }> {
 	if (!localIndex) {
-		console.error(
-			"[addOrUpdateDocumentsBatch] Vectra index not initialized. Cannot index documents."
+		devLog.error(
+			"[addOrUpdateDocumentsBatch] Vectra index not initialized. Cannot index documents.",
 		);
 		return { processed: 0, indexed: 0, skipped: 0, errors: 0 };
 	}
@@ -639,9 +640,9 @@ export async function addOrUpdateDocumentsBatch(
 
 			documentsToEmbed.push({ file, document });
 		} catch (error) {
-			console.error(
+			devLog.error(
 				`[addOrUpdateDocumentsBatch] Error reading ${file.path}:`,
-				error
+				error,
 			);
 			errors++;
 		}
@@ -663,12 +664,12 @@ export async function addOrUpdateDocumentsBatch(
 				batchTexts,
 				settings.remoteEmbeddingUrl,
 				settings.remoteEmbeddingApiKey,
-				settings.remoteEmbeddingModelName
+				settings.remoteEmbeddingModelName,
 			);
 
 			if (embeddings.length !== batch.length) {
-				console.error(
-					`[addOrUpdateDocumentsBatch] Embedding mismatch: expected ${batch.length}, got ${embeddings.length}. Skipping batch.`
+				devLog.error(
+					`[addOrUpdateDocumentsBatch] Embedding mismatch: expected ${batch.length}, got ${embeddings.length}. Skipping batch.`,
 				);
 				errors += batch.length;
 				continue;
@@ -692,17 +693,17 @@ export async function addOrUpdateDocumentsBatch(
 					await localIndex.upsertItem(vectraItem);
 					indexed++;
 				} catch (vectraError) {
-					console.error(
+					devLog.error(
 						`[addOrUpdateDocumentsBatch] Error upserting ${document.id}:`,
-						vectraError
+						vectraError,
 					);
 					errors++;
 				}
 			}
 		} catch (embeddingError) {
-			console.error(
+			devLog.error(
 				`[addOrUpdateDocumentsBatch] Batch embedding failed:`,
-				embeddingError
+				embeddingError,
 			);
 			errors += batch.length;
 		}
@@ -718,11 +719,11 @@ export async function addOrUpdateDocumentsBatch(
  */
 export async function deleteDocumentFromIndex(
 	app: App,
-	filePath: string
+	filePath: string,
 ): Promise<void> {
 	if (!localIndex) {
-		console.warn(
-			"[deleteDocumentFromIndex] Vectra index not initialized. Cannot delete."
+		devLog.warn(
+			"[deleteDocumentFromIndex] Vectra index not initialized. Cannot delete.",
 		);
 		return;
 	}
@@ -737,16 +738,16 @@ export async function deleteDocumentFromIndex(
 	} catch (error) {
 		// Handle JSON parsing errors more gracefully
 		if (error instanceof SyntaxError && error.message.includes("JSON")) {
-			console.warn(
-				`[deleteDocumentFromIndex] JSON parsing error when deleting ${chunkIdToDelete}. This may indicate corrupted index data. Skipping deletion.`
+			devLog.warn(
+				`[deleteDocumentFromIndex] JSON parsing error when deleting ${chunkIdToDelete}. This may indicate corrupted index data. Skipping deletion.`,
 			);
 			// Don't show a notice for JSON errors as they're often not critical
 			return;
 		}
 
-		console.error(
+		devLog.error(
 			`[deleteDocumentFromIndex] Error removing document chunk ${chunkIdToDelete} (for file ${filePath}) from Vectra index:`,
-			error
+			error,
 		);
 
 		// Only show notice for non-JSON errors
@@ -766,17 +767,17 @@ export async function deleteDocumentFromIndex(
 export async function searchIndexRemote(
 	query: string,
 	settings: VectorIndexSettings,
-	topN: number = 5
+	topN: number = 5,
 ): Promise<DocumentChunk[]> {
 	if (!localIndex) {
-		console.warn(
-			"[searchIndexRemote] Vectra index not initialized. Cannot search."
+		devLog.warn(
+			"[searchIndexRemote] Vectra index not initialized. Cannot search.",
 		);
 		throw new Error("Local Vectra index not initialized for search.");
 	}
 	if (!settings.enableRemoteEmbeddings) {
-		console.warn(
-			"[searchIndexRemote] Remote embeddings disabled. Cannot perform search."
+		devLog.warn(
+			"[searchIndexRemote] Remote embeddings disabled. Cannot perform search.",
 		);
 		throw new Error("Remote embeddings disabled. Cannot perform search.");
 	}
@@ -787,7 +788,7 @@ export async function searchIndexRemote(
 			[query],
 			settings.remoteEmbeddingUrl,
 			settings.remoteEmbeddingApiKey,
-			settings.remoteEmbeddingModelName
+			settings.remoteEmbeddingModelName,
 		);
 		if (
 			!embeddingsResult ||
@@ -798,27 +799,27 @@ export async function searchIndexRemote(
 		}
 		queryEmbedding = embeddingsResult[0];
 	} catch (error) {
-		console.error(
+		devLog.error(
 			"[searchIndexRemote] Failed to get query embedding:",
-			error
+			error,
 		);
 		new Notice(
 			`Search failed: Could not get query embedding. ${
 				error instanceof Error ? error.message : ""
-			}`
+			}`,
 		);
 		throw new Error(
 			`Failed to generate query embedding via remote API: ${
 				error instanceof Error ? error.message : String(error)
-			}`
+			}`,
 		);
 	}
 
 	if (!queryEmbedding || queryEmbedding.length === 0) {
-		console.error("[searchIndexRemote] Query embedding is empty.");
+		devLog.error("[searchIndexRemote] Query embedding is empty.");
 		new Notice("Search failed: Query embedding is empty.");
 		throw new Error(
-			"Failed to generate query embedding (result was empty or invalid)."
+			"Failed to generate query embedding (result was empty or invalid).",
 		);
 	}
 
@@ -828,8 +829,8 @@ export async function searchIndexRemote(
 			await localIndex.queryItems(queryEmbedding, "", topN);
 
 		if (!results) {
-			console.warn(
-				"[searchIndexRemote] Vectra queryItems returned null or undefined."
+			devLog.warn(
+				"[searchIndexRemote] Vectra queryItems returned null or undefined.",
 			);
 			return [];
 		}
@@ -843,9 +844,9 @@ export async function searchIndexRemote(
 				filePath === "unknown_filepath" ||
 				chunkId === "unknown_chunk_id"
 			) {
-				console.warn(
+				devLog.warn(
 					"[searchIndexRemote] Query result item has missing filePath or chunkId in metadata:",
-					metadata
+					metadata,
 				);
 			}
 
@@ -857,19 +858,16 @@ export async function searchIndexRemote(
 			};
 		});
 	} catch (error) {
-		console.error(
-			"[searchIndexRemote] Error querying Vectra index:",
-			error
-		);
+		devLog.error("[searchIndexRemote] Error querying Vectra index:", error);
 		new Notice(
 			`Search failed: Error querying index. ${
 				error instanceof Error ? error.message : ""
-			}`
+			}`,
 		);
 		throw new Error(
 			`Error querying Vectra index: ${
 				error instanceof Error ? error.message : String(error)
-			}`
+			}`,
 		);
 	}
 }
@@ -884,8 +882,8 @@ export async function clearVectorIndex(app: App): Promise<void> {
 	try {
 		const adapter = app.vault.adapter;
 		if (!(adapter instanceof FileSystemAdapter)) {
-			console.error(
-				"[clearVectorIndex] Vault adapter is not a FileSystemAdapter."
+			devLog.error(
+				"[clearVectorIndex] Vault adapter is not a FileSystemAdapter.",
 			);
 			return;
 		}
@@ -896,15 +894,15 @@ export async function clearVectorIndex(app: App): Promise<void> {
 			// Remove the entire index directory
 			await adapter.rmdir(indexDirVaultPath, true); // true = recursive
 		} else {
-			console.warn(
-				"[clearVectorIndex] Index directory does not exist, nothing to clear."
+			devLog.warn(
+				"[clearVectorIndex] Index directory does not exist, nothing to clear.",
 			);
 		}
 
 		// Clear the in-memory reference
 		localIndex = null;
 	} catch (error) {
-		console.error("[clearVectorIndex] Error clearing vector index:", error);
+		devLog.error("[clearVectorIndex] Error clearing vector index:", error);
 		throw error;
 	}
 }
@@ -917,7 +915,7 @@ export async function clearVectorIndex(app: App): Promise<void> {
  */
 export async function initializeVectorSystem(
 	app: App,
-	forceRebuild: boolean = false
+	forceRebuild: boolean = false,
 ) {
 	try {
 		// If forceRebuild is requested, clear the existing index first
@@ -928,18 +926,18 @@ export async function initializeVectorSystem(
 		// Correctly get base path using FileSystemAdapter
 		const adapter = app.vault.adapter;
 		if (!(adapter instanceof FileSystemAdapter)) {
-			console.error(
-				"[initializeVectorSystem] Vault adapter is not a FileSystemAdapter. Cannot get base path for Vectra index."
+			devLog.error(
+				"[initializeVectorSystem] Vault adapter is not a FileSystemAdapter. Cannot get base path for Vectra index.",
 			);
 			new Notice(
-				"Hydrate: Cannot initialize vector index due to adapter type. Context search may not work."
+				"Hydrate: Cannot initialize vector index due to adapter type. Context search may not work.",
 			);
 			localIndex = null;
 			return;
 		}
 		const vaultBasePath = adapter.getBasePath();
 		const absoluteIndexDirPath = normalizePath(
-			`${vaultBasePath}/${INDEX_DIR_NAME}`
+			`${vaultBasePath}/${INDEX_DIR_NAME}`,
 		);
 
 		const indexDirVaultPath = normalizePath(INDEX_DIR_NAME);
@@ -952,18 +950,18 @@ export async function initializeVectorSystem(
 		if (!(await localIndex.isIndexCreated()) || forceRebuild) {
 			await localIndex.createIndex();
 		} else {
-			console.warn(
-				"[initializeVectorSystem] Existing Vectra index loaded."
+			devLog.warn(
+				"[initializeVectorSystem] Existing Vectra index loaded.",
 			);
 		}
 	} catch (error) {
 		localIndex = null;
-		console.error(
+		devLog.error(
 			"[initializeVectorSystem] Failed to initialize Vectra vector system:",
-			error
+			error,
 		);
 		new Notice(
-			"Hydrate: Failed to initialize vector index. Context search may not work. Check console."
+			"Hydrate: Failed to initialize vector index. Context search may not work. Check console.",
 		);
 	}
 }

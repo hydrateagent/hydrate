@@ -17,6 +17,7 @@ import {
 } from "./domUtils";
 import { NoteSearchModal } from "./NoteSearchModal";
 import { SlashCommandModal } from "./SlashCommandModal";
+import { devLog } from "../../utils/logger";
 
 // Define types for clarity if needed, e.g., for state or complex parameters
 
@@ -66,7 +67,7 @@ export const handleDrop = (view: HydrateView, event: DragEvent): void => {
 	}
 
 	if (!pathData) {
-		console.warn("Hydrate drop: Could not extract path data.");
+		devLog.warn("Hydrate drop: Could not extract path data.");
 		return;
 	}
 
@@ -95,12 +96,12 @@ export const handleDrop = (view: HydrateView, event: DragEvent): void => {
 					normalizedPathForComparison =
 						decodeURIComponent(filePathParam);
 				} else {
-					console.warn(
+					devLog.warn(
 						`Hydrate drop: No 'file' param in URI: ${potentialPath}`
 					);
 				}
 			} catch (e) {
-				console.error(
+				devLog.error(
 					`Hydrate drop: Error parsing URI: ${potentialPath}`,
 					e
 				);
@@ -113,7 +114,7 @@ export const handleDrop = (view: HydrateView, event: DragEvent): void => {
 				}
 				normalizedPathForComparison = osPath.replace(/\\/g, "/");
 			} catch (e) {
-				console.error(
+				devLog.error(
 					`Hydrate drop: Error decoding file URI: ${potentialPath}`,
 					e
 				);
@@ -151,7 +152,7 @@ export const handleDrop = (view: HydrateView, event: DragEvent): void => {
 				if (possibleMatches.length === 1) {
 					foundVaultFile = possibleMatches[0];
 				} else if (possibleMatches.length > 1) {
-					console.warn(
+					devLog.warn(
 						`Hydrate drop: Ambiguous match for ${normalizedPathForComparison}: Found ${possibleMatches
 							.map((f: TFile) => f.path)
 							.join(", ")}`
@@ -272,10 +273,10 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 				// Use replaceAll in case the same token was somehow added multiple times (though command logic prevents this)
 				payloadContent = payloadContent.replaceAll(token, replacement);
 			} else {
-				console.warn(
+				devLog.warn(
 					`[handleSend] Token ${token} not found in payloadContent, but selection ${index} was captured.`
 				);
-				console.warn(
+				devLog.warn(
 					`[handleSend] All tokens in payloadContent:`,
 					payloadContent.match(/\/select\d+/g)
 				);
@@ -352,12 +353,12 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 					}
 				}
 			} else {
-				console.warn(
+				devLog.warn(
 					`[handleSend] Could not find TFile for rule check: ${filePath}`
 				);
 			}
 		} catch (error) {
-			console.error(
+			devLog.error(
 				`[handleSend] Error processing rules for file ${filePath}:`,
 				error
 			);
@@ -394,12 +395,12 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 						view.sentFileContentRegistry.add(registryKey);
 					}
 				} else {
-					console.warn(
+					devLog.warn(
 						`[handleSend] Attached path is not a TFile: ${filePath}`
 					);
 				}
 			} catch (error) {
-				console.error(
+				devLog.error(
 					`[handleSend] Error reading attached file ${filePath}:`,
 					error
 				);
@@ -443,10 +444,10 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 		try {
 			mcpTools = await view.plugin.mcpManager.getAllDiscoveredTools();
 		} catch (error) {
-			console.warn("[handleSend] Error collecting MCP tools:", error);
+			devLog.warn("[handleSend] Error collecting MCP tools:", error);
 		}
 	} else {
-		console.warn("[handleSend] No MCP Manager found!");
+		devLog.warn("[handleSend] No MCP Manager found!");
 	}
 
 	const payload: any = {
@@ -464,7 +465,7 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 	try {
 		await view.callBackend("/chat", payload);
 	} catch (error: any) {
-		console.error("Error sending message:", error);
+		devLog.error("Error sending message:", error);
 		addMessageToChat(
 			view,
 			"system",
@@ -486,11 +487,11 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
  */
 export const handleStop = async (view: HydrateView): Promise<void> => {
 	if (!view.isLoading || !view.abortController) {
-		console.warn("Hydrate: Stop clicked, but no request is active.");
+		devLog.warn("Hydrate: Stop clicked, but no request is active.");
 		return;
 	}
 
-	console.debug("Hydrate: Stop requested. Aborting current request...");
+	devLog.debug("Hydrate: Stop requested. Aborting current request...");
 	const currentConversationId = view.conversationId; // Capture ID before clearing
 
 	// Abort the frontend fetch request immediately
@@ -509,7 +510,7 @@ export const handleStop = async (view: HydrateView): Promise<void> => {
 		const apiKey = view.plugin.settings.apiKey;
 
 		if (!apiKey) {
-			console.error("Hydrate: Cannot send stop signal, API Key missing.");
+			devLog.error("Hydrate: Cannot send stop signal, API Key missing.");
 			// No need to add another chat message, already indicated stop locally
 			return;
 		}
@@ -529,25 +530,25 @@ export const handleStop = async (view: HydrateView): Promise<void> => {
 			});
 
 			if (stopResponse.status >= 400) {
-				console.warn(
+				devLog.warn(
 					`Hydrate: Backend returned status ${stopResponse.status} on stop signal: ${stopResponse.text}`
 				);
 				// Optionally notify user if backend stop failed, but might be noise
 			} else {
-				console.debug(
+				devLog.debug(
 					"Hydrate: Backend acknowledged stop signal.",
 					stopResponse.json
 				);
 			}
 		} catch (error) {
-			console.error(
+			devLog.error(
 				"Hydrate: Error sending stop signal to backend:",
 				error
 			);
 			// Optionally notify user of error sending stop signal
 		}
 	} else {
-		console.warn(
+		devLog.warn(
 			"Hydrate: No conversation ID found, cannot send stop signal to backend."
 		);
 	}

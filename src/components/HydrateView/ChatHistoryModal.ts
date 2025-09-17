@@ -1,6 +1,7 @@
 import { App, FuzzySuggestModal, FuzzyMatch } from "obsidian";
 import { ChatHistory } from "../../types";
 import { HydrateView } from "./hydrateView";
+import { devLog } from "../../utils/logger";
 
 export class ChatHistoryModal extends FuzzySuggestModal<ChatHistory> {
 	private view: HydrateView;
@@ -92,7 +93,7 @@ export class ChatHistoryModal extends FuzzySuggestModal<ChatHistory> {
 
 					// Modal will automatically refresh since getItems() fetches current data
 				} catch (error) {
-					console.error("Error deleting chat history:", error);
+					devLog.error("Error deleting chat history:", error);
 				}
 			}
 		});

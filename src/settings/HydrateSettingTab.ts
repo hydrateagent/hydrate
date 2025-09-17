@@ -11,6 +11,7 @@ import HydratePlugin, { ALLOWED_MODELS, ModelName } from "../main"; // Corrected
 import { RegistryEditModal } from "./RegistryEditModal";
 import { RuleEditModal } from "./RuleEditModal"; // <<< IMPORT NEW MODAL
 import { MCPServersConfigModal } from "./MCPServerEditModal";
+import { devLog } from "../utils/logger";
 import { MCPServerSettingsModal } from "./MCPServerSettingsModal"; // <<< IMPORT MCP SERVER MODAL
 // Settings styles are now compiled into styles.css via hydrate-styles.css
 import { RuleEntry } from "../types"; // <<< IMPORT RuleEntry
@@ -493,7 +494,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 										id,
 									);
 								} catch (error) {
-									console.warn(
+									devLog.warn(
 										`Failed to remove server ${id}:`,
 										error,
 									);
@@ -508,7 +509,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 										config,
 									);
 								} catch (error) {
-									console.error(
+									devLog.error(
 										`Failed to add server ${config.id}:`,
 										error,
 									);
@@ -594,7 +595,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 									);
 								}
 							} catch (error) {
-								console.error(
+								devLog.error(
 									"Failed to initialize vector system:",
 									error,
 								);
@@ -709,7 +710,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 							try {
 								await this.plugin.triggerInitialIndexing();
 							} catch (error) {
-								console.error(
+								devLog.error(
 									"Initial indexing trigger failed:",
 									error,
 								);
@@ -808,7 +809,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 								await this.plugin.triggerInitialIndexing(true); // Force rebuild
 								new Notice("Index rebuilt successfully!");
 							} catch (error) {
-								console.error("Index rebuild failed:", error);
+								devLog.error("Index rebuild failed:", error);
 								new Notice(
 									"Failed to rebuild index. Check console for details.",
 								);
@@ -1111,7 +1112,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 						}
 					}
 				} catch (error) {
-					console.error(
+					devLog.error(
 						`Failed to ${
 							toggle.checked ? "start" : "stop"
 						} server ${server.id}:`,

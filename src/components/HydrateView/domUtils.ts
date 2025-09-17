@@ -1,4 +1,5 @@
 import { MarkdownRenderer, Notice, setIcon } from "obsidian";
+import { devLog } from "../../utils/logger";
 import { HydrateView } from "./hydrateView"; // Corrected path
 import { RegistryEntry, ChatTurn } from "../../types"; // Corrected path (up two levels from components/HydrateView)
 import {
@@ -19,7 +20,7 @@ export function addMessageToChat(
 	const plugin = view.plugin; // Access private member
 
 	if (!chatContainer) {
-		console.error("Hydrate DOM Utils: chatContainer is null!");
+		devLog.error("Hydrate DOM Utils: chatContainer is null!");
 		return;
 	}
 
@@ -106,12 +107,12 @@ export function addMessageToChat(
 						copyButton.children[0]?.setAttribute("height", "14");
 					}, 1500); // Revert after 1.5 seconds
 				} catch (err) {
-					console.error("Failed to copy text: ", err);
+					devLog.error("Failed to copy text: ", err);
 					new Notice("Failed to copy message.");
 				}
 			});
 		} catch (renderError) {
-			console.error("Markdown rendering error:", renderError);
+			devLog.error("Markdown rendering error:", renderError);
 			messageEl.setText(`(Error rendering message) ${content}`);
 		}
 	} else if (role === "user") {
@@ -303,7 +304,7 @@ export function renderFilePills(view: HydrateView): void {
 	const attachedFiles = view.attachedFiles; // Public member
 
 	if (!filePillsContainer) {
-		console.error("Hydrate DOM Utils: filePillsContainer is null!");
+		devLog.error("Hydrate DOM Utils: filePillsContainer is null!");
 		return;
 	}
 
@@ -347,7 +348,7 @@ export function renderSuggestions(view: HydrateView): void {
 	const activeSuggestionIndex = view.activeSuggestionIndex as number;
 
 	if (!suggestionsContainer) {
-		console.error("Hydrate DOM Utils: suggestionsContainer is null!");
+		devLog.error("Hydrate DOM Utils: suggestionsContainer is null!");
 		return;
 	}
 
@@ -429,7 +430,7 @@ export function renderNoteSearchSuggestions(view: HydrateView): void {
 	const activeSuggestionIndex = view.activeSuggestionIndex as number;
 
 	if (!suggestionsContainer) {
-		console.error("Hydrate DOM Utils: suggestionsContainer is null!");
+		devLog.error("Hydrate DOM Utils: suggestionsContainer is null!");
 		return;
 	}
 

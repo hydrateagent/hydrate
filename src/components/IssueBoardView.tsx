@@ -9,6 +9,7 @@ import remarkFrontmatter from "remark-frontmatter";
 import remarkGfm from "remark-gfm";
 import { visit } from "unist-util-visit";
 import { toString } from "mdast-util-to-string";
+import { devLog } from "../utils/logger";
 import { Node, Parent } from "unist"; // Import Node and Parent types
 import { Root, Heading, List, ListItem, Text } from "mdast"; // Import specific mdast types
 
@@ -123,7 +124,7 @@ const parseIssueMarkdown = (
 									) || null;
 								if (!currentGroup) {
 									// This case should be rare, indicates a logic issue
-									console.error(
+									devLog.error(
 										"IssueBoardView Parser: Could not find existing default group!"
 									);
 									parsingErrors.push(
@@ -154,7 +155,7 @@ const parseIssueMarkdown = (
 						const errorMsg = `Skipped card starting near line ${cardLine} ("${cardName}"): Missing required sections (${missing.join(
 							" & "
 						)}). Ensure H2 name, '### Items', and '### Status' exist.`;
-						console.warn(`IssueBoardView Parser: ${errorMsg}`);
+						devLog.warn(`IssueBoardView Parser: ${errorMsg}`);
 						parsingErrors.push(errorMsg);
 					}
 					// Reset card data and siblings after processing
@@ -187,7 +188,7 @@ const parseIssueMarkdown = (
 			else if (isH2) {
 				// currentCardData should have been processed and reset by the block above
 				if (currentCardData) {
-					console.warn(
+					devLog.warn(
 						"IssueBoardView Parser: Starting new H2 while previous card data was still present. Potential loss of siblings."
 					);
 					// Optionally process the lingering card here if needed, though it might indicate a logic flaw.
@@ -247,7 +248,7 @@ const parseIssueMarkdown = (
 			}
 		});
 	} catch (e) {
-		console.error(
+		devLog.error(
 			"IssueBoardView: Error during Markdown parsing with remark:",
 			e
 		);
@@ -353,7 +354,7 @@ const processCardSiblings = (
 									listItem.position?.start?.line || "?"
 								}. It will be ignored.`
 							);
-							console.warn(
+							devLog.warn(
 								`IssueBoardView Parser: Non-task list item under ### Status`,
 								listItem
 							);
@@ -369,7 +370,7 @@ const processCardSiblings = (
 					parsingErrors.push(
 						`Card "${cardName}": Expected list after '${headingText}' heading, but found ${nextNodeType}. Section ignored.`
 					);
-					console.warn(
+					devLog.warn(
 						`IssueBoardView Parser: Expected list after '${headingText}' heading for card "${cardName}", but found ${nextNodeType}.`
 					);
 				}
@@ -510,7 +511,7 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 				isInitialParseDone.current = true;
 			}
 		} catch (e) {
-			console.error("IssueBoardView: Critical error during parsing:", e);
+			devLog.error("IssueBoardView: Critical error during parsing:", e);
 			setError(
 				`Failed to parse markdown: ${
 					e instanceof Error ? e.message : String(e)
@@ -538,7 +539,7 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 					inputElement.select();
 				}
 			} else {
-				console.warn(
+				devLog.warn(
 					`IssueBoardView: Input ref not found for new item: issue ${issueId}, item ${itemIndex}`
 				);
 			}
@@ -558,7 +559,7 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 				if (inputElement) {
 					inputElement.focus();
 				} else {
-					console.warn(
+					devLog.warn(
 						`IssueBoardView: Input ref not found for existing item: group ${editingItem.groupIndex}, issue ${targetIssue.id}, item ${editingItem.itemIndex}`
 					);
 				}
@@ -585,7 +586,7 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 		);
 
 		if (fmEndIndex === -1) {
-			console.error(
+			devLog.error(
 				"IssueBoardView: Could not find closing frontmatter fence ('---')!"
 			);
 			setError(
@@ -623,7 +624,7 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 			// Fallback: Start content immediately after frontmatter if no valid headers found
 			// or if the first header index is invalid (e.g., inside frontmatter)
 			if (firstValidHeaderIndex !== -1) {
-				console.warn(
+				devLog.warn(
 					"IssueBoardView: First header index is within or before frontmatter. Starting content after frontmatter."
 				);
 			}
@@ -667,7 +668,7 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 
 		// Call the prop to save the full content
 		updateMarkdownContent(newMarkdown).catch((err) => {
-			console.error(
+			devLog.error(
 				"IssueBoardView: Failed to save markdown update:",
 				err
 			);

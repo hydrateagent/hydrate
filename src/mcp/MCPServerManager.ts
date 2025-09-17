@@ -7,6 +7,7 @@ import {
 	MCPServerStats,
 	MCPServerConfigValidator,
 } from "./MCPServerConfig";
+import { devLog } from "../utils/logger";
 // MCPToolDiscovery types - inline definitions
 export interface MCPToolSchemaWithMetadata {
 	name: string;
@@ -35,12 +36,12 @@ export interface MCPServerManagerEvents {
 	"server-status-changed": (
 		serverId: string,
 		status: MCPServerStatus,
-		previousStatus: MCPServerStatus
+		previousStatus: MCPServerStatus,
 	) => void;
 	"server-health-changed": (
 		serverId: string,
 		health: MCPServerHealth,
-		previousHealth: MCPServerHealth
+		previousHealth: MCPServerHealth,
 	) => void;
 	"server-error": (serverId: string, error: Error) => void;
 	"tools-discovered": (serverId: string, toolCount: number) => void;
@@ -116,7 +117,7 @@ export class MCPServerManager extends EventEmitter {
 	 */
 	async addServer(
 		serverId: string,
-		config: Partial<MCPServerConfig>
+		config: Partial<MCPServerConfig>,
 	): Promise<void> {
 		if (this.servers.has(serverId)) {
 			throw new Error(`Server with ID '${serverId}' already exists`);
@@ -129,7 +130,7 @@ export class MCPServerManager extends EventEmitter {
 		const errors = MCPServerConfigValidator.validate(configWithId);
 		if (errors.length > 0) {
 			throw new Error(
-				`Invalid server configuration: ${errors.join(", ")}`
+				`Invalid server configuration: ${errors.join(", ")}`,
 			);
 		}
 
@@ -151,9 +152,9 @@ export class MCPServerManager extends EventEmitter {
 			try {
 				await server.start();
 			} catch (error) {
-				console.warn(
+				devLog.warn(
 					`Failed to auto-start server '${serverId}':`,
-					error
+					error,
 				);
 			}
 		}
@@ -175,7 +176,7 @@ export class MCPServerManager extends EventEmitter {
 		try {
 			await entry.server.stop();
 		} catch (error) {
-			console.warn(`Error stopping server '${serverId}':`, error);
+			devLog.warn(`Error stopping server '${serverId}':`, error);
 		}
 
 		// Clear server cache from tool discovery
@@ -197,7 +198,7 @@ export class MCPServerManager extends EventEmitter {
 	 */
 	async updateServerConfig(
 		serverId: string,
-		config: Partial<MCPServerConfig>
+		config: Partial<MCPServerConfig>,
 	): Promise<void> {
 		const entry = this.servers.get(serverId);
 		if (!entry) {
@@ -217,13 +218,13 @@ export class MCPServerManager extends EventEmitter {
 	async startServer(serverId: string): Promise<void>;
 	async startServer(config: MCPServerConfig): Promise<void>;
 	async startServer(
-		serverIdOrConfig: string | MCPServerConfig
+		serverIdOrConfig: string | MCPServerConfig,
 	): Promise<void> {
 		if (typeof serverIdOrConfig === "string") {
 			const entry = this.servers.get(serverIdOrConfig);
 			if (!entry) {
 				throw new Error(
-					`Server with ID '${serverIdOrConfig}' not found`
+					`Server with ID '${serverIdOrConfig}' not found`,
 				);
 			}
 
@@ -275,12 +276,12 @@ export class MCPServerManager extends EventEmitter {
 			if (entry.config.enabled) {
 				startPromises.push(
 					this.startServer(serverId).catch((error) => {
-						console.warn(
+						devLog.warn(
 							`Failed to start server '${serverId}':`,
-							error
+							error,
 						);
 						this.emit("server-error", serverId, error);
-					})
+					}),
 				);
 			}
 		}
@@ -297,8 +298,8 @@ export class MCPServerManager extends EventEmitter {
 		for (const [serverId] of this.servers) {
 			stopPromises.push(
 				this.stopServer(serverId).catch((error) => {
-					console.warn(`Failed to stop server '${serverId}':`, error);
-				})
+					devLog.warn(`Failed to stop server '${serverId}':`, error);
+				}),
 			);
 		}
 
@@ -377,7 +378,7 @@ export class MCPServerManager extends EventEmitter {
 			healthyServers,
 			totalTools: Array.from(this.discoveredTools.values()).reduce(
 				(total, tools) => total + tools.length,
-				0
+				0,
 			),
 			uptime: Date.now() - this.startTime.getTime(),
 			lastConfigSave: this.storage ? new Date() : null,
@@ -413,11 +414,11 @@ export class MCPServerManager extends EventEmitter {
 			if (entry.server.getStatus() === MCPServerStatus.RUNNING) {
 				refreshPromises.push(
 					this.refreshServerTools(serverId).catch((error) => {
-						console.warn(
+						devLog.warn(
 							`Failed to refresh tools for server '${serverId}':`,
-							error
+							error,
 						);
-					})
+					}),
 				);
 			}
 		}
@@ -459,13 +460,13 @@ export class MCPServerManager extends EventEmitter {
 					this.emit(
 						"tools-discovered",
 						serverId,
-						toolsWithMetadata.length
+						toolsWithMetadata.length,
 					);
 				}
 			} catch (error) {
-				console.warn(
+				devLog.warn(
 					`Failed to discover tools for server '${serverId}':`,
-					error
+					error,
 				);
 				this.discoveredTools.set(serverId, []);
 			}
@@ -505,9 +506,9 @@ export class MCPServerManager extends EventEmitter {
 					await this.addServer(serverConfig.id, serverConfig);
 					loadedCount++;
 				} catch (error) {
-					console.warn(
+					devLog.warn(
 						`Failed to load server '${serverConfig.id}':`,
-						error
+						error,
 					);
 					this.emit("error", error as Error);
 				}
@@ -515,7 +516,7 @@ export class MCPServerManager extends EventEmitter {
 
 			this.emit("configuration-loaded", loadedCount);
 		} catch (error) {
-			console.warn("Failed to load configuration:", error);
+			devLog.warn("Failed to load configuration:", error);
 			this.emit("configuration-loaded", 0);
 		}
 	}
@@ -559,7 +560,7 @@ export class MCPServerManager extends EventEmitter {
 	async executeToolCall(
 		serverId: string,
 		toolName: string,
-		parameters: any
+		parameters: any,
 	): Promise<any> {
 		const entry = this.servers.get(serverId);
 		if (!entry) {
@@ -568,7 +569,7 @@ export class MCPServerManager extends EventEmitter {
 
 		if (entry.server.getStatus() !== MCPServerStatus.RUNNING) {
 			throw new Error(
-				`Server '${serverId}' is not running (status: ${entry.server.getStatus()})`
+				`Server '${serverId}' is not running (status: ${entry.server.getStatus()})`,
 			);
 		}
 
@@ -584,7 +585,7 @@ export class MCPServerManager extends EventEmitter {
 			throw new Error(
 				`Tool execution failed: ${
 					error instanceof Error ? error.message : String(error)
-				}`
+				}`,
 			);
 		}
 	}
@@ -635,9 +636,9 @@ export class MCPServerManager extends EventEmitter {
 					const tools = this.getToolsFromServer(config.id);
 					toolCount = tools.length;
 				} catch (toolError) {
-					console.warn(
+					devLog.warn(
 						"Tool discovery failed during test:",
-						toolError
+						toolError,
 					);
 					// Don't fail the test just because tool discovery failed
 				}
@@ -653,9 +654,9 @@ export class MCPServerManager extends EventEmitter {
 					await testServer.stop();
 					testServer.dispose();
 				} catch (cleanupError) {
-					console.warn(
+					devLog.warn(
 						"Error cleaning up test server:",
-						cleanupError
+						cleanupError,
 					);
 				}
 			}
@@ -701,7 +702,7 @@ export class MCPServerManager extends EventEmitter {
 	 */
 	private setupServerEventHandlers(
 		serverId: string,
-		server: MCPServer
+		server: MCPServer,
 	): void {
 		server.on("status-changed", async (status, previousStatus) => {
 			// Trigger tool discovery when server becomes running
@@ -709,9 +710,9 @@ export class MCPServerManager extends EventEmitter {
 				try {
 					await this.refreshServerTools(serverId);
 				} catch (error) {
-					console.error(
+					devLog.error(
 						`MCPServerManager: Tool discovery failed for server ${serverId}:`,
-						error
+						error,
 					);
 				}
 			}
@@ -720,7 +721,7 @@ export class MCPServerManager extends EventEmitter {
 				"server-status-changed",
 				serverId,
 				status,
-				previousStatus
+				previousStatus,
 			);
 		});
 
@@ -729,7 +730,7 @@ export class MCPServerManager extends EventEmitter {
 				"server-health-changed",
 				serverId,
 				health,
-				previousHealth
+				previousHealth,
 			);
 		});
 
@@ -760,7 +761,7 @@ export class MCPServerManager extends EventEmitter {
 			try {
 				await this.saveConfiguration();
 			} catch (error) {
-				console.warn("Auto-save failed:", error);
+				devLog.warn("Auto-save failed:", error);
 				this.emit("error", error as Error);
 			}
 		}, this.autoSaveDelay);
@@ -781,9 +782,9 @@ export class MCPServerManager extends EventEmitter {
 				serverCount++;
 				toolCount += tools.length;
 			} catch (error) {
-				console.error(
+				devLog.error(
 					`MCPServerManager: Failed to get tools from server ${serverId}:`,
-					error
+					error,
 				);
 			}
 		}

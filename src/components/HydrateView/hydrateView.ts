@@ -14,6 +14,7 @@ import {
 	toolReplaceSelectionInFile,
 } from "./toolImplementations"; // Ensure this path is correct for your setup
 import { handleSearchProject } from "../../toolHandlers"; // <<< ADD THIS IMPORT
+import { devLog } from "../../utils/logger";
 import {
 	addMessageToChat,
 	renderFilePills, // Alias dom utils
@@ -154,7 +155,7 @@ export class HydrateView extends ItemView {
 		if (state?.sourceFilePath) {
 			fileToAttachPath = state.sourceFilePath;
 		} else {
-			console.warn(
+			devLog.warn(
 				"HydrateView setState: No sourceFilePath found in state.",
 			);
 		}
@@ -164,7 +165,7 @@ export class HydrateView extends ItemView {
 		if (fileToAttachPath && this.attachedFiles.length === 0) {
 			this.attachInitialFile(fileToAttachPath);
 		} else if (fileToAttachPath && this.attachedFiles.length > 0) {
-			console.warn(
+			devLog.warn(
 				"Hydrate [setState]: Files already attached, skipping auto-attach from state.",
 			);
 		}
@@ -183,16 +184,16 @@ export class HydrateView extends ItemView {
 					renderFilePills(this); // Pass the view instance
 				}
 			} else {
-				console.warn(
+				devLog.warn(
 					`Hydrate [attachInitialFile]: File path '${filePath}' does not exist or is not a TFile. Not attaching.`,
 				);
 			}
 		} else if (filePath && this.attachedFiles.includes(filePath)) {
-			console.warn(
+			devLog.warn(
 				`Hydrate [attachInitialFile]: File ${filePath} already attached.`,
 			);
 		} else {
-			console.warn(
+			devLog.warn(
 				"Hydrate [attachInitialFile]: File path variable was null/empty.",
 			);
 		}
@@ -202,7 +203,7 @@ export class HydrateView extends ItemView {
 
 	public handleActiveFileChange(newFilePath: string | null) {
 		if (!newFilePath) {
-			console.warn(
+			devLog.warn(
 				"Hydrate [handleActiveFileChange]: No active file to auto-attach.",
 			);
 			return;
@@ -834,7 +835,7 @@ export class HydrateView extends ItemView {
 			if (error.name === "AbortError") {
 				addMessageToChat(this, "agent", "Request cancelled by user.");
 			} else {
-				console.error("Backend call failed:", error);
+				devLog.error("Backend call failed:", error);
 				new Notice(`Backend error: ${error.message}`);
 				addMessageToChat(this, "agent", `Error: ${error.message}`);
 			}
@@ -849,13 +850,13 @@ export class HydrateView extends ItemView {
 			try {
 				mcpTools = await this.plugin.mcpManager.getAllDiscoveredTools();
 			} catch (error) {
-				console.warn(
+				devLog.warn(
 					"Error collecting MCP tools for tool result:",
 					error,
 				);
 			}
 		} else {
-			console.warn("[sendToolResults] No MCP Manager found!");
+			devLog.warn("[sendToolResults] No MCP Manager found!");
 		}
 
 		const payload: any = {
@@ -908,7 +909,7 @@ export class HydrateView extends ItemView {
 					await this.reviewAndExecuteEdits(editToolCalls);
 				results.push(...editResults);
 			} catch (error) {
-				console.error("Error processing edit tools:", error);
+				devLog.error("Error processing edit tools:", error);
 				// Add error results for failed edit tools
 				for (const call of editToolCalls) {
 					results.push({
@@ -929,7 +930,7 @@ export class HydrateView extends ItemView {
 				const result = await this.executeSingleTool(toolCall);
 				results.push({ id: toolCall.id, result });
 			} catch (error) {
-				console.error(`Error executing tool ${toolCall.tool}:`, error);
+				devLog.error(`Error executing tool ${toolCall.tool}:`, error);
 				results.push({
 					id: toolCall.id,
 					result: `Error: ${
@@ -980,7 +981,7 @@ export class HydrateView extends ItemView {
 							}. ${reviewResult.message || ""}`,
 						});
 					} catch (writeError) {
-						console.error(
+						devLog.error(
 							`Failed to write changes to ${toolCall.params.path}:`,
 							writeError,
 						);
@@ -1005,7 +1006,7 @@ export class HydrateView extends ItemView {
 					});
 				}
 			} catch (error) {
-				console.error(
+				devLog.error(
 					`Error in review process for ${toolCall.tool}:`,
 					error,
 				);
@@ -1053,7 +1054,7 @@ export class HydrateView extends ItemView {
 					if (!originalContent.includes(original_selection)) {
 						// If original selection isn't found, maybe show modal with error or just the new content?
 						// For now, let's show the diff against the original, highlighting the intended change might fail.
-						console.warn(
+						devLog.warn(
 							`Original selection for replaceSelectionInFile not found in ${targetPath}. Diff may be inaccurate.`,
 						);
 						// Fallback: show the new content as the proposed change for review, although tool execution might fail later.
@@ -1086,14 +1087,14 @@ export class HydrateView extends ItemView {
 						const contextIndex =
 							simulatedContent.indexOf(contextString);
 						if (contextIndex === -1) {
-							console.error(
+							devLog.error(
 								`Context not found during simulation. Searching for:\n${JSON.stringify(
 									contextString,
 								)}\nin content:\n${JSON.stringify(
 									simulatedContent,
 								)}`,
 							);
-							console.warn(
+							devLog.warn(
 								`Context for patch not found during simulation: ${JSON.stringify(
 									patch,
 								)}`,
@@ -1111,7 +1112,7 @@ export class HydrateView extends ItemView {
 								contextIndex + 1,
 							) !== -1
 						) {
-							console.warn(
+							devLog.warn(
 								`Ambiguous context for patch found during simulation: ${JSON.stringify(
 									patch,
 								)}`,
@@ -1136,7 +1137,7 @@ export class HydrateView extends ItemView {
 
 				// Check for simulation errors before opening modal
 				if (simulationErrors.length > 0) {
-					console.error(
+					devLog.error(
 						"Simulation failed, cannot show diff modal reliably.",
 						simulationErrors,
 					);
@@ -1166,7 +1167,7 @@ export class HydrateView extends ItemView {
 					},
 				).open();
 			} catch (error) {
-				console.error(
+				devLog.error(
 					`Error preparing data for DiffReviewModal for ${targetPath}:`,
 					error,
 				);
@@ -1194,7 +1195,7 @@ export class HydrateView extends ItemView {
 			case "replaceSelectionInFile": // <<< KEPT CASE (but now also goes through review)
 				// This case should ideally not be hit directly anymore if filtering is correct,
 				// but kept for safety. Review logic handles execution.
-				console.warn(
+				devLog.warn(
 					"executeSingleTool called for replaceSelectionInFile - should go through review.",
 				);
 				// Fallback to direct execution if somehow called directly (not ideal)
@@ -1252,7 +1253,7 @@ export class HydrateView extends ItemView {
 
 			return result;
 		} catch (error) {
-			console.error(
+			devLog.error(
 				`MCP tool execution failed for ${toolCall.tool}:`,
 				error,
 			);
@@ -1338,7 +1339,7 @@ export class HydrateView extends ItemView {
 			await this.exportChatAsNote();
 			new Notice("Chat exported successfully");
 		} catch (error) {
-			console.error("Error exporting chat:", error);
+			devLog.error("Error exporting chat:", error);
 			new Notice(`Failed to export chat: ${error.message}`);
 		}
 	}
@@ -1550,7 +1551,7 @@ export class HydrateView extends ItemView {
 						}
 					}
 				} catch (error) {
-					console.warn(
+					devLog.warn(
 						`Search failed for query "${queryInfo.query}":`,
 						error,
 					);
@@ -1564,7 +1565,7 @@ export class HydrateView extends ItemView {
 
 			this.renderSuggestionPills();
 		} catch (error) {
-			console.error("Error refreshing context suggestions:", error);
+			devLog.error("Error refreshing context suggestions:", error);
 			this.suggestedNotes = [];
 			this.renderSuggestionPills();
 		}

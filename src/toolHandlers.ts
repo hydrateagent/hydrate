@@ -4,6 +4,7 @@ import { App, Notice } from "obsidian";
 // For now, let's assume HydratePluginSettings can be passed to searchIndexRemote.
 import { HydratePluginSettings } from "./main"; // Adjust path if settings are in types.ts
 import { searchIndexRemote, VectorIndexSettings } from "./vectorIndex";
+import { devLog } from "./utils/logger";
 
 // Interface for the structure of tool call parameters for search_project
 interface SearchProjectParams {
@@ -30,12 +31,12 @@ export async function handleSearchProject(
 	call: AgentToolCall,
 	app: App, // app might be needed by searchIndexRemote or its dependencies indirectly
 	settings: HydratePluginSettings, // Assuming HydratePluginSettings is compatible with VectorIndexSettings
-	topN: number = 5 // Default number of results to return
+	topN: number = 5, // Default number of results to return
 ): Promise<ToolResult> {
 	const params = call.params as SearchProjectParams;
 
 	if (!params.query) {
-		console.warn("[Hydrate Plugin] search_project called without a query.");
+		devLog.warn("[Hydrate Plugin] search_project called without a query.");
 		new Notice("Search project: Query is missing.");
 		return {
 			id: call.id,
@@ -48,7 +49,7 @@ export async function handleSearchProject(
 		if (!settings.enableRemoteEmbeddings) {
 			const errorMsg =
 				"Remote embeddings are not enabled. Cannot perform project search.";
-			console.error(`[Hydrate Plugin] ${errorMsg}`);
+			devLog.error(`[Hydrate Plugin] ${errorMsg}`);
 			new Notice(errorMsg);
 			throw new Error(errorMsg);
 		}
@@ -59,7 +60,7 @@ export async function handleSearchProject(
 		) {
 			const errorMsg =
 				"Remote embedding settings are incomplete. Cannot perform project search.";
-			console.error(`[Hydrate Plugin] ${errorMsg}`);
+			devLog.error(`[Hydrate Plugin] ${errorMsg}`);
 			new Notice(errorMsg);
 			throw new Error(errorMsg);
 		}
@@ -74,7 +75,7 @@ export async function handleSearchProject(
 		const searchResults = await searchIndexRemote(
 			params.query,
 			settings as VectorIndexSettings, // Casting, ensure compatibility
-			topN
+			topN,
 		);
 
 		let resultSummary: string;
@@ -84,7 +85,7 @@ export async function handleSearchProject(
 					(chunk) =>
 						`- File: ${chunk.filePath} (Score: ${
 							chunk.score?.toFixed(4) || "N/A"
-						})`
+						})`,
 				)
 				.join("\n");
 			resultSummary = `Found ${searchResults.length} relevant snippet(s) for "${params.query}":\n${snippets}`;
@@ -99,9 +100,9 @@ export async function handleSearchProject(
 	} catch (error) {
 		const errorMessage =
 			error instanceof Error ? error.message : String(error);
-		console.error(
+		devLog.error(
 			`[Hydrate Plugin] Error executing search_project for query "${params.query}":`,
-			error
+			error,
 		);
 		new Notice(`Project Search Error: ${errorMessage}`);
 		return {
