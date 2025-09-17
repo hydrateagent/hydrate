@@ -4,6 +4,32 @@
 
 ---
 
+## ⚠️ Important Disclosures
+
+**Please read these important requirements before installing:**
+
+- **💳 Payment Required:** Full access to Hydrate requires a paid subscription
+- **👤 Account Required:** You must create an account to use all features
+- **🌐 Network Use:** This plugin connects to remote AI services to provide intelligent features
+- **📊 Telemetry:** Anonymous usage analytics are collected to improve the service
+- **🔒 Closed Source:** This plugin contains proprietary code
+
+### Remote Services Used
+
+Hydrate connects to the following remote services to provide AI-powered features:
+
+- **Hydrate AI Backend:** Processes your queries and provides intelligent responses
+- **Third-party AI APIs:** For advanced language processing and content generation
+- **Analytics Services:** For anonymous usage tracking and service improvement
+
+These connections are necessary to deliver the core AI functionality that makes Hydrate intelligent and responsive to your needs.
+
+### Privacy & Data Handling
+
+Your privacy is important to us. Please review our [Privacy Policy](https://hydrateagent.com/privacy/) to understand how your data is collected, used, and protected when using Hydrate.
+
+---
+
 ## ✨ What is Hydrate?
 
 Hydrate transforms your Obsidian vault into an intelligent knowledge companion. Designed for writers, researchers, students, and anyone who thinks deeply, Hydrate helps you:
@@ -34,7 +60,7 @@ Hydrate is **not** in the official Obsidian Community Plugins marketplace yet. Y
     - Search for `BRAT` or `Obsidian42 - BRAT`
     - Click **Install** and then **Enable**
 2. **Add Hydrate Plugin via BRAT**
-    - Copy this repository URL:  
+    - Copy this repository URL:
       `https://github.com/hydrateagent/hydrate`
     - Open the **Command Palette** (Cmd+P or Ctrl+P)
     - Run: `BRAT: Add a beta plugin for testing`
@@ -61,7 +87,7 @@ Hydrate is **not** in the official Obsidian Community Plugins marketplace yet. Y
 
 ## 🔄 Updating Hydrate
 
--   To update, open the Command Palette and run:  
+-   To update, open the Command Palette and run:
     `BRAT: Check for updates to all beta plugins and UPDATE`
 -   You can also enable auto-updates for beta plugins in the BRAT settings tab.
 
