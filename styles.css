@@ -764,12 +764,6 @@
   background: var(--background-modifier-error);
   border-radius: 4px;
 }
-.workspace-split.mod-vertical:has(.workspace-leaf-content[data-type='hydrate-view']) > .workspace-tabs {
-  flex-grow: 0.65;
-}
-.workspace-split.mod-vertical > .workspace-tabs:has(.workspace-leaf-content[data-type='hydrate-view']) {
-  flex-grow: 0.35;
-}
 .hydrate-user-message::-moz-selection {
   background-color: #003bff;
   color: #ffffff;
@@ -807,43 +801,43 @@
   border-radius: var(--radius-m);
   border: 1px solid var(--background-modifier-border);
 }
-.subscription-status-display {
+.hydrate-subscription-status-display {
   margin-top: 10px;
 }
-.subscription-status-info {
+.hydrate-subscription-status-info {
   margin-bottom: 15px;
 }
-.subscription-status-info p {
+.hydrate-subscription-status-info p {
   margin: 5px 0;
 }
-.subscription-features {
+.hydrate-subscription-features {
   margin-top: 15px;
 }
-.subscription-features h5 {
+.hydrate-subscription-features h5 {
   margin-bottom: 10px;
   color: var(--text-muted);
 }
-.subscription-features ul {
+.hydrate-subscription-features ul {
   margin: 0;
   padding-left: 20px;
 }
-.subscription-features li {
+.hydrate-subscription-features li {
   margin: 5px 0;
   font-size: 0.9em;
 }
-.free-features-list {
+.hydrate-free-features-list {
   margin: 10px 0;
   padding-left: 20px;
 }
-.free-features-list li {
+.hydrate-free-features-list li {
   margin: 5px 0;
   font-size: 0.9em;
 }
-.subscription-description {
+.hydrate-subscription-description {
   margin-bottom: 15px;
   color: var(--text-muted);
 }
-.subscription-info {
+.hydrate-subscription-info {
   margin-top: 10px;
 }
 .hydrate-registration-section {
@@ -854,14 +848,14 @@
 .hydrate-registration-section h4 {
   margin-bottom: 10px;
 }
-.registration-status {
+.hydrate-registration-status {
   margin: 10px 0;
 }
-.registration-status ul {
+.hydrate-registration-status ul {
   margin: 10px 0;
   padding-left: 20px;
 }
-.registration-status li {
+.hydrate-registration-status li {
   margin: 5px 0;
 }
 .hydrate-registry-list {
@@ -1022,57 +1016,57 @@
 .hydrate-mcp-action-btn:hover {
   background: var(--background-modifier-hover);
 }
-.mcp-config-example {
+.hydrate-mcp-config-example {
   margin-top: 16px;
   padding: 12px;
   background: var(--background-secondary);
   border-radius: 6px;
 }
-.mcp-config-example h3 {
+.hydrate-mcp-config-example h3 {
   margin-top: 0;
   margin-bottom: 12px;
 }
-.mcp-config-example pre {
+.hydrate-mcp-config-example pre {
   margin: 4px 0;
   padding: 8px;
   background: var(--background-primary);
   border-radius: 4px;
   overflow-x: auto;
 }
-.mcp-config-example code {
+.hydrate-mcp-config-example code {
   font-family: var(--font-monospace);
   font-size: 0.9em;
 }
-.mcp-config-info {
+.hydrate-mcp-config-info {
   margin-top: 16px;
   padding: 12px;
   background: var(--background-secondary);
   border-radius: 6px;
 }
-.mcp-config-info h4 {
+.hydrate-mcp-config-info h4 {
   margin-top: 0;
   margin-bottom: 8px;
 }
-.mcp-config-info ul {
+.hydrate-mcp-config-info ul {
   margin: 0;
   padding-left: 16px;
 }
-.mcp-config-info li {
+.hydrate-mcp-config-info li {
   margin-bottom: 4px;
 }
-.mcp-error {
+.hydrate-mcp-error {
   padding: 8px;
   background: var(--background-modifier-error);
   border-radius: 4px;
   border-left: 3px solid var(--text-error);
 }
-.modal-button-container {
+.hydrate-modal-button-container {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
   margin-top: 16px;
 }
-.modal-button-container button {
+.hydrate-modal-button-container button {
   padding: 8px 16px;
   border-radius: 4px;
   border: 1px solid var(--background-modifier-border);
@@ -1080,15 +1074,15 @@
   color: var(--text-normal);
   cursor: pointer;
 }
-.modal-button-container button:hover {
+.hydrate-modal-button-container button:hover {
   background: var(--background-modifier-hover);
 }
-.modal-button-container .mod-cta {
+.hydrate-modal-button-container .mod-cta {
   background: var(--interactive-accent);
   color: var(--text-on-accent);
   border-color: var(--interactive-accent);
 }
-.modal-button-container .mod-cta:hover {
+.hydrate-modal-button-container .mod-cta:hover {
   background: var(--interactive-accent-hover);
 }
 .hydrate-error-message {

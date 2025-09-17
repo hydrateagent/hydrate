@@ -24,7 +24,7 @@ export class MCPServersConfigModal extends Modal {
 	constructor(
 		app: App,
 		currentConfigs: MCPServerConfig[],
-		onSave: (configs: MCPServerConfig[]) => void
+		onSave: (configs: MCPServerConfig[]) => void,
 	) {
 		super(app);
 		this.onSave = onSave;
@@ -50,7 +50,10 @@ export class MCPServersConfigModal extends Modal {
 		});
 		const jsonTextAreaEl = contentEl.createEl("textarea");
 		jsonTextAreaEl.rows = 20;
-		jsonTextAreaEl.classList.add("hydrate-mcp-textarea", "hydrate-full-width");
+		jsonTextAreaEl.classList.add(
+			"hydrate-mcp-textarea",
+			"hydrate-full-width",
+		);
 		jsonTextAreaEl.value = this.currentJson;
 		jsonTextAreaEl.placeholder = this.getExampleJson();
 		this.jsonTextArea = {
@@ -63,14 +66,16 @@ export class MCPServersConfigModal extends Modal {
 		} as any;
 
 		// Example section
-		const exampleEl = contentEl.createDiv({ cls: "mcp-config-example" });
+		const exampleEl = contentEl.createDiv({
+			cls: "hydrate-mcp-config-example",
+		});
 		exampleEl.createEl("h3", { text: "Example Configuration:" });
 
 		const exampleCode = exampleEl.createEl("pre");
 		exampleCode.createEl("code", { text: this.getExampleJson() });
 
 		// Info section
-		const infoEl = contentEl.createDiv({ cls: "mcp-config-info" });
+		const infoEl = contentEl.createDiv({ cls: "hydrate-mcp-config-info" });
 		infoEl.createEl("h4", { text: "Supported Formats:" });
 		const infoList = infoEl.createEl("ul");
 		infoList.createEl("li", {
@@ -86,7 +91,7 @@ export class MCPServersConfigModal extends Modal {
 
 		// Buttons
 		const buttonContainer = contentEl.createDiv({
-			cls: "modal-button-container",
+			cls: "hydrate-modal-button-container",
 		});
 
 		const saveButton = buttonContainer.createEl("button", {
@@ -158,7 +163,7 @@ export class MCPServersConfigModal extends Modal {
 				},
 			},
 			null,
-			2
+			2,
 		);
 	}
 
@@ -200,7 +205,7 @@ export class MCPServersConfigModal extends Modal {
 						config.args = serverConfig.args || [];
 					} else {
 						throw new Error(
-							`Server '${serverId}' must have either 'url' or 'command' field`
+							`Server '${serverId}' must have either 'url' or 'command' field`,
 						);
 					}
 
@@ -212,14 +217,14 @@ export class MCPServersConfigModal extends Modal {
 						config.env = {};
 						// Convert all environment variable values to strings
 						for (const [key, value] of Object.entries(
-							serverConfig.env
+							serverConfig.env,
 						)) {
 							config.env[key] = String(value);
 						}
 					}
 
 					configs.push(config);
-				}
+				},
 			);
 
 			return configs;
@@ -248,13 +253,13 @@ export class MCPServersConfigModal extends Modal {
 			for (const config of configs) {
 				if (config.transport.type === "sse" && !config.transport.url) {
 					this.showError(
-						`Server '${config.id}': URL is required for SSE transport`
+						`Server '${config.id}': URL is required for SSE transport`,
 					);
 					return false;
 				}
 				if (config.transport.type === "stdio" && !config.command) {
 					this.showError(
-						`Server '${config.id}': Command is required for STDIO transport`
+						`Server '${config.id}': Command is required for STDIO transport`,
 					);
 					return false;
 				}
@@ -264,7 +269,7 @@ export class MCPServersConfigModal extends Modal {
 			new Notice(
 				`Successfully configured ${configs.length} MCP server${
 					configs.length === 1 ? "" : "s"
-				}`
+				}`,
 			);
 			return true;
 		} catch (error) {
@@ -281,7 +286,7 @@ export class MCPServersConfigModal extends Modal {
 		}
 
 		// Add new error
-		const errorEl = this.contentEl.createDiv({ cls: "mcp-error" });
+		const errorEl = this.contentEl.createDiv({ cls: "hydrate-mcp-error" });
 		errorEl.addClass("hydrate-mcp-error");
 		errorEl.textContent = message;
 

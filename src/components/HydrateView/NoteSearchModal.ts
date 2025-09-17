@@ -23,10 +23,16 @@ export class NoteSearchModal extends FuzzySuggestModal<TFile> {
 
 	renderSuggestion(item: FuzzyMatch<TFile>, el: HTMLElement): void {
 		const file = item.item;
-		el.createEl("div", { text: file.basename, cls: "suggestion-title" });
+		el.createEl("div", {
+			text: file.basename,
+			cls: "hydrate-suggestion-title",
+		});
 
 		if (file.path !== file.basename + ".md") {
-			el.createEl("small", { text: file.path, cls: "suggestion-note" });
+			el.createEl("small", {
+				text: file.path,
+				cls: "hydrate-suggestion-note",
+			});
 		}
 	}
 

@@ -190,7 +190,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 				text: "Subscription Status",
 			});
 			const statusDiv = subscriptionStatusSection.createEl("div", {
-				cls: "subscription-status-display",
+				cls: "hydrate-subscription-status-display",
 			});
 			statusDiv.createEl("p", { text: "Loading subscription status..." });
 			this.loadSubscriptionStatus(statusDiv);
@@ -199,15 +199,15 @@ export class HydrateSettingTab extends PluginSettingTab {
 				text: "Current Tier: Free",
 			});
 			const freeInfoDiv = subscriptionStatusSection.createEl("div", {
-				cls: "subscription-info",
+				cls: "hydrate-subscription-info",
 			});
 			freeInfoDiv.createEl("p", {
 				text: "You're currently using the free tier. Configure your API keys below to get started, or upgrade to a paid tier for advanced features.",
-				cls: "subscription-description",
+				cls: "hydrate-subscription-description",
 			});
 
 			const featuresList = freeInfoDiv.createEl("ul", {
-				cls: "free-features-list",
+				cls: "hydrate-free-features-list",
 			});
 			featuresList.createEl("li", {
 				text: "✓ Basic AI chat with your own API keys",
@@ -766,7 +766,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 											const buttonContainer =
 												contentEl.createDiv({
-													cls: "modal-button-container",
+													cls: "hydrate-modal-button-container",
 												});
 											buttonContainer.createEl("button", {
 												text: "Cancel",
@@ -1395,7 +1395,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 			// Create subscription status info container
 			const infoContainer = statusDiv.createDiv({
-				cls: "subscription-status-info",
+				cls: "hydrate-subscription-status-info",
 			});
 
 			// Tier information
@@ -1403,7 +1403,9 @@ export class HydrateSettingTab extends PluginSettingTab {
 			tierP.createEl("strong", { text: "Tier: " });
 			tierP.createEl("span", {
 				text: tierName,
-				cls: licenseInfo.is_active ? "hydrate-status-active" : "hydrate-status-inactive",
+				cls: licenseInfo.is_active
+					? "hydrate-status-active"
+					: "hydrate-status-inactive",
 			});
 
 			// Status information
@@ -1411,7 +1413,9 @@ export class HydrateSettingTab extends PluginSettingTab {
 			statusP.createEl("strong", { text: "Status: " });
 			statusP.createEl("span", {
 				text: statusText,
-				cls: licenseInfo.is_active ? "hydrate-status-active" : "hydrate-status-inactive",
+				cls: licenseInfo.is_active
+					? "hydrate-status-active"
+					: "hydrate-status-inactive",
 			});
 
 			// Expiration information (if available)
@@ -1425,7 +1429,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 			// Create subscription features container
 			const featuresContainer = statusDiv.createDiv({
-				cls: "subscription-features",
+				cls: "hydrate-subscription-features",
 			});
 			featuresContainer.createEl("h5", { text: "Available Features:" });
 
@@ -1529,7 +1533,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 				});
 
 				const buttonContainer = contentEl.createEl("div", {
-					cls: "modal-button-container",
+					cls: "hydrate-modal-button-container",
 				});
 				buttonContainer.addClass("hydrate-button-container");
 
@@ -1591,7 +1595,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 				new Notice("API keys re-registered successfully!");
 				// Refresh the status display
 				const statusDiv = document.querySelector(
-					".registration-status",
+					".hydrate-registration-status",
 				) as HTMLElement;
 				if (statusDiv) {
 					await this.loadRegistrationStatus(statusDiv);

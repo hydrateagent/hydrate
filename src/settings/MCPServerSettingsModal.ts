@@ -8,7 +8,7 @@ export class MCPServerSettingsModal extends Modal {
 	constructor(
 		app: App,
 		server: MCPServerConfig,
-		onSave: (server: MCPServerConfig) => void
+		onSave: (server: MCPServerConfig) => void,
 	) {
 		super(app);
 		this.server = { ...server }; // Clone to avoid modifying original
@@ -91,7 +91,7 @@ export class MCPServerSettingsModal extends Modal {
 			.addText((text) => {
 				text.setPlaceholder("30000")
 					.setValue(
-						String(this.server.healthCheck?.interval || 30000)
+						String(this.server.healthCheck?.interval || 30000),
 					)
 					.onChange((value) => {
 						const num = parseInt(value);
@@ -135,7 +135,7 @@ export class MCPServerSettingsModal extends Modal {
 			.addText((text) => {
 				text.setPlaceholder("3")
 					.setValue(
-						String(this.server.healthCheck?.failureThreshold || 3)
+						String(this.server.healthCheck?.failureThreshold || 3),
 					)
 					.onChange((value) => {
 						const num = parseInt(value);
@@ -206,7 +206,7 @@ export class MCPServerSettingsModal extends Modal {
 
 		// Buttons
 		const buttonContainer = contentEl.createDiv({
-			cls: "modal-button-container",
+			cls: "hydrate-modal-button-container",
 		});
 
 		const saveButton = buttonContainer.createEl("button", {

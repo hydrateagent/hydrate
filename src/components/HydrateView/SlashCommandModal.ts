@@ -13,7 +13,7 @@ export class SlashCommandModal extends FuzzySuggestModal<RegistryEntry> {
 		view: HydrateView,
 		entries: RegistryEntry[],
 		initialQuery: string = "",
-		onSelect: (entry: RegistryEntry) => void
+		onSelect: (entry: RegistryEntry) => void,
 	) {
 		super(app);
 		this.view = view;
@@ -41,7 +41,7 @@ export class SlashCommandModal extends FuzzySuggestModal<RegistryEntry> {
 					.includes(this.query.toLowerCase()) ||
 				entry.description
 					?.toLowerCase()
-					.includes(this.query.toLowerCase())
+					.includes(this.query.toLowerCase()),
 		);
 	}
 
@@ -53,13 +53,13 @@ export class SlashCommandModal extends FuzzySuggestModal<RegistryEntry> {
 		const entry = item.item;
 		el.createEl("div", {
 			text: entry.slashCommandTrigger || "",
-			cls: "suggestion-title",
+			cls: "hydrate-suggestion-title",
 		});
 
 		if (entry.description) {
 			el.createEl("small", {
 				text: entry.description,
-				cls: "suggestion-note",
+				cls: "hydrate-suggestion-note",
 			});
 		}
 	}

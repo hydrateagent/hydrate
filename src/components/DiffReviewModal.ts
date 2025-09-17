@@ -44,7 +44,7 @@ export class DiffReviewModal extends Modal {
 		proposedContent: string,
 		instructions: string,
 		toolCallId: string,
-		resolvePromise: (result: DiffReviewResult) => void
+		resolvePromise: (result: DiffReviewResult) => void,
 	) {
 		super(app);
 		this.plugin = plugin;
@@ -77,7 +77,7 @@ export class DiffReviewModal extends Modal {
 
 		// --- Diff Hunk Rendering ---
 		const diffContainer = contentEl.createDiv({
-			cls: "diff-hunks-container !w-full",
+			cls: "hydrate-diff-hunks-container !w-full",
 		});
 
 		// Generate and Render Hunks
@@ -86,7 +86,7 @@ export class DiffReviewModal extends Modal {
 
 		// --- Action Buttons ---
 		const buttonContainer = contentEl.createDiv({
-			cls: "diff-modal-buttons flex justify-end gap-2",
+			cls: "hydrate-diff-modal-buttons flex justify-end gap-2",
 		});
 
 		new ButtonComponent(buttonContainer)
@@ -104,7 +104,7 @@ export class DiffReviewModal extends Modal {
 		// Use patch_make for better hunk structure
 		this.patches = this.dmp.patch_make(
 			this.originalContent,
-			this.proposedContent
+			this.proposedContent,
 		);
 		this.hunks = []; // Reset hunks
 
@@ -127,7 +127,7 @@ export class DiffReviewModal extends Modal {
 				const lines = text
 					.split("\n")
 					.filter(
-						(line, idx, arr) => idx < arr.length - 1 || line !== ""
+						(line, idx, arr) => idx < arr.length - 1 || line !== "",
 					); // Split lines, remove trailing empty line
 
 				lines.forEach((lineContent) => {
@@ -169,19 +169,21 @@ export class DiffReviewModal extends Modal {
 				lines.pop();
 			}
 
-			const hunkContainer = container.createDiv({ cls: "diff-hunk" });
+			const hunkContainer = container.createDiv({
+				cls: "hydrate-diff-hunk",
+			});
 			const headerContainer = hunkContainer.createDiv({
-				cls: "diff-hunk-header",
+				cls: "hydrate-diff-hunk-header",
 			});
 			// No checkbox needed as it's all or nothing for new file content
 			headerContainer.createSpan({
 				// Simple header indicating full insertion
 				text: `@@ +1,${lines.length} @@ New File Content`,
-				cls: "diff-hunk-header-text",
+				cls: "hydrate-diff-hunk-header-text",
 			});
 
 			const linesContainer = hunkContainer.createDiv({
-				cls: "diff-hunk-lines !font-mono",
+				cls: "hydrate-diff-hunk-lines !font-mono",
 			});
 
 			lines.forEach((lineContent) => {
@@ -202,18 +204,20 @@ export class DiffReviewModal extends Modal {
 		}
 
 		this.hunks.forEach((hunk, index) => {
-			const hunkContainer = container.createDiv({ cls: "diff-hunk" });
+			const hunkContainer = container.createDiv({
+				cls: "hydrate-diff-hunk",
+			});
 			// Add initial class if discarded by default (though default is applied: true)
 			hunkContainer.toggleClass("diff-hunk-discarded", !hunk.applied);
 
 			const headerContainer = hunkContainer.createDiv({
-				cls: "diff-hunk-header",
+				cls: "hydrate-diff-hunk-header",
 			});
 
 			// Use standard HTML checkbox
 			const checkbox = headerContainer.createEl("input", {
 				type: "checkbox",
-				cls: "diff-hunk-checkbox",
+				cls: "hydrate-diff-hunk-checkbox",
 			});
 			checkbox.checked = hunk.applied;
 			checkbox.addEventListener("change", () => {
@@ -223,11 +227,11 @@ export class DiffReviewModal extends Modal {
 
 			headerContainer.createSpan({
 				text: hunk.header,
-				cls: "diff-hunk-header-text",
+				cls: "hydrate-diff-hunk-header-text",
 			});
 
 			const linesContainer = hunkContainer.createDiv({
-				cls: "diff-hunk-lines !font-mono",
+				cls: "hydrate-diff-hunk-lines !font-mono",
 			});
 
 			hunk.lines.forEach((line) => {
@@ -237,8 +241,8 @@ export class DiffReviewModal extends Modal {
 						line.type === "addition"
 							? "bg-green-100 dark:bg-green-900/50" // Faint green for light/dark modes
 							: line.type === "deletion"
-							? "bg-red-100 dark:bg-red-900/50" // Faint red for light/dark modes
-							: "" // No background for context lines
+								? "bg-red-100 dark:bg-red-900/50" // Faint red for light/dark modes
+								: "" // No background for context lines
 					}`,
 				});
 				let prefix = " ";
@@ -275,7 +279,7 @@ export class DiffReviewModal extends Modal {
 	// TODO: Implement content reconstruction logic using patches
 	private reconstructContent(): string {
 		const selectedPatches = this.patches.filter(
-			(patch, index) => this.hunks[index]?.applied
+			(patch, index) => this.hunks[index]?.applied,
 		);
 
 		if (selectedPatches.length === 0) {
@@ -284,7 +288,7 @@ export class DiffReviewModal extends Modal {
 
 		const [newContent, results] = this.dmp.patch_apply(
 			selectedPatches,
-			this.originalContent
+			this.originalContent,
 		);
 
 		// Check results for errors, add type annotation for the callback parameter
@@ -294,7 +298,7 @@ export class DiffReviewModal extends Modal {
 		} else {
 			devLog.error("Patch application failed for some hunks:", results);
 			throw new Error(
-				"Failed to apply selected changes. Please review the console."
+				"Failed to apply selected changes. Please review the console.",
 			);
 		}
 	}

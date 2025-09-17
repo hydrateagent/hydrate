@@ -10,7 +10,7 @@ export class ChatHistoryModal extends FuzzySuggestModal<ChatHistory> {
 	constructor(
 		app: App,
 		view: HydrateView,
-		onSelect: (chatHistory: ChatHistory) => void
+		onSelect: (chatHistory: ChatHistory) => void,
 	) {
 		super(app);
 		this.view = view;
@@ -24,7 +24,7 @@ export class ChatHistoryModal extends FuzzySuggestModal<ChatHistory> {
 			.sort(
 				(a, b) =>
 					new Date(b.lastModified).getTime() -
-					new Date(a.lastModified).getTime()
+					new Date(a.lastModified).getTime(),
 			);
 	}
 
@@ -37,13 +37,13 @@ export class ChatHistoryModal extends FuzzySuggestModal<ChatHistory> {
 
 		// Create container for the suggestion content
 		const contentContainer = el.createEl("div", {
-			cls: "suggestion-content",
+			cls: "hydrate-suggestion-content",
 		});
 
 		// Main title
 		contentContainer.createEl("div", {
 			text: chat.title,
-			cls: "suggestion-title",
+			cls: "hydrate-suggestion-title",
 		});
 
 		// Metadata line with date and message count
@@ -55,7 +55,7 @@ export class ChatHistoryModal extends FuzzySuggestModal<ChatHistory> {
 
 		contentContainer.createEl("small", {
 			text: metaText,
-			cls: "suggestion-note",
+			cls: "hydrate-suggestion-note",
 		});
 
 		// Preview of first user message (if exists)
@@ -67,13 +67,13 @@ export class ChatHistoryModal extends FuzzySuggestModal<ChatHistory> {
 					: firstUserTurn.content;
 			contentContainer.createEl("small", {
 				text: preview,
-				cls: "suggestion-note chat-preview",
+				cls: "hydrate-suggestion-note hydrate-chat-preview",
 			});
 		}
 
 		// Create delete button
 		const deleteButton = el.createEl("button", {
-			cls: "chat-history-delete-button",
+			cls: "hydrate-chat-history-delete-button",
 			text: "✕",
 			attr: { title: "Delete this chat" },
 		});
@@ -85,7 +85,7 @@ export class ChatHistoryModal extends FuzzySuggestModal<ChatHistory> {
 
 			// Confirm deletion
 			const confirmed = confirm(
-				`Are you sure you want to delete "${chat.title}"?`
+				`Are you sure you want to delete "${chat.title}"?`,
 			);
 			if (confirmed) {
 				try {
