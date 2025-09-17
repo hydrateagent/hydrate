@@ -12,7 +12,7 @@
 - **👤 Account Required:** You must create an account to use all features
 - **🌐 Network Use:** This plugin connects to remote AI services to provide intelligent features
 - **📊 Telemetry:** Anonymous usage analytics are collected to improve the service
-- **🔒 Closed Source:** This plugin contains proprietary code
+- **🔒 Closed Source:** This plugin is Apache 2 licensed, but relies on proprietary server side code for functionality.
 
 ### Remote Services Used
 
