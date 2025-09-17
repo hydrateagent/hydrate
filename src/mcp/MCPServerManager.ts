@@ -781,7 +781,7 @@ export class MCPServerManager extends EventEmitter {
 	 */
 	setAutoSave(enabled: boolean, delayMs = 1000): void {
 		this.autoSaveEnabled = enabled;
-		this.autoSaveDelay = delayMs;
+		// Note: delayMs parameter is ignored since we use a fixed 1000ms delay with debounce
 	}
 
 	/**
