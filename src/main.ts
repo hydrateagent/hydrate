@@ -378,32 +378,35 @@ export default class HydratePlugin extends Plugin {
 		this.addCommand({
 			id: "add-selection-to-hydrate",
 			name: "Add selection to context",
-			callback: () => {
-				// 1. Get active editor and selection
+			checkCallback: (checking: boolean) => {
+				// 1. Check if we have an active Markdown editor with selection
 				const activeMdView =
 					this.app.workspace.getActiveViewOfType(MarkdownView);
 				if (!activeMdView || !activeMdView.editor) {
-					new Notice("No active Markdown editor found.");
-					return;
-				}
-				const selection = activeMdView.editor.getSelection();
-				if (!selection) {
-					new Notice("No text selected.");
-					return;
+					return false; // No active Markdown editor
 				}
 
-				// 2. Find the Hydrate view instance
+				const selection = activeMdView.editor.getSelection();
+				if (!selection) {
+					return false; // No text selected
+				}
+
+				// 2. Check if Hydrate view exists
 				const leaves =
 					this.app.workspace.getLeavesOfType(HYDRATE_VIEW_TYPE);
 				if (
 					leaves.length === 0 ||
 					!(leaves[0].view instanceof HydrateView)
 				) {
-					new Notice("Hydrate pane not found or is not active.");
-					// Optionally, activate the view here if desired?
-					// this.activateView(); // Consider if this makes sense
-					return;
+					return false; // Hydrate pane not available
 				}
+
+				// If we're just checking, return true (command should be enabled)
+				if (checking) {
+					return true;
+				}
+
+				// Execute the command
 				const hydrateView = leaves[0].view as HydrateView;
 
 				// 3. Store selection and update input
@@ -432,6 +435,8 @@ export default class HydratePlugin extends Plugin {
 				new Notice(
 					"Selected text captured and /select added to Hydrate.",
 				);
+
+				return true; // Command executed successfully
 			},
 		});
 
