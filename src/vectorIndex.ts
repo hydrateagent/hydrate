@@ -214,8 +214,8 @@ async function embedTextsViaRemoteApi(
 		// Log specific missing items
 		const missing = [];
 		if (!apiUrl) missing.push("API URL");
-		if (!apiKey) missing.push("API Key");
-		if (!modelName) missing.push("Model Name");
+		if (!apiKey) missing.push("API key");
+		if (!modelName) missing.push("Model name");
 		const errorMsg = `Remote embedding configuration (${missing.join(
 			", ",
 		)}) is incomplete.`;
@@ -277,7 +277,7 @@ async function embedTextsViaRemoteApi(
 				"[embedTextsViaRemoteApi] API Error Response:",
 				responseData,
 			);
-			new Notice(`Embedding Error: ${errorMsg}`);
+			new Notice(`Embedding error: ${errorMsg}`);
 			throw new Error(errorMsg);
 		}
 

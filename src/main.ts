@@ -345,7 +345,7 @@ export default class HydratePlugin extends Plugin {
 		// --- Toggle Command ---
 		this.addCommand({
 			id: "toggle-hydrate-react-view",
-			name: "Toggle Markdown / React View",
+			name: "Toggle markdown / react view",
 			checkCallback: this.checkToggleReactView,
 		});
 
@@ -357,7 +357,7 @@ export default class HydratePlugin extends Plugin {
 		// This creates an icon in the left ribbon to open the Hydrate pane
 		const ribbonIconEl = this.addRibbonIcon(
 			"droplet", // Water droplet icon for Hydrate
-			"Open Hydrate Pane",
+			"Open Hydrate pane",
 			async (evt: MouseEvent) => {
 				// Open the pane when the icon is clicked
 				await this.activateView();
@@ -446,7 +446,7 @@ export default class HydratePlugin extends Plugin {
 				// Only add menu item if there's a text selection
 				if (editor.getSelection()) {
 					menu.addItem((item) => {
-						item.setTitle("Capture Selection for Hydrate")
+						item.setTitle("Capture selection for Hydrate")
 							.setIcon("droplet")
 							.onClick(() => {
 								// Execute the same logic as the command

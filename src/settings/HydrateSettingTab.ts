@@ -110,7 +110,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 		new Setting(containerEl).setName("General").setHeading();
 
 		new Setting(containerEl)
-			.setName("Default LLM Model")
+			.setName("Default LLM model")
 			.setDesc(
 				"Select the language model to use for the agent. Ensure you have the corresponding API key set in the backend environment (e.g., .env file with OPENAI_API_KEY, ANTHROPIC_API_KEY, or GOOGLE_API_KEY).",
 			)
@@ -187,7 +187,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 		if (this.plugin.settings.licenseKey) {
 			subscriptionStatusSection.createEl("h4", {
-				text: "Subscription Status",
+				text: "Subscription status",
 			});
 			const statusDiv = subscriptionStatusSection.createEl("div", {
 				cls: "hydrate-subscription-status-display",
@@ -196,7 +196,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 			this.loadSubscriptionStatus(statusDiv);
 		} else {
 			subscriptionStatusSection.createEl("h4", {
-				text: "Current Tier: Free",
+				text: "Current tier: free",
 			});
 			const freeInfoDiv = subscriptionStatusSection.createEl("div", {
 				cls: "hydrate-subscription-info",
@@ -225,7 +225,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 		}
 
 		new Setting(containerEl)
-			.setName("License Key")
+			.setName("License key")
 			.setDesc(
 				"Enter your Hydrate license key for paid subscriptions. Leave empty for free tier.",
 			)
@@ -257,7 +257,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 		apiKeysDesc.addClass("hydrate-api-keys-desc");
 
 		new Setting(containerEl)
-			.setName("OpenAI API Key")
+			.setName("OpenAI API key")
 			.setDesc("Required for GPT models")
 			.addText((text) => {
 				let visible = false;
@@ -283,7 +283,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
-			.setName("Anthropic API Key")
+			.setName("Anthropic API key")
 			.setDesc("Required for Claude models")
 			.addText((text) => {
 				let visible = false;
@@ -309,7 +309,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
-			.setName("Google API Key")
+			.setName("Google API key")
 			.setDesc("Required for Gemini models")
 			.addText((text) => {
 				let visible = false;
@@ -334,37 +334,6 @@ export class HydrateSettingTab extends PluginSettingTab {
 				text.inputEl.parentElement?.appendChild(eyeBtn);
 			});
 
-		// // API Key Registration Status Section
-		// if (this.plugin.settings.licenseKey) {
-		// 	const registrationSection = containerEl.createEl("div", {
-		// 		cls: "hydrate-registration-section",
-		// 	});
-		// 	registrationSection.createEl("h4", {
-		// 		text: "API Key Registration Status",
-		// 	});
-
-		// 	const statusDiv = registrationSection.createEl("div", {
-		// 		cls: "registration-status",
-		// 	});
-		// 	statusDiv.createEl("p", { text: "Loading registration status..." });
-
-		// 	this.loadRegistrationStatus(statusDiv);
-
-		// 	new Setting(registrationSection)
-		// 		.setName("Re-register API Keys")
-		// 		.setDesc(
-		// 			"If your API keys are compromised, you can re-register them (limited to 3 times per year)"
-		// 		)
-		// 		.addButton((button) => {
-		// 			button
-		// 				.setButtonText("Re-register Keys")
-		// 				.setCta()
-		// 				.onClick(async () => {
-		// 					await this.handleAPIKeyReregistration();
-		// 				});
-		// 		});
-		// }
-
 		// --- END BYOK SUBSCRIPTION SETTINGS ---
 
 		// --- Format & Context Registry Section ---
@@ -383,7 +352,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 		// Add New Entry Button (aligned with heading)
 		formatAddButtonContainer
-			.createEl("button", { text: "Add New Entry", cls: "mod-cta" })
+			.createEl("button", { text: "Add new entry", cls: "mod-cta" })
 			.addEventListener("click", () => {
 				const modal = new RegistryEditModal(
 					this.app,
@@ -430,7 +399,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 			cls: "hydrate-heading-actions",
 		});
 		rulesAddButtonContainer
-			.createEl("button", { text: "Add New Rule", cls: "mod-cta" })
+			.createEl("button", { text: "Add new rule", cls: "mod-cta" })
 			.addEventListener("click", () => {
 				const modal = new RuleEditModal( // Use new modal
 					this.app,
@@ -473,7 +442,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 		});
 		mcpAddButtonContainer
 			.createEl("button", {
-				text: "Configure MCP Servers",
+				text: "Configure MCP servers",
 				cls: "mod-cta",
 			})
 			.addEventListener("click", () => {
@@ -544,7 +513,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 		// --- MCP PATH Configuration ---
 		new Setting(containerEl)
-			.setName("MCP Custom PATH")
+			.setName("MCP custom PATH")
 			.setDesc(
 				"Comma-separated list of paths to add to PATH environment variable when starting MCP servers. This is needed if Obsidian can't find 'npx' or 'node'. Example: /usr/local/bin,/opt/homebrew/bin",
 			)
@@ -573,7 +542,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 		}
 
 		new Setting(containerEl)
-			.setName("Enable Embeddings")
+			.setName("Enable embeddings")
 			.setDesc(
 				"Use an API endpoint (like OpenAI) to generate embeddings instead of running a local model. Requires separate configuration below.",
 			)
@@ -631,7 +600,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 				);
 
 			new Setting(containerEl)
-				.setName("Embedding API Key")
+				.setName("Embedding API key")
 				.setDesc(
 					"Your API key for the embedding service. Will be sent with requests. Ensure you trust the endpoint.",
 				)
@@ -649,7 +618,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 				});
 
 			new Setting(containerEl)
-				.setName("Embedding Model Name")
+				.setName("Embedding model name")
 				.setDesc(
 					"The exact name of the embedding model to use with the API (e.g., text-embedding-3-small).",
 				)
@@ -665,7 +634,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 				);
 
 			new Setting(containerEl)
-				.setName("Indexed File Extensions")
+				.setName("Indexed file extensions")
 				.setDesc(
 					"Comma-separated list of file extensions to index (e.g., md,txt,js). Leave empty to index no files. Changes require re-indexing.",
 				)
@@ -692,11 +661,11 @@ export class HydrateSettingTab extends PluginSettingTab {
 			);
 
 			new Setting(containerEl)
-				.setName("Re-index Entire Vault")
+				.setName("Re-index entire vault")
 				.setDesc(indexingDesc)
 				.addButton((button) => {
 					this.startIndexingButton = button
-						.setButtonText("Start Full Vault Indexing")
+						.setButtonText("Start full vault indexing")
 						.setCta()
 						.onClick(async () => {
 							if (this.plugin.isIndexing) {
@@ -723,7 +692,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 								if (this.startIndexingButton) {
 									this.startIndexingButton.setDisabled(false);
 									this.startIndexingButton.setButtonText(
-										"Start Full Vault Indexing",
+										"Start full vault indexing",
 									);
 								}
 							}
@@ -735,7 +704,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 				})
 				.addButton((button) => {
 					button
-						.setButtonText("Rebuild Index")
+						.setButtonText("Rebuild index")
 						.setWarning()
 						.setTooltip(
 							"Clear corrupted index and rebuild from scratch",
@@ -757,7 +726,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 										onOpen() {
 											const { contentEl } = this;
 											contentEl.createEl("h2", {
-												text: "Rebuild Vector Index",
+												text: "Rebuild vector index",
 											});
 											contentEl.createEl("p", {
 												text: "This will completely delete the existing index and rebuild it from scratch. This is useful if you're experiencing search errors due to corrupted index data.",
@@ -779,7 +748,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 											};
 
 											buttonContainer.createEl("button", {
-												text: "Rebuild Index",
+												text: "Rebuild index",
 												cls: "mod-cta mod-warning",
 											}).onclick = () => {
 												resolve(true);
@@ -819,11 +788,11 @@ export class HydrateSettingTab extends PluginSettingTab {
 								if (this.startIndexingButton) {
 									this.startIndexingButton.setDisabled(false);
 									this.startIndexingButton.setButtonText(
-										"Start Full Vault Indexing",
+										"Start full vault indexing",
 									);
 								}
 								button.setDisabled(false);
-								button.setButtonText("Rebuild Index");
+								button.setButtonText("Rebuild index");
 							}
 						});
 					if (this.plugin.isIndexing) {
@@ -870,7 +839,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 				.addButton((button) =>
 					button
 						.setIcon("pencil") // Use Obsidian's pencil icon
-						.setTooltip("Edit Format Entry") // Updated tooltip
+						.setTooltip("Edit format entry") // Updated tooltip
 						.onClick(() => {
 							const modal = new RegistryEditModal(
 								this.app,
@@ -903,7 +872,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 				.addButton((button) =>
 					button
 						.setIcon("trash") // Use Obsidian's trash icon
-						.setTooltip("Delete Format Entry") // Updated tooltip
+						.setTooltip("Delete format entry") // Updated tooltip
 						.setClass("mod-warning") // Use Obsidian's warning style for delete
 						.onClick(async () => {
 							// Simple confirmation using window.confirm (consider a custom modal for better UX)
@@ -960,7 +929,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 				.addButton((button) =>
 					button
 						.setIcon("pencil")
-						.setTooltip("Edit Rule")
+						.setTooltip("Edit rule")
 						.onClick(() => {
 							const modal = new RuleEditModal(
 								this.app,
@@ -993,7 +962,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 				.addButton((button) =>
 					button
 						.setIcon("trash")
-						.setTooltip("Delete Rule")
+						.setTooltip("Delete rule")
 						.setClass("mod-warning")
 						.onClick(async () => {
 							if (
@@ -1206,7 +1175,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 	private async testServerConnection(server: MCPServerConfig) {
 		if (!this.plugin.mcpManager) {
-			new Notice("MCP Manager not available");
+			new Notice("MCP manager not available");
 			return;
 		}
 
@@ -1433,7 +1402,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 			const featuresContainer = statusDiv.createDiv({
 				cls: "hydrate-subscription-features",
 			});
-			featuresContainer.createEl("h5", { text: "Available Features:" });
+			featuresContainer.createEl("h5", { text: "Available features:" });
 
 			const featuresList = featuresContainer.createEl("ul");
 
