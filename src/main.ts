@@ -75,7 +75,6 @@ export const ALLOWED_MODELS = [
 export type ModelName = (typeof ALLOWED_MODELS)[number]; // Create type from array values
 
 export interface HydratePluginSettings {
-	mySetting: string;
 	developmentPath: string;
 	backendUrl: string;
 	registryEntries: RegistryEntry[]; // Existing registry
@@ -150,7 +149,6 @@ const DEFAULT_CONVERSATION_RULE: RuleEntry = {
 // --- End Default Rule Content ---
 
 const DEFAULT_SETTINGS: HydratePluginSettings = {
-	mySetting: "default",
 	developmentPath: "", // <<< ADDED default empty developmentPath set dynamically
 	backendUrl: "https://api.hydrateagent.com",
 	registryEntries: [], // Existing initialization
@@ -201,8 +199,7 @@ export default class HydratePlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 		// Set developmentPath dynamically based on the actual config directory
-		this.settings.developmentPath =
-			this.app.vault.configDir + "/plugins/hydrate";
+		this.settings.developmentPath = this.manifest.dir || "";
 
 		// --- Initialize Vector System (Only if embeddings are enabled) ---
 		// Don't initialize vector system for new users or when embeddings are disabled
