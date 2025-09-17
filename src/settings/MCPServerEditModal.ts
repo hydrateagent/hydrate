@@ -94,15 +94,14 @@ export class MCPServersConfigModal extends Modal {
 			cls: "hydrate-modal-button-container",
 		});
 
-		const saveButton = buttonContainer.createEl("button", {
-			text: "Save Configuration",
-			cls: "mod-cta",
-		});
-		saveButton.onclick = () => {
-			if (this.validateAndSave()) {
-				this.close();
-			}
-		};
+		new ButtonComponent(buttonContainer)
+			.setButtonText("Save Configuration")
+			.setCta()
+			.onClick(() => {
+				if (this.validateAndSave()) {
+					this.close();
+				}
+			});
 
 		const cancelButton = buttonContainer.createEl("button", {
 			text: "Cancel",

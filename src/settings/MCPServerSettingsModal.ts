@@ -1,4 +1,4 @@
-import { App, Modal, Setting, Notice } from "obsidian";
+import { App, Modal, Setting, Notice, ButtonComponent } from "obsidian";
 import { MCPServerConfig } from "../mcp/MCPServerConfig";
 
 export class MCPServerSettingsModal extends Modal {
@@ -209,15 +209,14 @@ export class MCPServerSettingsModal extends Modal {
 			cls: "hydrate-modal-button-container",
 		});
 
-		const saveButton = buttonContainer.createEl("button", {
-			text: "Save Settings",
-			cls: "mod-cta",
-		});
-		saveButton.onclick = () => {
-			this.onSave(this.server);
-			new Notice(`Updated settings for ${this.server.name}`);
-			this.close();
-		};
+		new ButtonComponent(buttonContainer)
+			.setButtonText("Save Settings")
+			.setCta()
+			.onClick(() => {
+				this.onSave(this.server);
+				new Notice(`Updated settings for ${this.server.name}`);
+				this.close();
+			});
 
 		const cancelButton = buttonContainer.createEl("button", {
 			text: "Cancel",

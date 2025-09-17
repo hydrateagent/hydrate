@@ -351,9 +351,10 @@ export class HydrateSettingTab extends PluginSettingTab {
 		}); // Container for button
 
 		// Add New Entry Button (aligned with heading)
-		formatAddButtonContainer
-			.createEl("button", { text: "Add new entry", cls: "mod-cta" })
-			.addEventListener("click", () => {
+		new ButtonComponent(formatAddButtonContainer)
+			.setButtonText("Add new entry")
+			.setCta()
+			.onClick(() => {
 				const modal = new RegistryEditModal(
 					this.app,
 					this.plugin,
@@ -398,9 +399,10 @@ export class HydrateSettingTab extends PluginSettingTab {
 		const rulesAddButtonContainer = rulesHeadingEl.createDiv({
 			cls: "hydrate-heading-actions",
 		});
-		rulesAddButtonContainer
-			.createEl("button", { text: "Add new rule", cls: "mod-cta" })
-			.addEventListener("click", () => {
+		new ButtonComponent(rulesAddButtonContainer)
+			.setButtonText("Add new rule")
+			.setCta()
+			.onClick(() => {
 				const modal = new RuleEditModal( // Use new modal
 					this.app,
 					this.plugin,
@@ -440,12 +442,10 @@ export class HydrateSettingTab extends PluginSettingTab {
 		const mcpAddButtonContainer = mcpHeadingEl.createDiv({
 			cls: "hydrate-heading-actions",
 		});
-		mcpAddButtonContainer
-			.createEl("button", {
-				text: "Configure MCP servers",
-				cls: "mod-cta",
-			})
-			.addEventListener("click", () => {
+		new ButtonComponent(mcpAddButtonContainer)
+			.setButtonText("Configure MCP servers")
+			.setCta()
+			.onClick(() => {
 				const modal = new MCPServersConfigModal(
 					this.app,
 					this.plugin.settings.mcpServers || [],
@@ -747,13 +747,14 @@ export class HydrateSettingTab extends PluginSettingTab {
 												this.close();
 											};
 
-											buttonContainer.createEl("button", {
-												text: "Rebuild index",
-												cls: "mod-cta mod-warning",
-											}).onclick = () => {
-												resolve(true);
-												this.close();
-											};
+											new ButtonComponent(buttonContainer)
+												.setButtonText("Rebuild index")
+												.setCta()
+												.setWarning()
+												.onClick(() => {
+													resolve(true);
+													this.close();
+												});
 										}
 
 										onClose() {
@@ -1513,14 +1514,13 @@ export class HydrateSettingTab extends PluginSettingTab {
 				});
 				cancelButton.onclick = () => this.close();
 
-				const confirmButton = buttonContainer.createEl("button", {
-					text: "Re-register Keys",
-					cls: "mod-cta",
-				});
-				confirmButton.onclick = async () => {
-					await this.settingsTab.performAPIKeyReregistration();
-					this.close();
-				};
+				new ButtonComponent(buttonContainer)
+					.setButtonText("Re-register Keys")
+					.setCta()
+					.onClick(async () => {
+						await this.settingsTab.performAPIKeyReregistration();
+						this.close();
+					});
 			}
 
 			onClose() {
