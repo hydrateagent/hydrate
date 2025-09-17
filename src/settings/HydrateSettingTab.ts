@@ -874,7 +874,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 					button
 						.setIcon("trash") // Use Obsidian's trash icon
 						.setTooltip("Delete format entry") // Updated tooltip
-						.setClass("mod-warning") // Use Obsidian's warning style for delete
+						.setWarning() // Use Obsidian's warning style for delete
 						.onClick(async () => {
 							// Simple confirmation using window.confirm (consider a custom modal for better UX)
 							if (
@@ -964,7 +964,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 					button
 						.setIcon("trash")
 						.setTooltip("Delete rule")
-						.setClass("mod-warning")
+						.setWarning()
 						.onClick(async () => {
 							if (
 								confirm(
