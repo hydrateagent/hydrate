@@ -553,10 +553,10 @@ export default class HydratePlugin extends Plugin {
 		const hydrateLeaves =
 			this.app.workspace.getLeavesOfType(HYDRATE_VIEW_TYPE);
 		if (hydrateLeaves.length > 0) {
-			const hydrateView = hydrateLeaves[0].view as HydrateView;
-			if (hydrateView && hydrateView.containerEl.isShown()) {
+			const view = hydrateLeaves[0].view;
+			if (view instanceof HydrateView && view.containerEl.isShown()) {
 				// Pass the new file path (or null) to the view instance
-				hydrateView.handleActiveFileChange(file?.path ?? null);
+				view.handleActiveFileChange(file?.path ?? null);
 			} else {
 				devLog.warn(
 					`Hydrate [file-open]: Hydrate view is not visible, ignoring file change.`,
