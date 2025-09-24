@@ -1057,7 +1057,7 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 															className="text-[var(--text-muted)] cursor-pointer pt-0.5 pl-1 mt-1 text-xs select-none hover:text-[var(--text-normal)]"
 														>
 															{isCurrentCardExpanded
-																? "Collapse Items ▲"
+																? "Collapse items ▲"
 																: `Show ${
 																		issue
 																			.items

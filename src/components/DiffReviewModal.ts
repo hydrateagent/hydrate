@@ -69,7 +69,7 @@ export class DiffReviewModal extends Modal {
 		this.modalEl.addClass("hydrate-modal-wide");
 
 		contentEl.createEl("h2", {
-			text: `Review Proposed Changes for ${this.filePath}`,
+			text: `Review proposed changes for ${this.filePath}`,
 		});
 		contentEl.createEl("p", {
 			text: `Based on instruction: "${this.instructions}"`,
@@ -90,7 +90,7 @@ export class DiffReviewModal extends Modal {
 		});
 
 		new ButtonComponent(buttonContainer)
-			.setButtonText("Apply Selected Changes")
+			.setButtonText("Apply selected changes")
 			.setCta() // Make it visually prominent
 			.onClick(this.handleApply);
 

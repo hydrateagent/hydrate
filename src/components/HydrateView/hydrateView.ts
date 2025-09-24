@@ -1360,7 +1360,7 @@ export class HydrateView extends ItemView {
 			? firstUserTurn.content.length > 50
 				? firstUserTurn.content.substring(0, 50) + "..."
 				: firstUserTurn.content
-			: "Untitled Chat";
+			: "Untitled chat";
 
 		const now = new Date().toISOString();
 
@@ -1751,7 +1751,7 @@ export class HydrateView extends ItemView {
 				e.stopPropagation();
 				this.createPopup(pill, [
 					{
-						text: "Add to Chat",
+						text: "Add to chat",
 						action: () =>
 							this.addSuggestionToContext(suggestion.filePath),
 					},
@@ -1827,11 +1827,11 @@ export class HydrateView extends ItemView {
 					.replace(/[^\w\s-]/g, "")
 					.replace(/\s+/g, " ")
 					.trim()
-			: "Chat Export";
+			: "Chat export";
 
 		// Ensure baseTitle is not empty
 		if (!baseTitle) {
-			baseTitle = "Chat Export";
+			baseTitle = "Chat export";
 		}
 
 		const timestamp = new Date()

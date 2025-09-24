@@ -48,7 +48,7 @@ export class RuleEditModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.createEl("h2", {
-			text: this.isNew ? "Add New Rule Entry" : "Edit Rule Entry",
+			text: this.isNew ? "Add new rule entry" : "Edit rule entry",
 		});
 
 		// --- Form Fields ---
@@ -101,7 +101,7 @@ export class RuleEditModal extends Modal {
 			"setting-item hydrate-content-setting-vertical",
 		); // Reuse existing class
 		const infoEl = contentSettingEl.createDiv("setting-item-info");
-		infoEl.createDiv({ cls: "setting-item-name", text: "Rule Text" });
+		infoEl.createDiv({ cls: "setting-item-name", text: "Rule text" });
 		infoEl.createDiv({
 			cls: "setting-item-description",
 			text: "The text content of the rule to be included in the agent context.",

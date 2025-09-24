@@ -161,7 +161,7 @@ export class MCPServerConfigValidator {
 			errors.push("Server ID is required");
 		} else if (!/^[a-zA-Z0-9_-]+$/.test(config.id)) {
 			errors.push(
-				"Server ID must contain only alphanumeric characters, hyphens, and underscores"
+				"Server ID must contain only alphanumeric characters, hyphens, and underscores",
 			);
 		}
 
@@ -227,7 +227,7 @@ export class MCPServerConfigValidator {
 				config.healthCheck.interval > 300000
 			) {
 				errors.push(
-					"Health check interval must be between 5 seconds and 5 minutes"
+					"Health check interval must be between 5 seconds and 5 minutes",
 				);
 			}
 
@@ -236,7 +236,7 @@ export class MCPServerConfigValidator {
 				config.healthCheck.timeout > 30000
 			) {
 				errors.push(
-					"Health check timeout must be between 1 and 30 seconds"
+					"Health check timeout must be between 1 and 30 seconds",
 				);
 			}
 
@@ -245,7 +245,7 @@ export class MCPServerConfigValidator {
 				config.healthCheck.failureThreshold > 10
 			) {
 				errors.push(
-					"Health check failure threshold must be between 1 and 10"
+					"Health check failure threshold must be between 1 and 10",
 				);
 			}
 		}
@@ -311,7 +311,7 @@ export class MCPServerConfigValidator {
  */
 export const MCP_SERVER_TEMPLATES: Record<string, Partial<MCPServerConfig>> = {
 	"everything-server": {
-		name: "Everything Server",
+		name: "Everything server",
 		description: "Test server with various tool examples",
 		command: "npx",
 		args: ["@modelcontextprotocol/server-everything"],
@@ -319,7 +319,7 @@ export const MCP_SERVER_TEMPLATES: Record<string, Partial<MCPServerConfig>> = {
 	},
 
 	"filesystem-server": {
-		name: "Filesystem Server",
+		name: "Filesystem server",
 		description: "Server for file system operations",
 		command: "npx",
 		args: ["@modelcontextprotocol/server-filesystem"],
@@ -327,7 +327,7 @@ export const MCP_SERVER_TEMPLATES: Record<string, Partial<MCPServerConfig>> = {
 	},
 
 	"git-server": {
-		name: "Git Server",
+		name: "Git server",
 		description: "Server for Git operations",
 		command: "npx",
 		args: ["@modelcontextprotocol/server-git"],

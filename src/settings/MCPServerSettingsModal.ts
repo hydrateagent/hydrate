@@ -27,10 +27,10 @@ export class MCPServerSettingsModal extends Modal {
 		});
 
 		// Server Settings Section
-		contentEl.createEl("h3", { text: "Server Settings" });
+		contentEl.createEl("h3", { text: "Server settings" });
 
 		new Setting(contentEl)
-			.setName("Auto Restart")
+			.setName("Auto restart")
 			.setDesc("Automatically restart the server if it crashes")
 			.addToggle((toggle) => {
 				toggle
@@ -41,7 +41,7 @@ export class MCPServerSettingsModal extends Modal {
 			});
 
 		new Setting(contentEl)
-			.setName("Max Restarts")
+			.setName("Max restarts")
 			.setDesc("Maximum number of restart attempts")
 			.addText((text) => {
 				text.setPlaceholder("3")
@@ -130,7 +130,7 @@ export class MCPServerSettingsModal extends Modal {
 			});
 
 		new Setting(contentEl)
-			.setName("Failure Threshold")
+			.setName("Failure threshold")
 			.setDesc("Number of failed checks before marking as unhealthy")
 			.addText((text) => {
 				text.setPlaceholder("3")
@@ -153,7 +153,7 @@ export class MCPServerSettingsModal extends Modal {
 			});
 
 		// Optional Metadata Section
-		contentEl.createEl("h3", { text: "Optional Metadata" });
+		contentEl.createEl("h3", { text: "Optional metadata" });
 
 		new Setting(contentEl)
 			.setName("Description")
@@ -194,7 +194,7 @@ export class MCPServerSettingsModal extends Modal {
 			});
 
 		new Setting(contentEl)
-			.setName("Working Directory")
+			.setName("Working directory")
 			.setDesc("Working directory for the server process (optional)")
 			.addText((text) => {
 				text.setPlaceholder("/path/to/server")
@@ -210,7 +210,7 @@ export class MCPServerSettingsModal extends Modal {
 		});
 
 		new ButtonComponent(buttonContainer)
-			.setButtonText("Save Settings")
+			.setButtonText("Save settings")
 			.setCta()
 			.onClick(() => {
 				this.onSave(this.server);

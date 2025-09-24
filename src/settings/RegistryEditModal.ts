@@ -54,7 +54,7 @@ export class RegistryEditModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.createEl("h2", {
-			text: this.isNew ? "Add New Registry Entry" : "Edit Registry Entry",
+			text: this.isNew ? "Add new registry entry" : "Edit registry entry",
 		});
 
 		// --- Form Fields ---
@@ -110,7 +110,7 @@ export class RegistryEditModal extends Modal {
 
 		// Content Type
 		new Setting(contentEl)
-			.setName("Content Type")
+			.setName("Content type")
 			.addDropdown((dropdown) => {
 				dropdown
 					.addOption("markdown", "Markdown")
