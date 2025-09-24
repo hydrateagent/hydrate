@@ -177,7 +177,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 		// --- BYOK SUBSCRIPTION SETTINGS ---
 		new Setting(containerEl)
-			.setName("Subscription & API Keys")
+			.setName("Subscription & API keys")
 			.setHeading();
 
 		// Subscription Status Display
@@ -336,7 +336,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 		// --- END BYOK SUBSCRIPTION SETTINGS ---
 
-		// --- Format & Context Registry Section ---
+		// --- Format & context registry section ---
 		const formatRegistrySection = containerEl.createDiv(
 			"hydrate-settings-section",
 		);
@@ -344,7 +344,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 			cls: "hydrate-settings-heading",
 		});
 		new Setting(formatHeadingEl)
-			.setName("Format & Context Registry")
+			.setName("Format & context registry")
 			.setHeading();
 		const formatAddButtonContainer = formatHeadingEl.createDiv({
 			cls: "hydrate-heading-actions",
@@ -1499,7 +1499,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 			onOpen() {
 				const { contentEl } = this;
-				contentEl.createEl("h2", { text: "Re-register API Keys" });
+				contentEl.createEl("h2", { text: "Re-register API keys" });
 				contentEl.createEl("p", {
 					text: "Are you sure you want to re-register your API keys? This will revoke all previously registered keys and count against your annual quota.",
 				});
@@ -1515,7 +1515,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 				cancelButton.onclick = () => this.close();
 
 				new ButtonComponent(buttonContainer)
-					.setButtonText("Re-register Keys")
+					.setButtonText("Re-register keys")
 					.setCta()
 					.onClick(async () => {
 						await this.settingsTab.performAPIKeyReregistration();

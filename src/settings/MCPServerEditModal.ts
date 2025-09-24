@@ -35,7 +35,7 @@ export class MCPServersConfigModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 
-		contentEl.createEl("h2", { text: "MCP Servers Configuration" });
+		contentEl.createEl("h2", { text: "MCP servers configuration" });
 
 		contentEl.createEl("p", {
 			text: "Configure all your MCP servers using JSON format. This will replace your current server configuration.",
@@ -44,7 +44,7 @@ export class MCPServersConfigModal extends Modal {
 
 		// JSON Configuration
 		// Add a header and description above the textarea
-		contentEl.createEl("h4", { text: "MCP Servers JSON" });
+		contentEl.createEl("h4", { text: "MCP servers JSON" });
 		contentEl.createEl("p", {
 			text: "Paste your complete MCP servers configuration",
 		});
@@ -69,14 +69,14 @@ export class MCPServersConfigModal extends Modal {
 		const exampleEl = contentEl.createDiv({
 			cls: "hydrate-mcp-config-example",
 		});
-		exampleEl.createEl("h3", { text: "Example Configuration:" });
+		exampleEl.createEl("h3", { text: "Example configuration:" });
 
 		const exampleCode = exampleEl.createEl("pre");
 		exampleCode.createEl("code", { text: this.getExampleJson() });
 
 		// Info section
 		const infoEl = contentEl.createDiv({ cls: "hydrate-mcp-config-info" });
-		infoEl.createEl("h4", { text: "Supported Formats:" });
+		infoEl.createEl("h4", { text: "Supported formats:" });
 		const infoList = infoEl.createEl("ul");
 		infoList.createEl("li", {
 			text: "STDIO servers: Use 'command' and 'args' fields",
@@ -95,7 +95,7 @@ export class MCPServersConfigModal extends Modal {
 		});
 
 		new ButtonComponent(buttonContainer)
-			.setButtonText("Save Configuration")
+			.setButtonText("Save configuration")
 			.setCta()
 			.onClick(() => {
 				if (this.validateAndSave()) {

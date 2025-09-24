@@ -51,7 +51,7 @@ interface EditingItemState {
 
 // --- Robust Parser using remark, remark-frontmatter, and remark-gfm ---
 const parseIssueMarkdown = (
-	markdownContent: string
+	markdownContent: string,
 ): { groups: Group[]; parsingErrors: string[] } => {
 	// Return groups instead of issues
 	const groups: Group[] = [];
@@ -95,7 +95,7 @@ const parseIssueMarkdown = (
 						processCardSiblings(
 							siblingsBetweenHeadings,
 							currentCardData,
-							parsingErrors
+							parsingErrors,
 						);
 					}
 
@@ -120,15 +120,15 @@ const parseIssueMarkdown = (
 								// Find the existing default group if it was already added
 								currentGroup =
 									groups.find(
-										(g) => g.headerLineIndex === -1
+										(g) => g.headerLineIndex === -1,
 									) || null;
 								if (!currentGroup) {
 									// This case should be rare, indicates a logic issue
 									devLog.error(
-										"IssueBoardView Parser: Could not find existing default group!"
+										"IssueBoardView Parser: Could not find existing default group!",
 									);
 									parsingErrors.push(
-										"Internal error: Could not assign card to default group."
+										"Internal error: Could not assign card to default group.",
 									);
 									currentCardData = null; // Skip this card
 									siblingsBetweenHeadings = [];
@@ -153,7 +153,7 @@ const parseIssueMarkdown = (
 						if (!currentCardData.name) missing.push("H2 Name");
 
 						const errorMsg = `Skipped card starting near line ${cardLine} ("${cardName}"): Missing required sections (${missing.join(
-							" & "
+							" & ",
 						)}). Ensure H2 name, '### Items', and '### Status' exist.`;
 						devLog.warn(`IssueBoardView Parser: ${errorMsg}`);
 						parsingErrors.push(errorMsg);
@@ -179,7 +179,7 @@ const parseIssueMarkdown = (
 				};
 				groups.push(currentGroup);
 				defaultGroupCreated = groups.some(
-					(g) => g.headerLineIndex === -1
+					(g) => g.headerLineIndex === -1,
 				); // Update flag if default exists
 				currentCardData = null; // Reset card data when starting a new group
 				siblingsBetweenHeadings = []; // Reset siblings
@@ -189,7 +189,7 @@ const parseIssueMarkdown = (
 				// currentCardData should have been processed and reset by the block above
 				if (currentCardData) {
 					devLog.warn(
-						"IssueBoardView Parser: Starting new H2 while previous card data was still present. Potential loss of siblings."
+						"IssueBoardView Parser: Starting new H2 while previous card data was still present. Potential loss of siblings.",
 					);
 					// Optionally process the lingering card here if needed, though it might indicate a logic flaw.
 				}
@@ -250,18 +250,18 @@ const parseIssueMarkdown = (
 	} catch (e) {
 		devLog.error(
 			"IssueBoardView: Error during Markdown parsing with remark:",
-			e
+			e,
 		);
 		parsingErrors.push(
 			`Critical Markdown parsing error: ${
 				e instanceof Error ? e.message : String(e)
-			}`
+			}`,
 		);
 	}
 
 	// Final cleanup: Remove empty groups if any were created but had no valid issues
 	const finalGroups = groups.filter(
-		(g) => g.issues.length > 0 || g.name !== "Uncategorized"
+		(g) => g.issues.length > 0 || g.name !== "Uncategorized",
 	); // Keep named H1 groups even if empty? Maybe filter later.
 
 	return { groups: finalGroups, parsingErrors };
@@ -272,7 +272,7 @@ const parseIssueMarkdown = (
 const processCardSiblings = (
 	siblings: Node[],
 	cardData: Partial<Issue>,
-	parsingErrors: string[]
+	parsingErrors: string[],
 ) => {
 	// ---> Filter out the first list if it was the issue number list
 	let processableSiblings = siblings;
@@ -335,7 +335,7 @@ const processCardSiblings = (
 							});
 						} else if (sectionType === "status" && isTaskList) {
 							const paragraphChild = listItem.children?.find(
-								(child) => child.type === "paragraph"
+								(child) => child.type === "paragraph",
 							) as Parent | undefined;
 							const textContent = paragraphChild
 								? toString(paragraphChild).trim()
@@ -352,11 +352,11 @@ const processCardSiblings = (
 									cardData.name || "Unknown"
 								}": Non-task list item found under '### Status' section near line ${
 									listItem.position?.start?.line || "?"
-								}. It will be ignored.`
+								}. It will be ignored.`,
 							);
 							devLog.warn(
 								`IssueBoardView Parser: Non-task list item under ### Status`,
-								listItem
+								listItem,
 							);
 						}
 					});
@@ -368,10 +368,10 @@ const processCardSiblings = (
 							? processableSiblings[nextNodeIndex].type
 							: "end of card";
 					parsingErrors.push(
-						`Card "${cardName}": Expected list after '${headingText}' heading, but found ${nextNodeType}. Section ignored.`
+						`Card "${cardName}": Expected list after '${headingText}' heading, but found ${nextNodeType}. Section ignored.`,
 					);
 					devLog.warn(
-						`IssueBoardView Parser: Expected list after '${headingText}' heading for card "${cardName}", but found ${nextNodeType}.`
+						`IssueBoardView Parser: Expected list after '${headingText}' heading for card "${cardName}", but found ${nextNodeType}.`,
 					);
 				}
 			}
@@ -449,7 +449,7 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 	const [parsingErrors, setParsingErrors] = useState<string[]>([]);
 	const [error, setError] = useState<string | null>(null); // For general errors
 	const [editingItem, setEditingItem] = useState<EditingItemState | null>(
-		null
+		null,
 	);
 	// State for expanding individual cards (Issues)
 	const [isCardExpanded, setIsCardExpanded] = useState<{
@@ -515,7 +515,7 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 			setError(
 				`Failed to parse markdown: ${
 					e instanceof Error ? e.message : String(e)
-				}`
+				}`,
 			);
 			setGroups([]); // Clear groups on critical error
 			setParsingErrors([
@@ -540,7 +540,7 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 				}
 			} else {
 				devLog.warn(
-					`IssueBoardView: Input ref not found for new item: issue ${issueId}, item ${itemIndex}`
+					`IssueBoardView: Input ref not found for new item: issue ${issueId}, item ${itemIndex}`,
 				);
 			}
 			newItemFocusRef.current = null; // Clear the ref
@@ -560,7 +560,7 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 					inputElement.focus();
 				} else {
 					devLog.warn(
-						`IssueBoardView: Input ref not found for existing item: group ${editingItem.groupIndex}, issue ${targetIssue.id}, item ${editingItem.itemIndex}`
+						`IssueBoardView: Input ref not found for existing item: group ${editingItem.groupIndex}, issue ${targetIssue.id}, item ${editingItem.itemIndex}`,
 					);
 				}
 			}
@@ -582,15 +582,15 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 
 		// Find frontmatter end
 		const fmEndIndex = lines.findIndex(
-			(line, index) => index > 0 && line.trim() === "---"
+			(line, index) => index > 0 && line.trim() === "---",
 		);
 
 		if (fmEndIndex === -1) {
 			devLog.error(
-				"IssueBoardView: Could not find closing frontmatter fence ('---')!"
+				"IssueBoardView: Could not find closing frontmatter fence ('---')!",
 			);
 			setError(
-				"Error: Could not find end of frontmatter. Cannot safely save."
+				"Error: Could not find end of frontmatter. Cannot safely save.",
 			);
 			return;
 		}
@@ -625,7 +625,7 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 			// or if the first header index is invalid (e.g., inside frontmatter)
 			if (firstValidHeaderIndex !== -1) {
 				devLog.warn(
-					"IssueBoardView: First header index is within or before frontmatter. Starting content after frontmatter."
+					"IssueBoardView: First header index is within or before frontmatter. Starting content after frontmatter.",
 				);
 			}
 			firstContentStartIndex = fmEndIndex + 1;
@@ -670,7 +670,7 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 		updateMarkdownContent(newMarkdown).catch((err) => {
 			devLog.error(
 				"IssueBoardView: Failed to save markdown update:",
-				err
+				err,
 			);
 			setError("Failed to save changes. Content may be out of sync.");
 			// Consider adding a 'force reload/re-parse' button or logic here
@@ -682,7 +682,7 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 		groupIndex: number, // NEW
 		issueIndex: number,
 		statusIndex: number,
-		newCheckedState: boolean
+		newCheckedState: boolean,
 	) => {
 		setError(null); // Clear general errors on interaction
 		const newGroups = groups.map((group, gIdx) => {
@@ -712,7 +712,7 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 	const handleItemClick = (
 		groupIndex: number,
 		issueIndex: number,
-		itemIndex: number
+		itemIndex: number,
 	) => {
 		if (editingItem) return; // Prevent multiple edits
 		setError(null);
@@ -786,7 +786,7 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 
 	// <<<< handleItemKeyDown remains the same functionally, but calls modified save >>>>
 	const handleItemKeyDown = (
-		event: React.KeyboardEvent<HTMLInputElement>
+		event: React.KeyboardEvent<HTMLInputElement>,
 	) => {
 		if (event.key === "Enter") {
 			event.preventDefault();
@@ -811,14 +811,14 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 		return (
 			<div className="p-4 h-full overflow-y-auto">
 				<h2 className="text-lg font-semibold mb-2">
-					Error Loading Issue Board
+					Error loading issue board
 				</h2>
 				<p className="text-red-600 whitespace-pre-wrap">{error}</p>
 				<p>File: {filePath}</p>
 				{parsingErrors.length > 0 && (
 					<div className="mt-4">
 						<h4 className="font-semibold text-sm text-[var(--text-muted)]">
-							Specific Parsing Issues:
+							Specific parsing issues:
 						</h4>
 						<ul className="text-xs text-[var(--text-muted)] list-disc list-inside pl-2 mt-1">
 							{parsingErrors.map((err, i) => (
@@ -849,7 +849,7 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 		return (
 			<div className="p-4 h-full overflow-y-auto">
 				<h2 className="text-lg font-semibold mb-2">
-					No Issue Groups or Cards Found
+					No issue groups or cards found
 				</h2>
 				<p>
 					Could not parse any H1 groups or H2 issue cards from the
@@ -871,7 +871,7 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 			{parsingErrors.length > 0 && (
 				<div className="border border-[var(--background-modifier-error-border)] bg-[var(--background-modifier-error)] text-[var(--text-error)] p-3 rounded-md mb-4">
 					<h4 className="font-semibold">
-						Note Parsing Issues Found:
+						Note parsing issues found:
 					</h4>
 					<ul className="text-sm text-[var(--text-muted)] list-disc list-inside">
 						{parsingErrors.map((err, i) => (
@@ -940,8 +940,8 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 										needsExpansion && !isCurrentCardExpanded
 											? issue.items.slice(
 													0,
-													MAX_VISIBLE_ITEMS
-											  )
+													MAX_VISIBLE_ITEMS,
+												)
 											: issue.items;
 
 									// Initialize refs for the issue if not present
@@ -976,7 +976,7 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 														{visibleItems.map(
 															(
 																item,
-																itemIndex
+																itemIndex,
 															) => {
 																const isEditing =
 																	editingItem?.groupIndex ===
@@ -996,14 +996,14 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 																			handleItemClick(
 																				groupIndex,
 																				issueIndex,
-																				itemIndex
+																				itemIndex,
 																			)
 																		}
 																	>
 																		{isEditing ? (
 																			<input
 																				ref={(
-																					el
+																					el,
 																				) => {
 																					if (
 																						inputRefs
@@ -1029,7 +1029,7 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 																				}
 																				onBlur={() =>
 																					handleItemSave(
-																						false
+																						false,
 																					)
 																				} // Calls updated save
 																				onKeyDown={
@@ -1043,7 +1043,7 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 																		)}
 																	</li>
 																);
-															}
+															},
 														)}
 													</ul>
 													{/* Card Expansion Toggle */}
@@ -1051,7 +1051,7 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 														<div
 															onClick={() =>
 																toggleCardExpand(
-																	issue.id
+																	issue.id,
 																)
 															} // Use card toggle
 															className="text-[var(--text-muted)] cursor-pointer pt-0.5 pl-1 mt-1 text-xs select-none hover:text-[var(--text-normal)]"
@@ -1063,7 +1063,7 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 																			.items
 																			.length -
 																		MAX_VISIBLE_ITEMS
-																  } More ▼`}
+																	} More ▼`}
 														</div>
 													)}
 												</div>
@@ -1077,7 +1077,7 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 														{issue.status.map(
 															(
 																item,
-																statusIndex
+																statusIndex,
 															) => (
 																<li
 																	key={`${issue.id}-status-${statusIndex}`}
@@ -1089,7 +1089,7 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 																				item.checked
 																			}
 																			onChange={(
-																				e
+																				e,
 																			) =>
 																				// Pass groupIndex to handler
 																				handleStatusChange(
@@ -1098,7 +1098,7 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 																					statusIndex,
 																					e
 																						.target
-																						.checked
+																						.checked,
 																				)
 																			}
 																			className="mr-1.5 cursor-pointer h-4 w-4 rounded border-gray-300 text-[var(--interactive-accent)] focus:ring-[var(--interactive-accent)] focus:ring-offset-0 focus:ring-1"
@@ -1110,7 +1110,7 @@ const IssueBoardView: React.FC<ReactViewProps> = ({
 																		</span>
 																	</label>
 																</li>
-															)
+															),
 														)}
 													</ul>
 												</div>

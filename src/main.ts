@@ -345,7 +345,7 @@ export default class HydratePlugin extends Plugin {
 		// --- Toggle Command ---
 		this.addCommand({
 			id: "toggle-hydrate-react-view",
-			name: "Toggle markdown / react view",
+			name: "Toggle Markdown / React view",
 			checkCallback: this.checkToggleReactView,
 		});
 

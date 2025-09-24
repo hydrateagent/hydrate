@@ -39,8 +39,8 @@ export class ReactViewHost extends ItemView {
 
 	getDisplayText(): string {
 		return this.currentFilePath
-			? (this.currentFilePath.split("/").pop() ?? "Hydrate View")
-			: "Hydrate View";
+			? (this.currentFilePath.split("/").pop() ?? "Hydrate view")
+			: "Hydrate view";
 	}
 
 	// Store file path and view key in view state
@@ -104,7 +104,7 @@ export class ReactViewHost extends ItemView {
 		// Add action to switch back to Markdown
 		this.addAction(
 			"document", // Icon name
-			"Switch to Markdown View",
+			"Switch to Markdown view",
 			this.switchToMarkdownView,
 		);
 
