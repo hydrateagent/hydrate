@@ -107,7 +107,6 @@ export class HydrateSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		// --- General Settings ---
-		new Setting(containerEl).setName("General").setHeading();
 
 		new Setting(containerEl)
 			.setName("Default LLM model")

@@ -24,7 +24,7 @@ export async function toolReadFile(app: App, path: string): Promise<string> {
 		// Add more context to the error
 		const activeFilePath = app.workspace.getActiveFile()?.path;
 		devLog.error(
-			`toolReadFile: File not found. Path='${finalNormalizedPath}', ActiveFile='${activeFilePath}'. Adapter says exists: ${adapterExists}`
+			`toolReadFile: File not found. Path='${finalNormalizedPath}', ActiveFile='${activeFilePath}'. Adapter says exists: ${adapterExists}`,
 		);
 		throw new Error(`File not found: ${finalNormalizedPath}`);
 	}
@@ -47,7 +47,7 @@ export async function toolEditFile(
 	app: App,
 	path: string,
 	final_content: string,
-	instructions: string
+	instructions: string,
 ): Promise<string> {
 	const initialNormalizedPath = path.startsWith("./")
 		? path.substring(2)
@@ -66,32 +66,32 @@ export async function toolEditFile(
 		} catch (error: any) {
 			devLog.error(
 				`Error during vault.create for ${finalNormalizedPath}:`,
-				error
+				error,
 			);
 			throw new Error(
-				`Failed to create file ${finalNormalizedPath}: ${error.message}`
+				`Failed to create file ${finalNormalizedPath}: ${error.message}`,
 			);
 		}
 	} else if (file instanceof TFile) {
 		// File exists, modify it
 		try {
-			await app.vault.modify(file, final_content);
+			await app.vault.process(file, () => final_content);
 			const successMsg = `Successfully applied changes to ${finalNormalizedPath}`;
 			new Notice(successMsg);
 			return successMsg;
 		} catch (error: any) {
 			devLog.error(
 				`Error during vault.modify for ${finalNormalizedPath}:`,
-				error
+				error,
 			);
 			throw new Error(
-				`Failed to write changes to ${finalNormalizedPath}: ${error.message}`
+				`Failed to write changes to ${finalNormalizedPath}: ${error.message}`,
 			);
 		}
 	} else {
 		// Path exists but is not a file (e.g., a folder)
 		throw new Error(
-			`Path exists but is not a file: ${finalNormalizedPath}`
+			`Path exists but is not a file: ${finalNormalizedPath}`,
 		);
 	}
 }
@@ -109,7 +109,7 @@ export async function toolReplaceSelectionInFile(
 	app: App,
 	path: string,
 	original_selection: string,
-	new_content: string
+	new_content: string,
 ): Promise<string> {
 	const initialNormalizedPath = path.startsWith("./")
 		? path.substring(2)
@@ -128,19 +128,19 @@ export async function toolReplaceSelectionInFile(
 	// Check if the exact selection exists in the file
 	if (!originalContent.includes(original_selection)) {
 		devLog.warn(
-			`Original selection not found in ${finalNormalizedPath}. Content may have changed.`
+			`Original selection not found in ${finalNormalizedPath}. Content may have changed.`,
 		);
 		// Consider if we should still attempt replacement or throw a more specific error.
 		// For now, let's throw an error to prevent unexpected full-file replacement if the context is lost.
 		throw new Error(
-			`The exact original selection was not found in the file ${finalNormalizedPath}. Cannot perform replacement.`
+			`The exact original selection was not found in the file ${finalNormalizedPath}. Cannot perform replacement.`,
 		);
 	}
 
 	// Replace only the first occurrence
 	const final_content = originalContent.replace(
 		original_selection,
-		new_content
+		new_content,
 	);
 
 	// Check if content actually changed (replacement might result in the same string)
@@ -151,17 +151,17 @@ export async function toolReplaceSelectionInFile(
 	}
 
 	try {
-		await app.vault.modify(file, final_content);
+		await app.vault.process(file, () => final_content);
 		const successMsg = `Successfully replaced selection in ${finalNormalizedPath}`;
 		new Notice(successMsg);
 		return successMsg;
 	} catch (error: any) {
 		devLog.error(
 			`Error during vault.modify for selection replacement in ${finalNormalizedPath}:`,
-			error
+			error,
 		);
 		throw new Error(
-			`Failed to write changes after replacing selection in ${finalNormalizedPath}: ${error.message}`
+			`Failed to write changes after replacing selection in ${finalNormalizedPath}: ${error.message}`,
 		);
 	}
 }
@@ -175,7 +175,7 @@ export async function toolReplaceSelectionInFile(
  */
 export async function applyPatchesToFile(
 	plugin: HydratePlugin,
-	params: any
+	params: any,
 ): Promise<string> {
 	const path = params.path as string;
 	const patches = params.patches as Patch[];
@@ -191,11 +191,11 @@ export async function applyPatchesToFile(
 	}
 	// Also apply normalizePath here for consistency, though it's not the primary source of the bug
 	const normalizedPathForPatches = normalizePath(
-		path.startsWith("./") ? path.substring(2) : path
+		path.startsWith("./") ? path.substring(2) : path,
 	);
 
 	const file = plugin.app.vault.getAbstractFileByPath(
-		normalizedPathForPatches
+		normalizedPathForPatches,
 	);
 	if (!file || !(file instanceof TFile)) {
 		return `Error: File not found or is not a markdown file: ${normalizedPathForPatches}`;
@@ -218,7 +218,7 @@ export async function applyPatchesToFile(
 				patch.new === null
 			) {
 				errors.push(
-					`Patch ${i + 1} is invalid: missing 'old' or 'new' field.`
+					`Patch ${i + 1} is invalid: missing 'old' or 'new' field.`,
 				);
 				devLog.error(`Patch ${i + 1} invalid:`, patch);
 				continue;
@@ -237,11 +237,11 @@ export async function applyPatchesToFile(
 				errors.push(
 					`Patch ${
 						i + 1
-					} is invalid: cannot apply patch with empty context (before, old, and after are all effectively empty).`
+					} is invalid: cannot apply patch with empty context (before, old, and after are all effectively empty).`,
 				);
 				devLog.error(
 					`Patch ${i + 1} invalid due to empty context:`,
-					patch
+					patch,
 				);
 				continue;
 			}
@@ -260,7 +260,7 @@ export async function applyPatchesToFile(
 				} failed: Could not find context in ${normalizedPathForPatches}.\n\nContext Searched For:\n\`\`\`\n${contextString}\n\`\`\`\n\nFile Content Preview:\n\`\`\`\n${contentPreview}\n\`\`\`\n\nPatch Details:\n${JSON.stringify(
 					patch,
 					null,
-					2
+					2,
 				)}\n\nThis often happens when:\n1. The text was modified since the patch was created\n2. The 'before' or 'after' context doesn't match exactly\n3. The 'old' text is no longer present in the file`;
 				errors.push(errorMsg);
 				devLog.error(errorMsg);
@@ -275,7 +275,7 @@ export async function applyPatchesToFile(
 				const errorMsg = `Patch ${
 					i + 1
 				} failed: Ambiguous context found in ${normalizedPathForPatches}. Multiple matches for:\n\`\`\`\n${contextString}\n\`\`\`\nPlease provide more specific 'before' or 'after' context.\nPatch Details:\n${JSON.stringify(
-					patch
+					patch,
 				)}`;
 				errors.push(errorMsg);
 				devLog.error(errorMsg);
@@ -307,7 +307,7 @@ export async function applyPatchesToFile(
 
 		// Save the modified content if changes were made
 		if (contentChanged) {
-			await plugin.app.vault.modify(file, currentContent);
+			await plugin.app.vault.process(file, () => currentContent);
 			new Notice(`File '${file.basename}' updated with patches.`);
 			return `Successfully applied ${patches.length} patches to file: ${path}`;
 		} else {
@@ -316,7 +316,7 @@ export async function applyPatchesToFile(
 	} catch (error) {
 		devLog.error(`Error applying patches to file ${path}:`, error);
 		new Notice(
-			`Error applying patches to file ${file.basename}: ${error.message}`
+			`Error applying patches to file ${file.basename}: ${error.message}`,
 		);
 		return `Error applying patches to file: ${error.message}`;
 	}

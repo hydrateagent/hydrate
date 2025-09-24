@@ -258,7 +258,7 @@ export class ReactViewHost extends ItemView {
 		}
 
 		try {
-			await this.app.vault.modify(file, newContent);
+			await this.app.vault.process(file, () => newContent);
 			// Update internal cache AFTER successful write
 			this.currentMarkdownContent = newContent;
 			new Notice(`${file.basename} updated.`, 1500); // Brief confirmation
