@@ -5,6 +5,7 @@ import {
 	Notice,
 	TFile,
 	ViewStateResult,
+	normalizePath,
 } from "obsidian";
 import HydratePlugin from "../../main"; // Corrected path to be relative to current dir
 import { DiffReviewModal, DiffReviewResult } from "../DiffReviewModal"; // Corrected path (assuming same dir as view)
@@ -1491,14 +1492,16 @@ export class HydrateView extends ItemView {
 			.slice(0, 19)
 			.replace(/:/g, "-");
 		const filename = `${baseTitle} ${timestamp}.md`;
-		const filepath = `${folderPath}/${filename}`;
+		const filepath = normalizePath(`${folderPath}/${filename}`);
 
 		// Check if file already exists and append number if needed
 		let finalFilepath = filepath;
 		let counter = 1;
 		while (this.app.vault.getAbstractFileByPath(finalFilepath)) {
 			const nameWithoutExt = filename.replace(".md", "");
-			finalFilepath = `${folderPath}/${nameWithoutExt} (${counter}).md`;
+			finalFilepath = normalizePath(
+				`${folderPath}/${nameWithoutExt} (${counter}).md`,
+			);
 			counter++;
 		}
 
