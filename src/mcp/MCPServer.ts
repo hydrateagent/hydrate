@@ -37,10 +37,10 @@ export class MCPServer extends EventEmitter {
 	private status: MCPServerStatus = MCPServerStatus.STOPPED;
 	private health: MCPServerHealth = MCPServerHealth.UNKNOWN;
 	private stats: MCPServerStats;
-	private healthCheckInterval: NodeJS.Timeout | null = null;
-	private startupTimeout: NodeJS.Timeout | null = null;
-	private shutdownTimeout: NodeJS.Timeout | null = null;
-	private restartDelay: NodeJS.Timeout | null = null;
+	private healthCheckInterval: number | null = null;
+	private startupTimeout: number | null = null;
+	private shutdownTimeout: number | null = null;
+	private restartDelay: number | null = null;
 	private customPaths: string[] = [];
 
 	constructor(config: Partial<MCPServerConfig>, customPaths?: string[]) {
@@ -156,7 +156,7 @@ export class MCPServer extends EventEmitter {
 			this.setupClientEventHandlers();
 
 			// Set startup timeout
-			this.startupTimeout = setTimeout(() => {
+			this.startupTimeout = window.setTimeout(() => {
 				this.handleStartupTimeout();
 			}, this.config.startupTimeout);
 
@@ -165,7 +165,7 @@ export class MCPServer extends EventEmitter {
 
 			// Clear startup timeout
 			if (this.startupTimeout) {
-				clearTimeout(this.startupTimeout);
+				window.clearTimeout(this.startupTimeout);
 				this.startupTimeout = null;
 			}
 
@@ -206,14 +206,14 @@ export class MCPServer extends EventEmitter {
 		if (this.client) {
 			try {
 				// Set shutdown timeout
-				this.shutdownTimeout = setTimeout(() => {
+				this.shutdownTimeout = window.setTimeout(() => {
 					this.handleShutdownTimeout();
 				}, this.config.shutdownTimeout);
 
 				await this.client.disconnect();
 
 				if (this.shutdownTimeout) {
-					clearTimeout(this.shutdownTimeout);
+					window.clearTimeout(this.shutdownTimeout);
 					this.shutdownTimeout = null;
 				}
 			} catch (error) {
@@ -232,7 +232,7 @@ export class MCPServer extends EventEmitter {
 	 */
 	async restart(): Promise<void> {
 		await this.stop();
-		await new Promise((resolve) => setTimeout(resolve, 1000)); // Brief pause
+		await new Promise((resolve) => window.setTimeout(resolve, 1000)); // Brief pause
 		await this.start();
 	}
 
@@ -375,7 +375,7 @@ export class MCPServer extends EventEmitter {
 	private startHealthMonitoring(): void {
 		if (!this.config.healthCheck) return;
 
-		this.healthCheckInterval = setInterval(async () => {
+		this.healthCheckInterval = window.setInterval(async () => {
 			const isHealthy = await this.performHealthCheck();
 
 			if (isHealthy) {
@@ -388,7 +388,7 @@ export class MCPServer extends EventEmitter {
 
 	private stopHealthMonitoring(): void {
 		if (this.healthCheckInterval) {
-			clearInterval(this.healthCheckInterval);
+			window.clearInterval(this.healthCheckInterval);
 			this.healthCheckInterval = null;
 		}
 	}
@@ -438,7 +438,8 @@ export class MCPServer extends EventEmitter {
 	}
 
 	private handleStartupTimeout(): void {
-		devLog.error(`${this.config.id} Startup timeout after ${this.config.startupTimeout}ms`,
+		devLog.error(
+			`${this.config.id} Startup timeout after ${this.config.startupTimeout}ms`,
 		);
 		this.setStatus(MCPServerStatus.FAILED);
 		this.cleanup();
@@ -454,8 +455,7 @@ export class MCPServer extends EventEmitter {
 	}
 
 	private handleShutdownTimeout(): void {
-		devLog.warn(`${this.config.id} Shutdown timeout, forcing termination`,
-		);
+		devLog.warn(`${this.config.id} Shutdown timeout, forcing termination`);
 		if (this.client) {
 			// Force disconnect
 			this.client.removeAllListeners();
@@ -465,7 +465,7 @@ export class MCPServer extends EventEmitter {
 
 	private scheduleRestart(): void {
 		if (this.restartDelay) {
-			clearTimeout(this.restartDelay);
+			window.clearTimeout(this.restartDelay);
 		}
 
 		this.setStatus(MCPServerStatus.RESTARTING);
@@ -479,7 +479,7 @@ export class MCPServer extends EventEmitter {
 
 		this.emit("restart", this.stats.restartCount, this.config.maxRestarts);
 
-		this.restartDelay = setTimeout(async () => {
+		this.restartDelay = window.setTimeout(async () => {
 			try {
 				await this.start();
 			} catch (error) {
@@ -491,17 +491,17 @@ export class MCPServer extends EventEmitter {
 
 	private clearTimeouts(): void {
 		if (this.startupTimeout) {
-			clearTimeout(this.startupTimeout);
+			window.clearTimeout(this.startupTimeout);
 			this.startupTimeout = null;
 		}
 
 		if (this.shutdownTimeout) {
-			clearTimeout(this.shutdownTimeout);
+			window.clearTimeout(this.shutdownTimeout);
 			this.shutdownTimeout = null;
 		}
 
 		if (this.restartDelay) {
-			clearTimeout(this.restartDelay);
+			window.clearTimeout(this.restartDelay);
 			this.restartDelay = null;
 		}
 	}
