@@ -547,3 +547,387 @@
 	transform: translate(-50%, -50%);
 	/* Center the popup in the viewport */
 }
+
+/* --- Hydrate View Main Container Styles --- */
+.hydrate-view {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	padding: 10px;
+	box-sizing: border-box;
+}
+
+.hydrate-chat-container {
+	flex: 1;
+	overflow-y: auto;
+	margin-bottom: 10px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 5px;
+	padding: 10px;
+	background: var(--background-primary);
+}
+
+.hydrate-input-section {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.hydrate-file-pills {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	min-height: 20px;
+}
+
+.hydrate-file-pill {
+	background: linear-gradient(
+		135deg,
+		var(--color-blue-rgb),
+		var(--color-cyan-rgb)
+	);
+	color: var(--text-normal);
+	padding: 3px 8px;
+	border-radius: 12px;
+	font-size: 11px;
+	border: none;
+	transition: all 0.2s ease;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+	position: relative;
+	overflow: hidden;
+	line-height: 1.2;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	height: 20px;
+	max-width: 200px;
+}
+
+.hydrate-file-pill:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+	filter: brightness(1.1);
+}
+
+.hydrate-pill-text {
+	flex: 1;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.hydrate-pill-remove {
+	background: transparent !important;
+	border: none !important;
+	outline: none !important;
+	box-shadow: none !important;
+	color: var(--text-normal);
+	padding: 1px 4px;
+	border-radius: 0 !important;
+	font-size: 10px;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	line-height: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 14px;
+	height: 14px;
+}
+
+.hydrate-pill-remove:hover {
+	background: transparent !important;
+	outline: none !important;
+	box-shadow: none !important;
+	border: none !important;
+	transform: scale(1.1);
+	opacity: 0.7;
+}
+
+.hydrate-pill-remove:focus {
+	background: transparent !important;
+	outline: none !important;
+	box-shadow: none !important;
+	border: none !important;
+}
+
+.hydrate-suggestion-pills {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 10px;
+	padding: 8px 0;
+	border-bottom: 1px solid var(--background-modifier-border);
+	min-height: 0;
+	transition: all 0.2s ease;
+}
+
+.hydrate-suggestion-pills:empty {
+	display: none;
+}
+
+.hydrate-suggestion-pill {
+	background: linear-gradient(
+		135deg,
+		var(--color-blue-rgb),
+		var(--color-cyan-rgb)
+	);
+	color: var(--text-normal);
+	padding: 3px 8px;
+	border-radius: 12px;
+	font-size: 11px;
+	cursor: pointer;
+	border: none;
+	transition: all 0.2s ease;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+	position: relative;
+	overflow: hidden;
+	line-height: 1.2;
+	display: flex;
+	align-items: center;
+	height: 20px;
+	max-width: 200px;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.hydrate-suggestion-pill:before {
+	content: "";
+	margin-right: 0;
+}
+
+.hydrate-suggestion-pill:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+	filter: brightness(1.1);
+}
+
+.hydrate-suggestion-pill:active {
+	transform: translateY(0);
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.hydrate-input-container {
+	position: relative;
+	width: 100%;
+}
+
+.hydrate-textarea {
+	width: 100%;
+	min-height: 120px;
+	max-height: 300px;
+	resize: vertical;
+	padding: 12px 120px 12px 12px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	background: var(--background-primary);
+	color: var(--text-normal);
+	font-family: var(--font-text);
+	font-size: 14px;
+	line-height: 1.4;
+	box-sizing: border-box;
+}
+
+.hydrate-button-overlay {
+	position: absolute;
+	bottom: 8px;
+	right: 8px;
+	display: flex;
+	gap: 4px;
+	align-items: center;
+}
+
+.hydrate-overlay-button {
+	background: var(--background-secondary);
+	border: none;
+	color: var(--text-muted);
+	padding: 6px 12px;
+	border-radius: 6px;
+	font-size: 12px;
+	cursor: pointer;
+	transition: all 0.2s;
+	opacity: 0.8;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+	white-space: nowrap;
+}
+
+.hydrate-overlay-button:hover {
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+	opacity: 1;
+	box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+}
+
+.hydrate-overlay-button:active {
+	transform: translateY(1px);
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.hydrate-button {
+	padding: 8px 16px;
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border: none;
+	border-radius: 5px;
+	cursor: pointer;
+	font-size: 14px;
+}
+
+.hydrate-button:hover {
+	background: var(--interactive-accent-hover);
+}
+
+.hydrate-button:disabled {
+	background: var(--background-modifier-border);
+	cursor: not-allowed;
+}
+
+.hydrate-chat-history-controls {
+	display: flex;
+	gap: 5px;
+	justify-content: flex-end;
+	margin-bottom: 5px;
+}
+
+.hydrate-icon-button {
+	width: 32px;
+	height: 32px;
+	padding: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 16px;
+	line-height: 1;
+}
+
+.hydrate-chat-preview {
+	font-style: italic;
+	opacity: 0.7;
+}
+
+.hydrate-chat-history-delete-button {
+	background: transparent;
+	border: 1px solid var(--background-modifier-border);
+	color: var(--text-muted);
+	padding: 4px 8px;
+	border-radius: 3px;
+	cursor: pointer;
+	font-size: 12px;
+	line-height: 1;
+	transition: all 0.2s;
+	flex-shrink: 0;
+}
+
+.hydrate-chat-history-delete-button:hover {
+	background: var(--background-modifier-error);
+	color: var(--text-error);
+	border-color: var(--background-modifier-error);
+}
+
+.hydrate-drag-over {
+	background: var(--background-modifier-active);
+	border: 2px dashed var(--text-accent);
+	border-radius: 8px;
+}
+
+/* Chat message styling improvements */
+.hydrate-message {
+	overflow: hidden;
+	word-wrap: break-word;
+	box-sizing: border-box;
+}
+
+/* Ensure all content within agent messages stays contained */
+.hydrate-agent-message * {
+	max-width: 100%;
+	box-sizing: border-box;
+}
+
+/* Fix ordered and unordered lists in chat bubbles */
+.hydrate-agent-message ol,
+.hydrate-agent-message ul {
+	margin: 0.5em 0;
+	padding-left: 1.5em;
+	box-sizing: border-box;
+	overflow: hidden;
+}
+
+.hydrate-agent-message li {
+	margin: 0.25em 0;
+	word-wrap: break-word;
+	overflow-wrap: break-word;
+}
+
+/* Fix paragraphs and other block elements */
+.hydrate-agent-message p {
+	margin: 0.5em 0;
+	word-wrap: break-word;
+	overflow-wrap: break-word;
+}
+
+/* Fix code blocks */
+.hydrate-agent-message pre {
+	overflow-x: auto;
+	max-width: 100%;
+	box-sizing: border-box;
+}
+
+.hydrate-agent-message code {
+	word-wrap: break-word;
+	overflow-wrap: break-word;
+}
+
+/* Fix headings */
+.hydrate-agent-message h1,
+.hydrate-agent-message h2,
+.hydrate-agent-message h3,
+.hydrate-agent-message h4,
+.hydrate-agent-message h5,
+.hydrate-agent-message h6 {
+	margin: 0.5em 0;
+	word-wrap: break-word;
+	overflow-wrap: break-word;
+}
+
+/* Fix links to prevent overflow */
+.hydrate-agent-message a {
+	word-wrap: break-word;
+	overflow-wrap: break-word;
+	text-decoration: underline;
+}
+
+/* Reusable popup component */
+.hydrate-popup {
+	position: absolute;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	z-index: 1000;
+	padding: 8px;
+	display: flex;
+	gap: 8px;
+	min-width: 200px;
+}
+
+.hydrate-popup-button {
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	color: var(--text-normal);
+	padding: 8px 12px;
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: 12px;
+	transition: all 0.2s;
+	flex: 1;
+	text-align: center;
+}
+
+.hydrate-popup-button:hover {
+	background: var(--background-modifier-hover);
+	border-color: var(--text-accent);
+}
+
+.hydrate-popup-button:active {
+	transform: translateY(1px);
+}
