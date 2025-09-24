@@ -354,6 +354,16 @@ export default class HydratePlugin extends Plugin {
 			this.app.workspace.on("layout-change", this.handleLayoutChange),
 		);
 
+		// Add hotkey command to open Hydrate pane
+		this.addCommand({
+			id: "open-hydrate-pane",
+			name: "Open Hydrate pane",
+			hotkeys: [{ modifiers: ["Mod"], key: "h" }],
+			callback: async () => {
+				await this.activateView();
+			},
+		});
+
 		// This creates an icon in the left ribbon to open the Hydrate pane
 		const ribbonIconEl = this.addRibbonIcon(
 			"droplet", // Water droplet icon for Hydrate
