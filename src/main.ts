@@ -358,7 +358,6 @@ export default class HydratePlugin extends Plugin {
 		this.addCommand({
 			id: "open-hydrate-pane",
 			name: "Open Hydrate pane",
-			hotkeys: [{ modifiers: ["Mod"], key: "h" }],
 			callback: async () => {
 				await this.activateView();
 			},

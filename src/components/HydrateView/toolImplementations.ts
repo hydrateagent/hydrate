@@ -75,8 +75,10 @@ export async function toolEditFile(
 	} else if (file instanceof TFile) {
 		// File exists, modify it
 		try {
-			await app.vault.process(file, () => final_content);
-			const successMsg = `Successfully applied changes to ${finalNormalizedPath}`;
+			// Here we are overwriting the file's full contents regardless of its previous
+			// contents.  This is necessary for the Agent to make fixes in certain cases.
+			await app.vault.modify(file, final_content);
+			const successMsg = `Successfully overwrote file content of ${finalNormalizedPath}`;
 			new Notice(successMsg);
 			return successMsg;
 		} catch (error: any) {
@@ -85,7 +87,7 @@ export async function toolEditFile(
 				error,
 			);
 			throw new Error(
-				`Failed to write changes to ${finalNormalizedPath}: ${error.message}`,
+				`Failed to write new content to ${finalNormalizedPath}: ${error.message}`,
 			);
 		}
 	} else {
@@ -123,47 +125,38 @@ export async function toolReplaceSelectionInFile(
 		throw new Error(`Path is not a file: ${finalNormalizedPath}`);
 	}
 
-	const originalContent = await app.vault.read(file);
+	let statusMessage = "";
 
-	// Check if the exact selection exists in the file
-	if (!originalContent.includes(original_selection)) {
-		devLog.warn(
-			`Original selection not found in ${finalNormalizedPath}. Content may have changed.`,
+	// Here we are reading and replacing and so the process API is used
+	await app.vault.process(file, (originalContent) => {
+		// Check if the exact selection exists in the file
+		if (!originalContent.includes(original_selection)) {
+			devLog.warn(
+				`Original selection not found in ${finalNormalizedPath}. Content may have changed.`,
+			);
+			// Consider if we should still attempt replacement or throw a more specific error.
+			// For now, let's throw an error to prevent unexpected full-file replacement if the context is lost.
+			throw new Error(
+				`The exact original selection was not found in the file ${finalNormalizedPath}. Cannot perform replacement.`,
+			);
+		}
+		// Replace only the first occurrence
+		const final_content = originalContent.replace(
+			original_selection,
+			new_content,
 		);
-		// Consider if we should still attempt replacement or throw a more specific error.
-		// For now, let's throw an error to prevent unexpected full-file replacement if the context is lost.
-		throw new Error(
-			`The exact original selection was not found in the file ${finalNormalizedPath}. Cannot perform replacement.`,
-		);
-	}
+		// Check if content actually changed (replacement might result in the same string)
+		if (final_content === originalContent) {
+			statusMessage = `Replacement in ${finalNormalizedPath} resulted in no change to the file content.`;
+			return originalContent;
+		}
 
-	// Replace only the first occurrence
-	const final_content = originalContent.replace(
-		original_selection,
-		new_content,
-	);
+		statusMessage = `Successfully replaced selection in ${finalNormalizedPath}`;
+		new Notice(statusMessage);
+		return final_content;
+	});
 
-	// Check if content actually changed (replacement might result in the same string)
-	if (final_content === originalContent) {
-		const noChangeMsg = `Replacement in ${finalNormalizedPath} resulted in no change to the file content.`;
-		// Return success, as the intended state (post-replacement) matches current state.
-		return noChangeMsg;
-	}
-
-	try {
-		await app.vault.process(file, () => final_content);
-		const successMsg = `Successfully replaced selection in ${finalNormalizedPath}`;
-		new Notice(successMsg);
-		return successMsg;
-	} catch (error: any) {
-		devLog.error(
-			`Error during vault.modify for selection replacement in ${finalNormalizedPath}:`,
-			error,
-		);
-		throw new Error(
-			`Failed to write changes after replacing selection in ${finalNormalizedPath}: ${error.message}`,
-		);
-	}
+	return statusMessage;
 }
 
 /**
@@ -201,8 +194,10 @@ export async function applyPatchesToFile(
 		return `Error: File not found or is not a markdown file: ${normalizedPathForPatches}`;
 	}
 
-	try {
-		let currentContent = await plugin.app.vault.read(file);
+	let statusMessage = "";
+
+	// Here we are reding the file and making changes, so process api is definitely correct
+	await plugin.app.vault.process(file, (currentContent) => {
 		let contentChanged = false;
 		const errors: string[] = [];
 
@@ -302,22 +297,19 @@ export async function applyPatchesToFile(
 			}:\n- ${errors.join("\n- ")}`;
 			new Notice(errorSummary, 10000);
 			devLog.error("Patch application failed with errors:", errors);
-			return `Failed to apply all patches:\n${errors.join("\n")}`;
+			statusMessage = `Failed to apply all patches:\n${errors.join("\n")}`;
 		}
 
-		// Save the modified content if changes were made
+		// Save the content, make appropriate status message
 		if (contentChanged) {
-			await plugin.app.vault.process(file, () => currentContent);
 			new Notice(`File '${file.basename}' updated with patches.`);
-			return `Successfully applied ${patches.length} patches to file: ${path}`;
+			statusMessage = `Successfully applied ${patches.length} patches to file: ${path}`;
 		} else {
-			return "No changes applied (patches might have been invalid or context not found).";
+			statusMessage =
+				"No changes applied (patches might have been invalid or context not found).";
 		}
-	} catch (error) {
-		devLog.error(`Error applying patches to file ${path}:`, error);
-		new Notice(
-			`Error applying patches to file ${file.basename}: ${error.message}`,
-		);
-		return `Error applying patches to file: ${error.message}`;
-	}
+		return currentContent;
+	});
+
+	return statusMessage;
 }

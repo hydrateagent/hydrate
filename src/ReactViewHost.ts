@@ -252,15 +252,13 @@ export class ReactViewHost extends ItemView {
 			return false;
 		}
 
-		// Only write if content actually changed
-		if (newContent === this.currentMarkdownContent) {
-			return true;
-		}
-
 		try {
-			await this.app.vault.process(file, () => newContent);
+			// Use the process API here, because we want to update the internal object state atomically
+			await this.app.vault.process(file, () => {
+				this.currentMarkdownContent = newContent;
+				return newContent;
+			});
 			// Update internal cache AFTER successful write
-			this.currentMarkdownContent = newContent;
 			new Notice(`${file.basename} updated.`, 1500); // Brief confirmation
 			return true;
 		} catch (error) {
