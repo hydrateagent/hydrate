@@ -35,7 +35,7 @@ export class MCPServersConfigModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 
-		contentEl.createEl("h2", { text: "MCP servers configuration" });
+		contentEl.createEl("h2", { text: "MCP servers" });
 
 		contentEl.createEl("p", {
 			text: "Configure all your MCP servers using JSON format. This will replace your current server configuration.",

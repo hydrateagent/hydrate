@@ -19,7 +19,7 @@ export class MCPServerSettingsModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 
-		contentEl.createEl("h2", { text: `Settings for ${this.server.name}` });
+		contentEl.createEl("h2", { text: `${this.server.name}` });
 
 		contentEl.createEl("p", {
 			text: "Configure advanced settings, metadata, and health checks for this MCP server.",
@@ -27,7 +27,7 @@ export class MCPServerSettingsModal extends Modal {
 		});
 
 		// Server Settings Section
-		contentEl.createEl("h3", { text: "Server settings" });
+		new Setting(contentEl).setName("Servers").setHeading();
 
 		new Setting(contentEl)
 			.setName("Auto restart")
@@ -83,10 +83,10 @@ export class MCPServerSettingsModal extends Modal {
 			});
 
 		// Health Check Configuration Section
-		contentEl.createEl("h3", { text: "Health Check Configuration" });
+		new Setting(contentEl).setName("Health check").setHeading();
 
 		new Setting(contentEl)
-			.setName("Health Check Interval (ms)")
+			.setName("Health check interval (ms)")
 			.setDesc("Interval between health checks")
 			.addText((text) => {
 				text.setPlaceholder("30000")
@@ -109,7 +109,7 @@ export class MCPServerSettingsModal extends Modal {
 			});
 
 		new Setting(contentEl)
-			.setName("Health Check Timeout (ms)")
+			.setName("Health check timeout (ms)")
 			.setDesc("Timeout for individual health check requests")
 			.addText((text) => {
 				text.setPlaceholder("5000")
@@ -153,7 +153,7 @@ export class MCPServerSettingsModal extends Modal {
 			});
 
 		// Optional Metadata Section
-		contentEl.createEl("h3", { text: "Optional metadata" });
+		new Setting(contentEl).setName("Optional metadata").setHeading();
 
 		new Setting(contentEl)
 			.setName("Description")

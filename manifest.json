@@ -6,6 +6,5 @@
 	"description": "Cursor-like note agent with MCP support.",
 	"author": "hydrateagent",
 	"authorUrl": "https://github.com/hydrateagent",
-	"fundingUrl": "https://github.com/hydrateagent",
 	"isDesktopOnly": true
 }
