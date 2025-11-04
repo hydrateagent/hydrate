@@ -63,7 +63,7 @@ export class MCPServersConfigModal extends Modal {
 				return this.jsonTextArea;
 			},
 			inputEl: jsonTextAreaEl,
-		} as any;
+		} as unknown as TextAreaComponent;
 
 		// Example section
 		const exampleEl = contentEl.createDiv({
@@ -110,10 +110,10 @@ export class MCPServersConfigModal extends Modal {
 	}
 
 	private configsToJson(configs: MCPServerConfig[]): string {
-		const mcpServers: Record<string, any> = {};
+		const mcpServers: Record<string, Record<string, unknown>> = {};
 
 		configs.forEach((config) => {
-			const serverConfig: any = {};
+			const serverConfig: Record<string, unknown> = {};
 
 			if (config.transport?.type === "sse" && config.transport.url) {
 				serverConfig.url = config.transport.url;
@@ -177,7 +177,10 @@ export class MCPServersConfigModal extends Modal {
 			const configs: MCPServerConfig[] = [];
 
 			Object.entries(parsed.mcpServers).forEach(
-				([serverId, serverConfig]: [string, any]) => {
+				([serverId, serverConfig]: [
+					string,
+					Record<string, unknown>,
+				]) => {
 					const config: MCPServerConfig = {
 						id: serverId,
 						name: serverId,
@@ -196,12 +199,12 @@ export class MCPServersConfigModal extends Modal {
 					if (serverConfig.url) {
 						config.transport = {
 							type: "sse",
-							url: serverConfig.url,
+							url: serverConfig.url as string,
 						};
 					} else if (serverConfig.command) {
 						config.transport = { type: "stdio" };
-						config.command = serverConfig.command;
-						config.args = serverConfig.args || [];
+						config.command = serverConfig.command as string;
+						config.args = (serverConfig.args as string[]) || [];
 					} else {
 						throw new Error(
 							`Server '${serverId}' must have either 'url' or 'command' field`,
@@ -212,11 +215,14 @@ export class MCPServersConfigModal extends Modal {
 					config.name = serverId;
 
 					// Set environment variables
-					if (serverConfig.env) {
+					if (
+						serverConfig.env &&
+						typeof serverConfig.env === "object"
+					) {
 						config.env = {};
 						// Convert all environment variable values to strings
 						for (const [key, value] of Object.entries(
-							serverConfig.env,
+							serverConfig.env as Record<string, unknown>,
 						)) {
 							config.env[key] = String(value);
 						}

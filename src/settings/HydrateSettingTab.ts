@@ -25,7 +25,10 @@ export class HydrateSettingTab extends PluginSettingTab {
 	plugin: HydratePlugin;
 	startIndexingButton: ButtonComponent | null = null;
 	private mcpServersContainer: HTMLElement | null = null;
-	private serverStatusListeners = new Map<string, (...args: any[]) => void>();
+	private serverStatusListeners = new Map<
+		string,
+		(...args: unknown[]) => void
+	>();
 
 	constructor(app: App, plugin: HydratePlugin) {
 		super(app, plugin);
@@ -1579,7 +1582,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 		}
 	}
 
-	private async makeApiCall(url: string, data: any): Promise<Response> {
+	private async makeApiCall(url: string, data: unknown): Promise<Response> {
 		const headers: Record<string, string> = {
 			"Content-Type": "application/json",
 		};

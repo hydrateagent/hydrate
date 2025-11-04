@@ -310,9 +310,14 @@ async function embedTextsViaRemoteApi(
 
 		// Extract embeddings, expecting OpenAI format: { data: [ { embedding: [...] }, ... ] }
 		const embeddings = responseData.data
-			.map((item: any, index: number) => {
-				if (item && item.embedding && Array.isArray(item.embedding)) {
-					return item.embedding;
+			.map((item: unknown, index: number) => {
+				if (
+					item &&
+					typeof item === "object" &&
+					"embedding" in item &&
+					Array.isArray((item as Record<string, unknown>).embedding)
+				) {
+					return (item as Record<string, unknown>).embedding;
 				} else {
 					devLog.error(
 						`[embedTextsViaRemoteApi] Invalid embedding item structure at index ${index}:`,

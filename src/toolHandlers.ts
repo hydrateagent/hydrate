@@ -18,7 +18,7 @@ interface SearchProjectParams {
 interface AgentToolCall {
 	id: string;
 	tool: string;
-	params: SearchProjectParams | any; // Use 'any' for params if other tools have different structures
+	params: SearchProjectParams | Record<string, unknown>; // Use Record<string, unknown> for params if other tools have different structures
 }
 
 // Interface for the result structure to be sent back to the agent
