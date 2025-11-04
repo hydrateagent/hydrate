@@ -37,7 +37,7 @@ export async function handleSearchProject(
 
 	if (!params.query) {
 		devLog.warn("[Hydrate Plugin] search_project called without a query.");
-		new Notice("Search project: Query is missing.");
+		new Notice("Search project: query is missing.");
 		return {
 			id: call.id,
 			result: "Error: search_project called without a query parameter.",

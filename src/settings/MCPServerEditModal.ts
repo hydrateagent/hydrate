@@ -38,7 +38,7 @@ export class MCPServersConfigModal extends Modal {
 		contentEl.createEl("h2", { text: "MCP servers" });
 
 		contentEl.createEl("p", {
-			text: "Configure all your MCP servers using JSON format. This will replace your current server configuration.",
+			text: "Configure all your MCP servers using JSON format. this will replace your current server configuration.",
 			cls: "setting-item-description",
 		});
 
@@ -79,11 +79,11 @@ export class MCPServersConfigModal extends Modal {
 		infoEl.createEl("h4", { text: "Supported formats:" });
 		const infoList = infoEl.createEl("ul");
 		infoList.createEl("li", {
-			text: "STDIO servers: Use 'command' and 'args' fields",
+			text: "STDIO servers: use 'command' and 'args' fields",
 		});
-		infoList.createEl("li", { text: "SSE servers: Use 'url' field" });
+		infoList.createEl("li", { text: "SSE servers: use 'url' field" });
 		infoList.createEl("li", {
-			text: "Environment variables: Use 'env' object",
+			text: "Environment variables: use 'env' object",
 		});
 		infoList.createEl("li", {
 			text: "Server names will be generated from the keys",

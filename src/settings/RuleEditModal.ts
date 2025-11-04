@@ -56,9 +56,9 @@ export class RuleEditModal extends Modal {
 		// ID (Rule Tag)
 		let idInput: TextComponent;
 		new Setting(contentEl)
-			.setName("Rule ID (Tag)")
+			.setName("Rule ID (tag)")
 			.setDesc(
-				"Identifier used in `hydrate-rules` frontmatter. Must be unique and contain no spaces.",
+				"Identifier used in `hydrate-rules` frontmatter. must be unique and contain no spaces.",
 			)
 			.addText((text) => {
 				idInput = text;
@@ -138,12 +138,12 @@ export class RuleEditModal extends Modal {
 
 						// Validate ID
 						if (!ruleId) {
-							new Notice("Rule ID (Tag) cannot be empty.");
+							new Notice("Rule ID (tag) cannot be empty.");
 							idInput?.inputEl.addClass("hydrate-input-error");
 							return;
 						}
 						if (ruleId.includes(" ")) {
-							new Notice("Rule ID (Tag) cannot contain spaces.");
+							new Notice("Rule ID (tag) cannot contain spaces.");
 							idInput?.inputEl.addClass("hydrate-input-error");
 							return;
 						}

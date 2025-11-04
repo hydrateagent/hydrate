@@ -822,7 +822,7 @@ export async function searchIndexRemote(
 
 	if (!queryEmbedding || queryEmbedding.length === 0) {
 		devLog.error("[searchIndexRemote] Query embedding is empty.");
-		new Notice("Search failed: Query embedding is empty.");
+		new Notice("Search failed: query embedding is empty.");
 		throw new Error(
 			"Failed to generate query embedding (result was empty or invalid).",
 		);
@@ -935,7 +935,7 @@ export async function initializeVectorSystem(
 				"[initializeVectorSystem] Vault adapter is not a FileSystemAdapter. Cannot get base path for Vectra index.",
 			);
 			new Notice(
-				"Hydrate: Cannot initialize vector index due to adapter type. Context search may not work.",
+				"Hydrate: cannot initialize vector index due to adapter type. context search may not work.",
 			);
 			localIndex = null;
 			return;
@@ -966,7 +966,7 @@ export async function initializeVectorSystem(
 			error,
 		);
 		new Notice(
-			"Hydrate: Failed to initialize vector index. Context search may not work. Check console.",
+			"Hydrate: failed to initialize vector index. context search may not work. check console.",
 		);
 	}
 }

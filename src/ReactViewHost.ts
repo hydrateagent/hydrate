@@ -135,8 +135,9 @@ export class ReactViewHost extends ItemView {
 	}
 
 	// Called when the view is closed
-	async onClose(): Promise<void> {
+	onClose(): Promise<void> {
 		this.unmountReactComponent();
+		return Promise.resolve();
 	}
 
 	private updateDisplayText(): void {
@@ -174,7 +175,7 @@ export class ReactViewHost extends ItemView {
 				"ReactViewHost [mountReactComponent]: Missing file path or view key.",
 			);
 			this.contentEl.setText(
-				"Error: Missing file path or view key for React component.",
+				"Error: missing file path or view key for React component.",
 			);
 			return;
 		}
@@ -185,7 +186,7 @@ export class ReactViewHost extends ItemView {
 				`ReactViewHost [mountReactComponent]: No React component registered for key "${this.currentViewKey}".`,
 			);
 			this.contentEl.setText(
-				`Error: No React component registered for key "${this.currentViewKey}".`,
+				`Error: no React component registered for key "${this.currentViewKey}".`,
 			);
 			return;
 		}
@@ -196,7 +197,7 @@ export class ReactViewHost extends ItemView {
 				`ReactViewHost [mountReactComponent]: File not found or is not a TFile: ${this.currentFilePath}`,
 			);
 			this.contentEl.setText(
-				`Error: File not found: ${this.currentFilePath}`,
+				`Error: file not found: ${this.currentFilePath}`,
 			);
 			return;
 		}
@@ -247,7 +248,7 @@ export class ReactViewHost extends ItemView {
 			devLog.error(
 				`ReactViewHost [updateMarkdownContent]: Cannot update markdown, currentFilePath is null.`,
 			);
-			new Notice("Error: Cannot save changes, file context lost.", 5000);
+			new Notice("Error: cannot save changes, file context lost.", 5000);
 			return false;
 		}
 
@@ -257,7 +258,7 @@ export class ReactViewHost extends ItemView {
 			devLog.error(
 				`ReactViewHost [updateMarkdownContent]: File not found during update: ${this.currentFilePath}`,
 			);
-			new Notice("Error: File not found, cannot save changes.", 5000);
+			new Notice("Error: file not found, cannot save changes.", 5000);
 			return false;
 		}
 

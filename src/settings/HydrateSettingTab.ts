@@ -136,7 +136,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 			new Setting(containerEl)
 				.setName("Backend URL")
 				.setDesc(
-					"URL of the Hydrate agent backend (e.g., http://localhost:8000). In production, this is hardcoded to https://api.hydrateagent.com/",
+					"URL of the Hydrate agent backend (e.g., http://localhost:8000). in production, this is hardcoded to https://api.hydrateagent.com/",
 				)
 				.addText((text) => {
 					text.setPlaceholder("http://localhost:8000")
@@ -212,24 +212,24 @@ export class HydrateSettingTab extends PluginSettingTab {
 				cls: "hydrate-free-features-list",
 			});
 			featuresList.createEl("li", {
-				text: "✓ Basic AI chat with your own API keys",
+				text: "✓ basic AI chat with your own API keys",
 			});
 			featuresList.createEl("li", {
-				text: "✓ File operations and editing",
+				text: "✓ file operations and editing",
 			});
 			featuresList.createEl("li", {
 				text: "✗ MCP server integrations (Pro+)",
 			});
 			featuresList.createEl("li", {
-				text: "✗ Advanced file operations (Pro+)",
+				text: "✗ advanced file operations (Pro+)",
 			});
-			featuresList.createEl("li", { text: "✗ Priority support (Pro+)" });
+			featuresList.createEl("li", { text: "✗ priority support (Pro+)" });
 		}
 
 		new Setting(containerEl)
 			.setName("License key")
 			.setDesc(
-				"Enter your Hydrate license key for paid subscriptions. Leave empty for free tier.",
+				"Enter your Hydrate license key for paid subscriptions. leave empty for free tier.",
 			)
 			.addText((text) =>
 				text
@@ -253,7 +253,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 		containerEl.appendChild(licenseLink);
 
 		const apiKeysDesc = containerEl.createEl("p", {
-			text: "Configure your API keys for LLM providers. These are sent securely to the Hydrate service but never stored permanently.",
+			text: "Configure your API keys for LLM providers. these are sent securely to the Hydrate service but never stored permanently.",
 			cls: "setting-item-description",
 		});
 		apiKeysDesc.addClass("hydrate-api-keys-desc");
@@ -502,7 +502,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 			});
 
 		mcpServersSection.createEl("p", {
-			text: "Configure Model Context Protocol (MCP) servers to extend agent capabilities with external tools and data sources. Only available with paid plans.",
+			text: "Configure Model Context Protocol (MCP) servers to extend agent capabilities with external tools and data sources. only available with paid plans.",
 			cls: "setting-item-description",
 		});
 
@@ -517,7 +517,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("MCP custom PATH")
 			.setDesc(
-				"Comma-separated list of paths to add to PATH environment variable when starting MCP servers. This is needed if Obsidian can't find 'npx' or 'node'. Example: /usr/local/bin,/opt/homebrew/bin",
+				"Comma-separated list of paths to add to PATH environment variable when starting MCP servers. this is needed if Obsidian can't find 'npx' or 'node'. example: /usr/local/bin,/opt/homebrew/bin",
 			)
 			.addText((text) =>
 				text
@@ -538,7 +538,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 				cls: "hydrate-embeddings-notice",
 			});
 			noticeEl.createEl("p", {
-				text: "💡 Enable embeddings to use AI-powered context search and document indexing. This requires an API key from a service like OpenAI.",
+				text: "💡 Enable embeddings to use AI-powered context search and document indexing. this requires an API key from a service like OpenAI.",
 				cls: "hydrate-embeddings-help",
 			});
 		}
@@ -546,7 +546,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("Enable embeddings")
 			.setDesc(
-				"Use an API endpoint (like OpenAI) to generate embeddings instead of running a local model. Requires separate configuration below.",
+				"Use an API endpoint (like OpenAI) to generate embeddings instead of running a local model. requires separate configuration below.",
 			)
 			.addToggle((toggle) =>
 				toggle
@@ -604,7 +604,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 			new Setting(containerEl)
 				.setName("Embedding API key")
 				.setDesc(
-					"Your API key for the embedding service. Will be sent with requests. Ensure you trust the endpoint.",
+					"Your API key for the embedding service. will be sent with requests. ensure you trust the endpoint.",
 				)
 				.addText((text) => {
 					let visible = false;
@@ -638,7 +638,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 			new Setting(containerEl)
 				.setName("Indexed file extensions")
 				.setDesc(
-					"Comma-separated list of file extensions to index (e.g., md,txt,js). Leave empty to index no files. Changes require re-indexing.",
+					"Comma-separated list of file extensions to index (e.g., md,txt,js). leave empty to index no files. changes require re-indexing.",
 				)
 				.addText((text) =>
 					text
@@ -817,7 +817,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 		if (entries.length === 0) {
 			containerEl.createEl("p", {
-				text: "No format entries defined yet. Click 'Add New Entry' above to create one.",
+				text: "No format entries defined yet. click 'Add New Entry' above to create one.",
 				cls: "hydrate-empty-list-message", // Custom class for styling
 			});
 			return;
@@ -911,7 +911,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 		if (rules.length === 0) {
 			containerEl.createEl("p", {
-				text: "No rules defined yet. Click 'Add New Rule' above to create one.",
+				text: "No rules defined yet. click 'Add New Rule' above to create one.",
 				cls: "hydrate-empty-list-message",
 			});
 			return;
@@ -999,7 +999,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 		if (servers.length === 0) {
 			containerEl.createEl("p", {
-				text: "No MCP servers configured. Add a server to extend tool capabilities.",
+				text: "No MCP servers configured. add a server to extend tool capabilities.",
 				cls: "hydrate-empty-list-message",
 			});
 			return;
@@ -1189,7 +1189,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 			if (result.success) {
 				new Notice(
-					`✅ ${server.name}: Connected successfully! Found ${
+					`✅ ${server.name}: Connected successfully! found ${
 						result.toolCount || 0
 					} tools.`,
 				);
@@ -1411,10 +1411,10 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 			// Add feature list items
 			featuresList.createEl("li", {
-				text: "✓ Basic AI chat with your own API keys",
+				text: "✓ basic AI chat with your own API keys",
 			});
 			featuresList.createEl("li", {
-				text: "✓ File operations and editing",
+				text: "✓ file operations and editing",
 			});
 
 			const mcpIcon = licenseInfo.tier === "free" ? "✗" : "✓";
@@ -1424,17 +1424,17 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 			const advancedIcon = licenseInfo.tier === "free" ? "✗" : "✓";
 			featuresList.createEl("li", {
-				text: `${advancedIcon} Advanced file operations`,
+				text: `${advancedIcon} advanced file operations`,
 			});
 
 			const supportIcon = licenseInfo.tier === "free" ? "✗" : "✓";
 			featuresList.createEl("li", {
-				text: `${supportIcon} Priority support`,
+				text: `${supportIcon} priority support`,
 			});
 
 			const customIcon = licenseInfo.tier === "max" ? "✓" : "✗";
 			featuresList.createEl("li", {
-				text: `${customIcon} Custom integrations`,
+				text: `${customIcon} custom integrations`,
 			});
 		} catch (error) {
 			statusDiv.empty();

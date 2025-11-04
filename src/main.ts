@@ -1163,7 +1163,7 @@ export default class HydratePlugin extends Plugin {
 				);
 				toolResults.push({
 					id: call.id,
-					result: `Error: Unknown tool '${call.tool}' requested by agent.`,
+					result: `Error: unknown tool '${call.tool}' requested by agent.`,
 				});
 			}
 		}

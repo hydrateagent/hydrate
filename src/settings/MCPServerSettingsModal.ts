@@ -55,7 +55,7 @@ export class MCPServerSettingsModal extends Modal {
 			});
 
 		new Setting(contentEl)
-			.setName("Startup Timeout (ms)")
+			.setName("Startup timeout (ms)")
 			.setDesc("Timeout for server startup")
 			.addText((text) => {
 				text.setPlaceholder("10000")
@@ -69,7 +69,7 @@ export class MCPServerSettingsModal extends Modal {
 			});
 
 		new Setting(contentEl)
-			.setName("Shutdown Timeout (ms)")
+			.setName("Shutdown timeout (ms)")
 			.setDesc("Timeout for server shutdown")
 			.addText((text) => {
 				text.setPlaceholder("5000")

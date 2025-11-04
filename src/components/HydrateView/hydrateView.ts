@@ -967,7 +967,7 @@ export class HydrateView extends ItemView {
 
 	// --- Lifecycle Methods ---
 
-	async onClose() {
+	onClose(): Promise<void> {
 		// Cancel any pending requests
 		if (this.abortController) {
 			this.abortController.abort();
@@ -977,6 +977,7 @@ export class HydrateView extends ItemView {
 		this.closeActivePopup();
 
 		// Any cleanup needed when the view is closed
+		return Promise.resolve();
 	}
 
 	// --- Helper Methods (REMOVED) ---
