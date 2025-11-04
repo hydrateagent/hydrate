@@ -79,7 +79,7 @@ export class ChatHistoryModal extends FuzzySuggestModal<ChatHistory> {
 		});
 
 		// Handle delete button click
-		deleteButton.addEventListener("click", async (e) => {
+		deleteButton.addEventListener("click", (e) => {
 			e.stopPropagation(); // Prevent selecting the item
 			e.preventDefault();
 
@@ -88,13 +88,15 @@ export class ChatHistoryModal extends FuzzySuggestModal<ChatHistory> {
 				`Are you sure you want to delete "${chat.title}"?`,
 			);
 			if (confirmed) {
-				try {
-					await this.view.plugin.deleteChatHistory(chat.id);
+				void (async () => {
+					try {
+						await this.view.plugin.deleteChatHistory(chat.id);
 
-					// Modal will automatically refresh since getItems() fetches current data
-				} catch (error) {
-					devLog.error("Error deleting chat history:", error);
-				}
+						// Modal will automatically refresh since getItems() fetches current data
+					} catch (error) {
+						devLog.error("Error deleting chat history:", error);
+					}
+				})();
 			}
 		});
 

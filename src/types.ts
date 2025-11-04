@@ -8,7 +8,7 @@ export interface ReactViewProps {
 	filePath: string;
 	markdownContent: string;
 	updateMarkdownContent: (newContent: string) => Promise<boolean>;
-	switchToMarkdownView: () => void;
+	switchToMarkdownView: () => Promise<void>;
 }
 
 // --- NEW: Format & Context Registry Types ---

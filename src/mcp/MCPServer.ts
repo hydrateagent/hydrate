@@ -375,14 +375,16 @@ export class MCPServer extends EventEmitter {
 	private startHealthMonitoring(): void {
 		if (!this.config.healthCheck) return;
 
-		this.healthCheckInterval = window.setInterval(async () => {
-			const isHealthy = await this.performHealthCheck();
+		this.healthCheckInterval = window.setInterval(() => {
+			void (async () => {
+				const isHealthy = await this.performHealthCheck();
 
-			if (isHealthy) {
-				this.setHealth(MCPServerHealth.HEALTHY);
-			} else {
-				this.handleHealthCheckFailure();
-			}
+				if (isHealthy) {
+					this.setHealth(MCPServerHealth.HEALTHY);
+				} else {
+					this.handleHealthCheckFailure();
+				}
+			})();
 		}, this.config.healthCheck.interval);
 	}
 
@@ -479,13 +481,15 @@ export class MCPServer extends EventEmitter {
 
 		this.emit("restart", this.stats.restartCount, this.config.maxRestarts);
 
-		this.restartDelay = window.setTimeout(async () => {
-			try {
-				await this.start();
-			} catch (error) {
-				devLog.error(`${this.config.id} Restart failed:`, error);
-				this.setStatus(MCPServerStatus.FAILED);
-			}
+		this.restartDelay = window.setTimeout(() => {
+			void (async () => {
+				try {
+					await this.start();
+				} catch (error) {
+					devLog.error(`${this.config.id} Restart failed:`, error);
+					this.setStatus(MCPServerStatus.FAILED);
+				}
+			})();
 		}, delay);
 	}
 

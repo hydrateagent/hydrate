@@ -91,25 +91,32 @@ export function addMessageToChat(
 			copyButton.children[0]?.setAttribute("width", "14");
 			copyButton.children[0]?.setAttribute("height", "14");
 
-			copyButton.addEventListener("click", async (e) => {
+			copyButton.addEventListener("click", (e) => {
 				e.stopPropagation(); // Prevent event bubbling
-				try {
-					await navigator.clipboard.writeText(originalContentString);
-					// Show success feedback by changing the icon
-					setIcon(copyButton, "check");
-					copyButton.children[0]?.setAttribute("width", "14");
-					copyButton.children[0]?.setAttribute("height", "14");
-
-					setTimeout(() => {
-						// Revert back to copy icon
-						setIcon(copyButton, "copy");
+				void (async () => {
+					try {
+						await navigator.clipboard.writeText(
+							originalContentString,
+						);
+						// Show success feedback by changing the icon
+						setIcon(copyButton, "check");
 						copyButton.children[0]?.setAttribute("width", "14");
 						copyButton.children[0]?.setAttribute("height", "14");
-					}, 1500); // Revert after 1.5 seconds
-				} catch (err) {
-					devLog.error("Failed to copy text: ", err);
-					new Notice("Failed to copy message.");
-				}
+
+						setTimeout(() => {
+							// Revert back to copy icon
+							setIcon(copyButton, "copy");
+							copyButton.children[0]?.setAttribute("width", "14");
+							copyButton.children[0]?.setAttribute(
+								"height",
+								"14",
+							);
+						}, 1500); // Revert after 1.5 seconds
+					} catch (err) {
+						devLog.error("Failed to copy text: ", err);
+						new Notice("Failed to copy message.");
+					}
+				})();
 			});
 		} catch (renderError) {
 			devLog.error("Markdown rendering error:", renderError);

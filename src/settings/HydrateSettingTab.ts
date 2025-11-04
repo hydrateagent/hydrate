@@ -451,51 +451,53 @@ export class HydrateSettingTab extends PluginSettingTab {
 				const modal = new MCPServersConfigModal(
 					this.app,
 					this.plugin.settings.mcpServers || [],
-					async (newServers) => {
-						// Save to settings
-						this.plugin.settings.mcpServers = newServers;
-						await this.plugin.saveSettings();
+					(newServers) => {
+						void (async () => {
+							// Save to settings
+							this.plugin.settings.mcpServers = newServers;
+							await this.plugin.saveSettings();
 
-						// Update MCP Server Manager
-						if (this.plugin.mcpManager) {
-							// Remove all existing servers
-							const existingIds =
-								this.plugin.mcpManager.getServerIds();
-							for (const id of existingIds) {
-								try {
-									await this.plugin.mcpManager.removeServer(
-										id,
-									);
-								} catch (error) {
-									devLog.warn(
-										`Failed to remove server ${id}:`,
-										error,
-									);
+							// Update MCP Server Manager
+							if (this.plugin.mcpManager) {
+								// Remove all existing servers
+								const existingIds =
+									this.plugin.mcpManager.getServerIds();
+								for (const id of existingIds) {
+									try {
+										await this.plugin.mcpManager.removeServer(
+											id,
+										);
+									} catch (error) {
+										devLog.warn(
+											`Failed to remove server ${id}:`,
+											error,
+										);
+									}
+								}
+
+								// Add new servers
+								for (const config of newServers) {
+									try {
+										await this.plugin.mcpManager.addServer(
+											config.id,
+											config,
+										);
+									} catch (error) {
+										devLog.error(
+											`Failed to add server ${config.id}:`,
+											error,
+										);
+									}
 								}
 							}
 
-							// Add new servers
-							for (const config of newServers) {
-								try {
-									await this.plugin.mcpManager.addServer(
-										config.id,
-										config,
-									);
-								} catch (error) {
-									devLog.error(
-										`Failed to add server ${config.id}:`,
-										error,
-									);
-								}
-							}
-						}
-
-						this.display();
-						new Notice(
-							`Configured ${newServers.length} MCP server${
-								newServers.length === 1 ? "" : "s"
-							}`,
-						);
+							this.display();
+							new Notice(
+								`Configured ${newServers.length} MCP server${
+									newServers.length === 1 ? "" : "s"
+								}`,
+							);
+						})();
 					},
 				);
 				modal.open();

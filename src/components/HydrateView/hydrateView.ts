@@ -356,13 +356,15 @@ export class HydrateView extends ItemView {
 		sendButton.addEventListener("click", () => handleSend(this));
 		clearButton.addEventListener("click", () => handleClear(this));
 		this.stopButton.addEventListener("click", () => handleStop(this));
-		newChatButton.addEventListener("click", () => this.handleNewChat());
+		newChatButton.addEventListener("click", () => {
+			void this.handleNewChat();
+		});
 		chatHistoryButton.addEventListener("click", () =>
 			this.handleChatHistory(),
 		);
-		exportChatButton.addEventListener("click", () =>
-			this.handleExportChat(),
-		);
+		exportChatButton.addEventListener("click", () => {
+			void this.handleExportChat();
+		});
 
 		// Add drag and drop support
 		container.addEventListener("dragover", (e) => e.preventDefault());
@@ -694,165 +696,168 @@ export class HydrateView extends ItemView {
 	private displayDiffModalForReview(
 		toolCall: BackendToolCall,
 	): Promise<DiffReviewResult> {
-		return new Promise(async (resolve) => {
-			// Determine the target file path
-			const targetPath = toolCall.params.path;
-			const instructions =
-				(toolCall.params.instructions as string) ||
-				`Apply ${toolCall.tool} to ${targetPath}`;
+		return new Promise((resolve) => {
+			void (async () => {
+				// Determine the target file path
+				const targetPath = toolCall.params.path;
+				const instructions =
+					(toolCall.params.instructions as string) ||
+					`Apply ${toolCall.tool} to ${targetPath}`;
 
-			// Prepare content based on tool type
-			let originalContent = "";
-			let proposedContent = "";
-			const simulationErrors: string[] = [];
+				// Prepare content based on tool type
+				let originalContent = "";
+				let proposedContent = "";
+				const simulationErrors: string[] = [];
 
-			try {
-				// Wrap file reading and content generation in try-catch
-				const file = this.app.vault.getAbstractFileByPath(
-					targetPath as string,
-				);
-				if (file instanceof TFile) {
-					originalContent = await this.app.vault.read(file);
-				} else {
-					originalContent = ""; // Treat as new file creation
-				}
-
-				// Determine proposed content based on the tool type
-				if (toolCall.tool === "editFile") {
-					proposedContent =
-						(toolCall.params.code_edit as string) || ""; // Assuming code_edit holds the full proposed content
-				} else if (toolCall.tool === "replaceSelectionInFile") {
-					const original_selection = toolCall.params
-						.original_selection as string;
-					const new_content = toolCall.params.new_content as string;
-					if (!originalContent.includes(original_selection)) {
-						// If original selection isn't found, maybe show modal with error or just the new content?
-						// For now, let's show the diff against the original, highlighting the intended change might fail.
-						devLog.warn(
-							`Original selection for replaceSelectionInFile not found in ${targetPath}. Diff may be inaccurate.`,
-						);
-						// Fallback: show the new content as the proposed change for review, although tool execution might fail later.
-						// Alternatively, we could reject here? Let's show the diff for now.
-						proposedContent = originalContent.replace(
-							original_selection,
-							new_content,
-						);
-					} else {
-						proposedContent = originalContent.replace(
-							original_selection,
-							new_content,
-						);
-					}
-				} else if (toolCall.tool === "applyPatchesToFile") {
-					const patches = toolCall.params.patches as Patch[];
-					if (!Array.isArray(patches)) {
-						throw new Error(
-							"Invalid patches data for applyPatchesToFile.",
-						);
-					}
-					// Simulate applying patches to get proposed content
-					let simulatedContent = originalContent;
-					for (const patch of patches) {
-						const before = patch.before ?? "";
-						const oldText = patch.old;
-						const after = patch.after ?? "";
-						const newText = patch.new;
-						const contextString = before + oldText + after;
-						const contextIndex =
-							simulatedContent.indexOf(contextString);
-						if (contextIndex === -1) {
-							devLog.error(
-								`Context not found during simulation. Searching for:\n${JSON.stringify(
-									contextString,
-								)}\nin content:\n${JSON.stringify(
-									simulatedContent,
-								)}`,
-							);
-							devLog.warn(
-								`Context for patch not found during simulation: ${JSON.stringify(
-									patch,
-								)}`,
-							);
-							simulationErrors.push(
-								"Context not found for patch.",
-							); // Record error
-							continue;
-						}
-						// Simple ambiguity check for simulation - only if context is not empty
-						if (
-							contextString &&
-							simulatedContent.indexOf(
-								contextString,
-								contextIndex + 1,
-							) !== -1
-						) {
-							devLog.warn(
-								`Ambiguous context for patch found during simulation: ${JSON.stringify(
-									patch,
-								)}`,
-							);
-							simulationErrors.push(
-								"Ambiguous context for patch.",
-							); // Record error
-							continue;
-						}
-						const startIndex = contextIndex + before.length;
-						const endIndex = startIndex + oldText.length;
-						simulatedContent =
-							simulatedContent.substring(0, startIndex) +
-							newText +
-							simulatedContent.substring(endIndex);
-					}
-					proposedContent = simulatedContent;
-				} else {
-					// Handle unexpected tool types if necessary, though filtering should prevent this
-					proposedContent = `Error: Unexpected tool type '${toolCall.tool}' for diff review.`;
-				}
-
-				// Check for simulation errors before opening modal
-				if (simulationErrors.length > 0) {
-					devLog.error(
-						"Simulation failed, cannot show diff modal reliably.",
-						simulationErrors,
+				try {
+					// Wrap file reading and content generation in try-catch
+					const file = this.app.vault.getAbstractFileByPath(
+						targetPath as string,
 					);
+					if (file instanceof TFile) {
+						originalContent = await this.app.vault.read(file);
+					} else {
+						originalContent = ""; // Treat as new file creation
+					}
+
+					// Determine proposed content based on the tool type
+					if (toolCall.tool === "editFile") {
+						proposedContent =
+							(toolCall.params.code_edit as string) || ""; // Assuming code_edit holds the full proposed content
+					} else if (toolCall.tool === "replaceSelectionInFile") {
+						const original_selection = toolCall.params
+							.original_selection as string;
+						const new_content = toolCall.params
+							.new_content as string;
+						if (!originalContent.includes(original_selection)) {
+							// If original selection isn't found, maybe show modal with error or just the new content?
+							// For now, let's show the diff against the original, highlighting the intended change might fail.
+							devLog.warn(
+								`Original selection for replaceSelectionInFile not found in ${targetPath}. Diff may be inaccurate.`,
+							);
+							// Fallback: show the new content as the proposed change for review, although tool execution might fail later.
+							// Alternatively, we could reject here? Let's show the diff for now.
+							proposedContent = originalContent.replace(
+								original_selection,
+								new_content,
+							);
+						} else {
+							proposedContent = originalContent.replace(
+								original_selection,
+								new_content,
+							);
+						}
+					} else if (toolCall.tool === "applyPatchesToFile") {
+						const patches = toolCall.params.patches as Patch[];
+						if (!Array.isArray(patches)) {
+							throw new Error(
+								"Invalid patches data for applyPatchesToFile.",
+							);
+						}
+						// Simulate applying patches to get proposed content
+						let simulatedContent = originalContent;
+						for (const patch of patches) {
+							const before = patch.before ?? "";
+							const oldText = patch.old;
+							const after = patch.after ?? "";
+							const newText = patch.new;
+							const contextString = before + oldText + after;
+							const contextIndex =
+								simulatedContent.indexOf(contextString);
+							if (contextIndex === -1) {
+								devLog.error(
+									`Context not found during simulation. Searching for:\n${JSON.stringify(
+										contextString,
+									)}\nin content:\n${JSON.stringify(
+										simulatedContent,
+									)}`,
+								);
+								devLog.warn(
+									`Context for patch not found during simulation: ${JSON.stringify(
+										patch,
+									)}`,
+								);
+								simulationErrors.push(
+									"Context not found for patch.",
+								); // Record error
+								continue;
+							}
+							// Simple ambiguity check for simulation - only if context is not empty
+							if (
+								contextString &&
+								simulatedContent.indexOf(
+									contextString,
+									contextIndex + 1,
+								) !== -1
+							) {
+								devLog.warn(
+									`Ambiguous context for patch found during simulation: ${JSON.stringify(
+										patch,
+									)}`,
+								);
+								simulationErrors.push(
+									"Ambiguous context for patch.",
+								); // Record error
+								continue;
+							}
+							const startIndex = contextIndex + before.length;
+							const endIndex = startIndex + oldText.length;
+							simulatedContent =
+								simulatedContent.substring(0, startIndex) +
+								newText +
+								simulatedContent.substring(endIndex);
+						}
+						proposedContent = simulatedContent;
+					} else {
+						// Handle unexpected tool types if necessary, though filtering should prevent this
+						proposedContent = `Error: Unexpected tool type '${toolCall.tool}' for diff review.`;
+					}
+
+					// Check for simulation errors before opening modal
+					if (simulationErrors.length > 0) {
+						devLog.error(
+							"Simulation failed, cannot show diff modal reliably.",
+							simulationErrors,
+						);
+						resolve({
+							applied: false,
+							message: `Could not apply patches due to context errors: ${simulationErrors.join(
+								", ",
+							)}`,
+							finalContent: originalContent, // Return original content
+							toolCallId: toolCall.id,
+						});
+						return; // Stop before opening modal
+					}
+
+					// Call constructor with all 8 arguments
+					new DiffReviewModal(
+						this.app,
+						this.plugin, // Pass plugin instance
+						targetPath as string,
+						originalContent,
+						proposedContent, // Use the determined proposed content
+						instructions,
+						toolCall.id,
+						(result: DiffReviewResult) => {
+							// Add type to result
+							resolve(result);
+						},
+					).open();
+				} catch (error) {
+					devLog.error(
+						`Error preparing data for DiffReviewModal for ${targetPath}:`,
+						error,
+					);
+					// Resolve the promise with a rejected state if we can't even show the modal
 					resolve({
 						applied: false,
-						message: `Could not apply patches due to context errors: ${simulationErrors.join(
-							", ",
-						)}`,
-						finalContent: originalContent, // Return original content
+						message: `Error preparing diff review: ${error.message}`,
+						finalContent: originalContent, // Return original content on error
 						toolCallId: toolCall.id,
 					});
-					return; // Stop before opening modal
 				}
-
-				// Call constructor with all 8 arguments
-				new DiffReviewModal(
-					this.app,
-					this.plugin, // Pass plugin instance
-					targetPath as string,
-					originalContent,
-					proposedContent, // Use the determined proposed content
-					instructions,
-					toolCall.id,
-					(result: DiffReviewResult) => {
-						// Add type to result
-						resolve(result);
-					},
-				).open();
-			} catch (error) {
-				devLog.error(
-					`Error preparing data for DiffReviewModal for ${targetPath}:`,
-					error,
-				);
-				// Resolve the promise with a rejected state if we can't even show the modal
-				resolve({
-					applied: false,
-					message: `Error preparing diff review: ${error.message}`,
-					finalContent: originalContent, // Return original content on error
-					toolCallId: toolCall.id,
-				});
-			}
+			})();
 		});
 	}
 
@@ -1440,7 +1445,9 @@ export class HydrateView extends ItemView {
 					},
 					{
 						text: "Navigate to Note",
-						action: () => this.navigateToNote(suggestion.filePath),
+						action: () => {
+							void this.navigateToNote(suggestion.filePath);
+						},
 					},
 				]);
 			});

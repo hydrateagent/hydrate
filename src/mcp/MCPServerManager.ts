@@ -712,17 +712,19 @@ export class MCPServerManager extends EventEmitter {
 		serverId: string,
 		server: MCPServer,
 	): void {
-		server.on("status-changed", async (status, previousStatus) => {
+		server.on("status-changed", (status, previousStatus) => {
 			// Trigger tool discovery when server becomes running
 			if (status === "running" && previousStatus !== "running") {
-				try {
-					await this.refreshServerTools(serverId);
-				} catch (error) {
-					devLog.error(
-						`MCPServerManager: Tool discovery failed for server ${serverId}:`,
-						error,
-					);
-				}
+				void (async () => {
+					try {
+						await this.refreshServerTools(serverId);
+					} catch (error) {
+						devLog.error(
+							`MCPServerManager: Tool discovery failed for server ${serverId}:`,
+							error,
+						);
+					}
+				})();
 			}
 
 			this.emit(
