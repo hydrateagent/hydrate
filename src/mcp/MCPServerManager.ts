@@ -13,7 +13,7 @@ import { debounce } from "obsidian";
 export interface MCPToolSchemaWithMetadata {
 	name: string;
 	description: string;
-	inputSchema: any;
+	inputSchema: Record<string, unknown>;
 	serverId: string;
 	serverName: string;
 	discoveredAt: Date;
@@ -76,8 +76,8 @@ export interface MCPManagerStats {
  * Configuration persistence interface
  */
 export interface MCPConfigStorage {
-	saveConfig(config: any): Promise<void>;
-	loadConfig(): Promise<any>;
+	saveConfig(config: { servers: MCPServerConfig[] }): Promise<void>;
+	loadConfig(): Promise<{ servers: MCPServerConfig[] }>;
 }
 
 /**
@@ -512,7 +512,7 @@ export class MCPServerManager extends EventEmitter {
 
 		try {
 			const config = await this.storage.loadConfig();
-			const servers = config.servers || [];
+			const servers = (config.servers || []) as MCPServerConfig[];
 			let loadedCount = 0;
 
 			for (const serverConfig of servers) {
@@ -574,8 +574,8 @@ export class MCPServerManager extends EventEmitter {
 	async executeToolCall(
 		serverId: string,
 		toolName: string,
-		parameters: any,
-	): Promise<any> {
+		parameters: Record<string, unknown>,
+	): Promise<unknown> {
 		const entry = this.servers.get(serverId);
 		if (!entry) {
 			throw new Error(`Server with ID '${serverId}' not found`);
@@ -754,8 +754,8 @@ export class MCPServerManager extends EventEmitter {
 	/**
 	 * Get all discovered MCP tools from running servers
 	 */
-	async getAllDiscoveredTools(): Promise<any[]> {
-		const allTools: any[] = [];
+	async getAllDiscoveredTools(): Promise<MCPToolSchemaWithMetadata[]> {
+		const allTools: MCPToolSchemaWithMetadata[] = [];
 		let serverCount = 0;
 		let toolCount = 0;
 

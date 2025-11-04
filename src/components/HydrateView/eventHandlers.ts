@@ -4,6 +4,7 @@ import { TFolder } from "obsidian";
 import * as path from "path";
 import type { HydrateView } from "./hydrateView";
 import { RegistryEntry } from "../../types"; // Added import
+import { MCPToolSchemaWithMetadata } from "../../mcp/MCPServerManager";
 import {
 	addMessageToChat,
 	renderFilePills as renderDomFilePills,
@@ -97,13 +98,13 @@ export const handleDrop = (view: HydrateView, event: DragEvent): void => {
 						decodeURIComponent(filePathParam);
 				} else {
 					devLog.warn(
-						`Hydrate drop: No 'file' param in URI: ${potentialPath}`
+						`Hydrate drop: No 'file' param in URI: ${potentialPath}`,
 					);
 				}
 			} catch (e) {
 				devLog.error(
 					`Hydrate drop: Error parsing URI: ${potentialPath}`,
-					e
+					e,
 				);
 			}
 		} else if (potentialPath.startsWith("file://")) {
@@ -116,7 +117,7 @@ export const handleDrop = (view: HydrateView, event: DragEvent): void => {
 			} catch (e) {
 				devLog.error(
 					`Hydrate drop: Error decoding file URI: ${potentialPath}`,
-					e
+					e,
 				);
 			}
 		} else {
@@ -125,7 +126,7 @@ export const handleDrop = (view: HydrateView, event: DragEvent): void => {
 
 		if (normalizedPathForComparison) {
 			const directMatch = view.app.vault.getAbstractFileByPath(
-				normalizedPathForComparison
+				normalizedPathForComparison,
 			);
 			if (directMatch instanceof TFile) {
 				foundVaultFile = directMatch;
@@ -137,8 +138,8 @@ export const handleDrop = (view: HydrateView, event: DragEvent): void => {
 					allVaultFiles.find(
 						(vf: TFile) =>
 							lowerCaseNormalized.endsWith(
-								"/" + vf.path.toLowerCase()
-							) || lowerCaseNormalized === vf.path.toLowerCase()
+								"/" + vf.path.toLowerCase(),
+							) || lowerCaseNormalized === vf.path.toLowerCase(),
 					) || null;
 			}
 			if (!foundVaultFile) {
@@ -146,8 +147,8 @@ export const handleDrop = (view: HydrateView, event: DragEvent): void => {
 					vf.path
 						.toLowerCase()
 						.startsWith(
-							normalizedPathForComparison!.toLowerCase() + "."
-						)
+							normalizedPathForComparison!.toLowerCase() + ".",
+						),
 				);
 				if (possibleMatches.length === 1) {
 					foundVaultFile = possibleMatches[0];
@@ -155,7 +156,7 @@ export const handleDrop = (view: HydrateView, event: DragEvent): void => {
 					devLog.warn(
 						`Hydrate drop: Ambiguous match for ${normalizedPathForComparison}: Found ${possibleMatches
 							.map((f: TFile) => f.path)
-							.join(", ")}`
+							.join(", ")}`,
 					);
 				}
 			}
@@ -185,7 +186,7 @@ export const handleDrop = (view: HydrateView, event: DragEvent): void => {
 
 	if (failedPaths.length > 0) {
 		new Notice(
-			`Could not resolve ${failedPaths.length} dropped item(s) to vault files.`
+			`Could not resolve ${failedPaths.length} dropped item(s) to vault files.`,
 		);
 	}
 };
@@ -196,7 +197,7 @@ export const handleDrop = (view: HydrateView, event: DragEvent): void => {
 export const removeFilePill = (view: HydrateView, filePath: string): void => {
 	const initialLength = view.attachedFiles.length;
 	view.attachedFiles = view.attachedFiles.filter(
-		(path: string) => path !== filePath
+		(path: string) => path !== filePath,
 	);
 	const removed = initialLength > view.attachedFiles.length;
 
@@ -250,7 +251,7 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 
 	if (orphanedTokens.length > 0) {
 		const errorMsg = `Cannot send message: Found selection tokens (${orphanedTokens.join(
-			", "
+			", ",
 		)}) but only ${
 			capturedSelections.length
 		} text selections were captured.\n\nTo use text selections:\n1. Select text in a note\n2. Right-click and choose "Capture Selection for Hydrate"\n3. Then use /select01, /select02, etc. in your message\n\nAlternatively, you can replace "${
@@ -274,11 +275,11 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 				payloadContent = payloadContent.replaceAll(token, replacement);
 			} else {
 				devLog.warn(
-					`[handleSend] Token ${token} not found in payloadContent, but selection ${index} was captured.`
+					`[handleSend] Token ${token} not found in payloadContent, but selection ${index} was captured.`,
 				);
 				devLog.warn(
 					`[handleSend] All tokens in payloadContent:`,
-					payloadContent.match(/\/select\d+/g)
+					payloadContent.match(/\/select\d+/g),
 				);
 			}
 		}
@@ -300,12 +301,12 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 
 		if (triggerMap.size > 0) {
 			const escapedTriggers = Array.from(triggerMap.keys()).map((cmd) =>
-				cmd.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&")
+				cmd.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&"),
 			);
 			// Regex to find registered commands *only*
 			const commandRegex = new RegExp(
 				`(?<!\\S)(${escapedTriggers.join("|")})(?=\\s|$)`, // Added negative lookbehind for start of word
-				"g"
+				"g",
 			);
 
 			// Perform replacement directly on payloadContent
@@ -354,13 +355,13 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 				}
 			} else {
 				devLog.warn(
-					`[handleSend] Could not find TFile for rule check: ${filePath}`
+					`[handleSend] Could not find TFile for rule check: ${filePath}`,
 				);
 			}
 		} catch (error) {
 			devLog.error(
 				`[handleSend] Error processing rules for file ${filePath}:`,
-				error
+				error,
 			);
 		}
 	}
@@ -396,13 +397,13 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 					}
 				} else {
 					devLog.warn(
-						`[handleSend] Attached path is not a TFile: ${filePath}`
+						`[handleSend] Attached path is not a TFile: ${filePath}`,
 					);
 				}
 			} catch (error) {
 				devLog.error(
 					`[handleSend] Error reading attached file ${filePath}:`,
-					error
+					error,
 				);
 			}
 		}
@@ -434,12 +435,12 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 		view,
 		"user",
 		originalMessageContent ||
-			`(Sent with ${currentAttachedFiles.length} attached file(s))`
+			`(Sent with ${currentAttachedFiles.length} attached file(s))`,
 	);
 	// --- END: Apply diff for conditional send and user message ---
 
 	// Collect MCP tools from running servers
-	let mcpTools: any[] = [];
+	let mcpTools: MCPToolSchemaWithMetadata[] = [];
 	if (view.plugin.mcpManager) {
 		try {
 			mcpTools = await view.plugin.mcpManager.getAllDiscoveredTools();
@@ -450,7 +451,12 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 		devLog.warn("[handleSend] No MCP Manager found!");
 	}
 
-	const payload: any = {
+	const payload: {
+		message: string;
+		conversation_id: string | null;
+		model: string;
+		mcp_tools: MCPToolSchemaWithMetadata[];
+	} = {
 		message: combinedPayload, // Use the carefully constructed combinedPayload
 		conversation_id: view.conversationId,
 		model: view.plugin.getSelectedModel(),
@@ -464,14 +470,13 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 
 	try {
 		await view.callBackend("/chat", payload);
-	} catch (error: any) {
+	} catch (error: unknown) {
 		devLog.error("Error sending message:", error);
-		addMessageToChat(
-			view,
-			"system",
-			`Error: ${error.message || "Failed to connect to backend"}`,
-			true
-		);
+		const errorMessage =
+			error instanceof Error
+				? error.message
+				: "Failed to connect to backend";
+		addMessageToChat(view, "system", `Error: ${errorMessage}`, true);
 		setDomLoadingState(view, false);
 	} finally {
 		view.textInput.focus();
@@ -531,25 +536,25 @@ export const handleStop = async (view: HydrateView): Promise<void> => {
 
 			if (stopResponse.status >= 400) {
 				devLog.warn(
-					`Hydrate: Backend returned status ${stopResponse.status} on stop signal: ${stopResponse.text}`
+					`Hydrate: Backend returned status ${stopResponse.status} on stop signal: ${stopResponse.text}`,
 				);
 				// Optionally notify user if backend stop failed, but might be noise
 			} else {
 				devLog.debug(
 					"Hydrate: Backend acknowledged stop signal.",
-					stopResponse.json
+					stopResponse.json,
 				);
 			}
 		} catch (error) {
 			devLog.error(
 				"Hydrate: Error sending stop signal to backend:",
-				error
+				error,
 			);
 			// Optionally notify user of error sending stop signal
 		}
 	} else {
 		devLog.warn(
-			"Hydrate: No conversation ID found, cannot send stop signal to backend."
+			"Hydrate: No conversation ID found, cannot send stop signal to backend.",
 		);
 	}
 
@@ -563,7 +568,7 @@ export const handleStop = async (view: HydrateView): Promise<void> => {
  */
 export const handleSuggestionSelect = (
 	view: HydrateView,
-	index: number
+	index: number,
 ): void => {
 	if (
 		index < 0 ||
@@ -640,7 +645,7 @@ export const handleInputChange = (view: HydrateView): void => {
 					const currentValue = view.textInput.value;
 					const beforeTrigger = currentValue.substring(
 						0,
-						triggerStart
+						triggerStart,
 					);
 					const afterCursor = currentValue.substring(cursorPos);
 
@@ -653,10 +658,10 @@ export const handleInputChange = (view: HydrateView): void => {
 					requestAnimationFrame(() => {
 						view.textInput.setSelectionRange(
 							newCursorPos,
-							newCursorPos
+							newCursorPos,
 						);
 					});
-				}
+				},
 			);
 
 			modal.open();
@@ -677,9 +682,9 @@ export const handleInputChange = (view: HydrateView): void => {
 		if (triggerStart !== -1) {
 			const allEntries = view.plugin.getRegistryEntries();
 			let matchingEntries = allEntries.filter(
-				(entry: any) =>
+				(entry: RegistryEntry) =>
 					entry.slashCommandTrigger?.startsWith(trigger) &&
-					entry.slashCommandTrigger !== "/"
+					entry.slashCommandTrigger !== "/",
 			);
 
 			if (matchingEntries.length > 0) {
@@ -709,10 +714,10 @@ export const handleInputChange = (view: HydrateView): void => {
 						requestAnimationFrame(() => {
 							view.textInput.setSelectionRange(
 								newCursorPos,
-								newCursorPos
+								newCursorPos,
 							);
 						});
-					}
+					},
 				);
 
 				modal.open();
@@ -727,7 +732,7 @@ export const handleInputChange = (view: HydrateView): void => {
  */
 export const handleInputKeydown = (
 	view: HydrateView,
-	event: KeyboardEvent
+	event: KeyboardEvent,
 ): void => {
 	// Since we're using modals for suggestions, we only need to handle Enter for sending
 	if (event.key === "Enter" && !event.shiftKey) {

@@ -1,4 +1,4 @@
-import { MarkdownRenderer, Notice, setIcon } from "obsidian";
+import { MarkdownRenderer, Notice, setIcon, TFile } from "obsidian";
 import { devLog } from "../../utils/logger";
 import { HydrateView } from "./hydrateView"; // Corrected path
 import { RegistryEntry, ChatTurn } from "../../types"; // Corrected path (up two levels from components/HydrateView)
@@ -445,7 +445,7 @@ export function renderNoteSearchSuggestions(view: HydrateView): void {
 	suggestionsContainer.addClass("hydrate-suggestions-visible");
 	suggestionsContainer.removeClass("hydrate-suggestions-hidden");
 
-	noteSearchResults.forEach((file: any, index: number) => {
+	noteSearchResults.forEach((file: TFile, index: number) => {
 		const itemEl = suggestionsContainer.createDiv({
 			cls: "hydrate-suggestion-item p-1.5 cursor-pointer hover:bg-[var(--background-modifier-hover)] rounded-sm text-sm",
 		});
@@ -533,7 +533,10 @@ export function selectNoteSearchResult(view: HydrateView, index: number): void {
 /**
  * Updates the note search results and re-renders the suggestions UI.
  */
-export function setNoteSearchResults(view: HydrateView, results: any[]): void {
+export function setNoteSearchResults(
+	view: HydrateView,
+	results: TFile[],
+): void {
 	view.noteSearchResults = results;
 	view.activeSuggestionIndex = -1;
 	view.noteSearchActive = results.length > 0;

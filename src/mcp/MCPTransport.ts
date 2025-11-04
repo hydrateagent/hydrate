@@ -7,7 +7,7 @@ import { EventEmitter } from "events";
 export interface MCPTransport extends EventEmitter {
 	connect(): Promise<void>;
 	disconnect(): Promise<void>;
-	send(message: any): Promise<void>;
+	send(message: unknown): Promise<void>;
 	isConnected(): boolean;
 }
 
@@ -22,7 +22,7 @@ export class StdioTransport extends EventEmitter implements MCPTransport {
 	constructor(
 		private command: string,
 		private args: string[] = [],
-		private env: Record<string, string> = {}
+		private env: Record<string, string> = {},
 	) {
 		super();
 	}
@@ -118,7 +118,7 @@ export class StdioTransport extends EventEmitter implements MCPTransport {
 		});
 	}
 
-	async send(message: any): Promise<void> {
+	async send(message: unknown): Promise<void> {
 		if (!this.connected || !this.process?.stdin) {
 			throw new Error("Transport not connected");
 		}
@@ -155,7 +155,7 @@ export class StdioTransport extends EventEmitter implements MCPTransport {
 				} catch (error) {
 					this.emit(
 						"error",
-						new Error(`Failed to parse message: ${line}`)
+						new Error(`Failed to parse message: ${line}`),
 					);
 				}
 			}
@@ -197,8 +197,8 @@ export class WebSocketTransport extends EventEmitter implements MCPTransport {
 						this.emit(
 							"error",
 							new Error(
-								`Failed to parse WebSocket message: ${event.data}`
-							)
+								`Failed to parse WebSocket message: ${event.data}`,
+							),
 						);
 					}
 				};
@@ -225,7 +225,7 @@ export class WebSocketTransport extends EventEmitter implements MCPTransport {
 		}
 	}
 
-	async send(message: any): Promise<void> {
+	async send(message: unknown): Promise<void> {
 		if (!this.connected || !this.ws) {
 			throw new Error("Transport not connected");
 		}

@@ -63,13 +63,15 @@ export async function toolEditFile(
 			const successMsg = `Successfully created file ${finalNormalizedPath}`;
 			new Notice(successMsg);
 			return successMsg;
-		} catch (error: any) {
+		} catch (error: unknown) {
 			devLog.error(
 				`Error during vault.create for ${finalNormalizedPath}:`,
 				error,
 			);
+			const errorMessage =
+				error instanceof Error ? error.message : "Unknown error";
 			throw new Error(
-				`Failed to create file ${finalNormalizedPath}: ${error.message}`,
+				`Failed to create file ${finalNormalizedPath}: ${errorMessage}`,
 			);
 		}
 	} else if (file instanceof TFile) {
@@ -81,13 +83,15 @@ export async function toolEditFile(
 			const successMsg = `Successfully overwrote file content of ${finalNormalizedPath}`;
 			new Notice(successMsg);
 			return successMsg;
-		} catch (error: any) {
+		} catch (error: unknown) {
 			devLog.error(
 				`Error during vault.modify for ${finalNormalizedPath}:`,
 				error,
 			);
+			const errorMessage =
+				error instanceof Error ? error.message : "Unknown error";
 			throw new Error(
-				`Failed to write new content to ${finalNormalizedPath}: ${error.message}`,
+				`Failed to write new content to ${finalNormalizedPath}: ${errorMessage}`,
 			);
 		}
 	} else {
@@ -159,6 +163,11 @@ export async function toolReplaceSelectionInFile(
 	return statusMessage;
 }
 
+interface ApplyPatchesParams {
+	path: string;
+	patches: Patch[];
+}
+
 /**
  * Applies patches to a file within the Obsidian vault.
  * @param plugin - The HydratePlugin instance.
@@ -168,10 +177,10 @@ export async function toolReplaceSelectionInFile(
  */
 export async function applyPatchesToFile(
 	plugin: HydratePlugin,
-	params: any,
+	params: ApplyPatchesParams,
 ): Promise<string> {
-	const path = params.path as string;
-	const patches = params.patches as Patch[];
+	const path = params.path;
+	const patches = params.patches;
 
 	if (!path) {
 		return "Error: 'path' parameter is missing.";

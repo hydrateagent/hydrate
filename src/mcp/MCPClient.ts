@@ -8,24 +8,24 @@ export interface MCPRequest {
 	jsonrpc: "2.0";
 	id: string | number;
 	method: string;
-	params?: any;
+	params?: Record<string, unknown>;
 }
 
 export interface MCPResponse {
 	jsonrpc: "2.0";
 	id: string | number;
-	result?: any;
+	result?: unknown;
 	error?: {
 		code: number;
 		message: string;
-		data?: any;
+		data?: unknown;
 	};
 }
 
 export interface MCPNotification {
 	jsonrpc: "2.0";
 	method: string;
-	params?: any;
+	params?: Record<string, unknown>;
 }
 
 export type MCPMessage = MCPRequest | MCPResponse | MCPNotification;
@@ -38,7 +38,7 @@ export interface MCPToolSchema {
 	description: string;
 	inputSchema: {
 		type: "object";
-		properties: Record<string, any>;
+		properties: Record<string, unknown>;
 		required?: string[];
 	};
 }
@@ -53,7 +53,7 @@ export class MCPClient extends EventEmitter {
 	private pendingRequests = new Map<
 		string | number,
 		{
-			resolve: (value: any) => void;
+			resolve: (value: unknown) => void;
 			reject: (error: Error) => void;
 			timeout: NodeJS.Timeout;
 		}
@@ -72,7 +72,7 @@ export class MCPClient extends EventEmitter {
 			this.emit("connect");
 		});
 
-		this.transport.on("disconnect", (info?: any) => {
+		this.transport.on("disconnect", (info?: unknown) => {
 			this.connected = false;
 			this.cleanupPendingRequests();
 			this.emit("disconnect", info);
@@ -126,7 +126,10 @@ export class MCPClient extends EventEmitter {
 		await this.transport.disconnect();
 	}
 
-	async request(method: string, params?: any): Promise<any> {
+	async request(
+		method: string,
+		params?: Record<string, unknown>,
+	): Promise<unknown> {
 		if (!this.connected) {
 			throw new Error("MCP client not connected");
 		}
@@ -158,7 +161,10 @@ export class MCPClient extends EventEmitter {
 		});
 	}
 
-	async notify(method: string, params?: any): Promise<void> {
+	async notify(
+		method: string,
+		params?: Record<string, unknown>,
+	): Promise<void> {
 		if (!this.connected) {
 			throw new Error("MCP client not connected");
 		}
@@ -173,15 +179,20 @@ export class MCPClient extends EventEmitter {
 	}
 
 	async listTools(): Promise<MCPToolSchema[]> {
-		const response = await this.request("tools/list");
+		const response = (await this.request("tools/list")) as {
+			tools?: MCPToolSchema[];
+		};
 		return response.tools || [];
 	}
 
-	async callTool(name: string, parameters: any): Promise<any> {
-		const response = await this.request("tools/call", {
+	async callTool(
+		name: string,
+		parameters: Record<string, unknown>,
+	): Promise<unknown> {
+		const response = (await this.request("tools/call", {
 			name,
 			arguments: parameters,
-		});
+		})) as { content?: unknown };
 		return response.content;
 	}
 
@@ -209,8 +220,8 @@ export class MCPClient extends EventEmitter {
 			this.emit(
 				"error",
 				new Error(
-					`Received response for unknown request ID: ${response.id}`
-				)
+					`Received response for unknown request ID: ${response.id}`,
+				),
 			);
 			return;
 		}
@@ -220,8 +231,8 @@ export class MCPClient extends EventEmitter {
 
 		if (response.error) {
 			const error = new Error(response.error.message) as Error & {
-				code?: any;
-				data?: any;
+				code?: number;
+				data?: unknown;
 			};
 			error.code = response.error.code;
 			error.data = response.error.data;
@@ -243,7 +254,7 @@ export class MCPClient extends EventEmitter {
 				// Unknown notification - just emit as generic event
 				this.emit(
 					`notification:${notification.method}`,
-					notification.params
+					notification.params,
 				);
 		}
 	}
@@ -263,7 +274,7 @@ export class MCPClient extends EventEmitter {
 export function createStdioMCPClient(
 	command: string,
 	args: string[] = [],
-	env: Record<string, string> = {}
+	env: Record<string, string> = {},
 ): MCPClient {
 	const { StdioTransport } = require("./MCPTransport");
 	const transport = new StdioTransport(command, args, env);

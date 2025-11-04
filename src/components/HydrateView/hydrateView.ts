@@ -16,6 +16,7 @@ import {
 } from "./toolImplementations"; // Ensure this path is correct for your setup
 import { handleSearchProject } from "../../toolHandlers"; // <<< ADD THIS IMPORT
 import { devLog } from "../../utils/logger";
+import { MCPToolSchemaWithMetadata } from "../../mcp/MCPServerManager";
 import {
 	addMessageToChat,
 	renderFilePills, // Alias dom utils
@@ -38,7 +39,7 @@ interface HistoryMessage {
 	type: "human" | "ai" | "tool" | "system"; // Langchain types
 	content: string;
 	// Optional fields from Langchain messages
-	tool_calls?: { id: string; name: string; args: any }[];
+	tool_calls?: { id: string; name: string; args: Record<string, unknown> }[];
 	tool_call_id?: string;
 }
 
@@ -51,7 +52,7 @@ interface MCPToolInfo {
 interface BackendToolCall {
 	action: "tool_call";
 	tool: string;
-	params: any;
+	params: Record<string, unknown>;
 	id: string; // Tool call ID from the agent
 	mcp_info?: MCPToolInfo; // Optional MCP routing information
 }
@@ -66,7 +67,13 @@ interface BackendResponse {
 // Interface for storing tool results with their IDs
 interface ToolResult {
 	id: string;
-	result: any;
+	result: unknown;
+}
+
+// Interface for HydrateView state
+interface HydrateViewState {
+	sourceFilePath?: string;
+	[key: string]: unknown;
 }
 
 export class HydrateView extends ItemView {
@@ -150,7 +157,10 @@ export class HydrateView extends ItemView {
 		return "droplet";
 	}
 
-	async setState(state: any, result: ViewStateResult): Promise<void> {
+	async setState(
+		state: HydrateViewState,
+		result: ViewStateResult,
+	): Promise<void> {
 		let fileToAttachPath: string | null = null;
 
 		if (state?.sourceFilePath) {
@@ -394,7 +404,7 @@ export class HydrateView extends ItemView {
 
 	// --- Backend Communication ---
 
-	async callBackend(endpoint: string, payload: any) {
+	async callBackend(endpoint: string, payload: Record<string, unknown>) {
 		// Cancel any existing request
 		if (this.abortController) {
 			this.abortController.abort();
@@ -481,16 +491,18 @@ export class HydrateView extends ItemView {
 				}
 				setLoadingState(this, false);
 			}
-		} catch (error: any) {
+		} catch (error: unknown) {
 			// Reset abort controller on error
 			this.abortController = null;
 
-			if (error.name === "AbortError") {
+			if (error instanceof Error && error.name === "AbortError") {
 				addMessageToChat(this, "agent", "Request cancelled by user.");
 			} else {
 				devLog.error("Backend call failed:", error);
-				new Notice(`Backend error: ${error.message}`);
-				addMessageToChat(this, "agent", `Error: ${error.message}`);
+				const errorMessage =
+					error instanceof Error ? error.message : "Unknown error";
+				new Notice(`Backend error: ${errorMessage}`);
+				addMessageToChat(this, "agent", `Error: ${errorMessage}`);
 			}
 			setLoadingState(this, false);
 		}
@@ -498,7 +510,7 @@ export class HydrateView extends ItemView {
 
 	private async sendToolResults(results: ToolResult[]) {
 		// Collect MCP tools from running servers
-		let mcpTools: any[] = [];
+		let mcpTools: MCPToolSchemaWithMetadata[] = [];
 		if (this.plugin.mcpManager) {
 			try {
 				mcpTools = await this.plugin.mcpManager.getAllDiscoveredTools();
@@ -512,7 +524,11 @@ export class HydrateView extends ItemView {
 			devLog.warn("[sendToolResults] No MCP Manager found!");
 		}
 
-		const payload: any = {
+		const payload: {
+			tool_results: ToolResult[];
+			conversation_id: string | null;
+			mcp_tools: MCPToolSchemaWithMetadata[];
+		} = {
 			tool_results: results,
 			conversation_id: this.conversationId,
 			mcp_tools: mcpTools, // Include MCP tools in tool result request
@@ -612,7 +628,7 @@ export class HydrateView extends ItemView {
 					// Actually apply the changes to the file
 					try {
 						const file = this.app.vault.getAbstractFileByPath(
-							toolCall.params.path,
+							toolCall.params.path as string,
 						);
 						if (file instanceof TFile) {
 							await this.app.vault.modify(
@@ -622,7 +638,7 @@ export class HydrateView extends ItemView {
 						} else {
 							// File doesn't exist, create it
 							await this.app.vault.create(
-								toolCall.params.path,
+								toolCall.params.path as string,
 								reviewResult.finalContent || "",
 							);
 						}
@@ -682,7 +698,7 @@ export class HydrateView extends ItemView {
 			// Determine the target file path
 			const targetPath = toolCall.params.path;
 			const instructions =
-				toolCall.params.instructions ||
+				(toolCall.params.instructions as string) ||
 				`Apply ${toolCall.tool} to ${targetPath}`;
 
 			// Prepare content based on tool type
@@ -692,7 +708,9 @@ export class HydrateView extends ItemView {
 
 			try {
 				// Wrap file reading and content generation in try-catch
-				const file = this.app.vault.getAbstractFileByPath(targetPath);
+				const file = this.app.vault.getAbstractFileByPath(
+					targetPath as string,
+				);
 				if (file instanceof TFile) {
 					originalContent = await this.app.vault.read(file);
 				} else {
@@ -701,9 +719,12 @@ export class HydrateView extends ItemView {
 
 				// Determine proposed content based on the tool type
 				if (toolCall.tool === "editFile") {
-					proposedContent = toolCall.params.code_edit || ""; // Assuming code_edit holds the full proposed content
+					proposedContent =
+						(toolCall.params.code_edit as string) || ""; // Assuming code_edit holds the full proposed content
 				} else if (toolCall.tool === "replaceSelectionInFile") {
-					const { original_selection, new_content } = toolCall.params;
+					const original_selection = toolCall.params
+						.original_selection as string;
+					const new_content = toolCall.params.new_content as string;
 					if (!originalContent.includes(original_selection)) {
 						// If original selection isn't found, maybe show modal with error or just the new content?
 						// For now, let's show the diff against the original, highlighting the intended change might fail.
@@ -809,7 +830,7 @@ export class HydrateView extends ItemView {
 				new DiffReviewModal(
 					this.app,
 					this.plugin, // Pass plugin instance
-					targetPath,
+					targetPath as string,
 					originalContent,
 					proposedContent, // Use the determined proposed content
 					instructions,
@@ -835,7 +856,9 @@ export class HydrateView extends ItemView {
 		});
 	}
 
-	private async executeSingleTool(toolCall: BackendToolCall): Promise<any> {
+	private async executeSingleTool(
+		toolCall: BackendToolCall,
+	): Promise<unknown> {
 		// Check if this is an MCP tool
 		if (toolCall.mcp_info && toolCall.mcp_info.is_mcp_tool) {
 			return await this.executeMCPTool(toolCall);
@@ -844,7 +867,10 @@ export class HydrateView extends ItemView {
 		// Handle native tools
 		switch (toolCall.tool) {
 			case "readFile": // Match tool name from backend
-				return await toolReadFile(this.app, toolCall.params.path);
+				return await toolReadFile(
+					this.app,
+					toolCall.params.path as string,
+				);
 			case "replaceSelectionInFile": // <<< KEPT CASE (but now also goes through review)
 				// This case should ideally not be hit directly anymore if filtering is correct,
 				// but kept for safety. Review logic handles execution.
@@ -854,9 +880,9 @@ export class HydrateView extends ItemView {
 				// Fallback to direct execution if somehow called directly (not ideal)
 				return await toolReplaceSelectionInFile(
 					this.app,
-					toolCall.params.path,
-					toolCall.params.original_selection,
-					toolCall.params.new_content,
+					toolCall.params.path as string,
+					toolCall.params.original_selection as string,
+					toolCall.params.new_content as string,
 				);
 			case "search_project": // <<< ADD THIS CASE
 				return await handleSearchProject(
@@ -872,7 +898,7 @@ export class HydrateView extends ItemView {
 		}
 	}
 
-	private async executeMCPTool(toolCall: BackendToolCall): Promise<any> {
+	private async executeMCPTool(toolCall: BackendToolCall): Promise<unknown> {
 		if (!toolCall.mcp_info) {
 			throw new Error("MCP tool call missing routing information");
 		}
@@ -889,12 +915,15 @@ export class HydrateView extends ItemView {
 			}
 
 			// Unwrap kwargs if present (LangChain wraps MCP tool parameters in kwargs)
-			let actualParams = toolCall.params;
+			let actualParams: Record<string, unknown> = toolCall.params;
 			if (
 				toolCall.params.kwargs &&
 				typeof toolCall.params.kwargs === "object"
 			) {
-				actualParams = toolCall.params.kwargs;
+				actualParams = toolCall.params.kwargs as Record<
+					string,
+					unknown
+				>;
 			}
 
 			// Execute the tool via MCPServerManager

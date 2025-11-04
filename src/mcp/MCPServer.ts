@@ -351,7 +351,7 @@ export class MCPServer extends EventEmitter {
 			this.handleClientError(error);
 		});
 
-		this.client.on("disconnect", (info: any) => {
+		this.client.on("disconnect", (info: unknown) => {
 			this.handleClientDisconnect(info);
 		});
 
@@ -422,7 +422,7 @@ export class MCPServer extends EventEmitter {
 		}
 	}
 
-	private handleClientDisconnect(info: any): void {
+	private handleClientDisconnect(info: unknown): void {
 		devLog.warn(`${this.config.id} Client disconnected:`, info);
 
 		if (this.status === MCPServerStatus.RUNNING) {

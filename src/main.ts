@@ -34,6 +34,7 @@ import { handleSearchProject } from "./toolHandlers"; // <<< ADD IMPORT
 
 // MCP imports
 import { MCPServerManager, MCPConfigStorage } from "./mcp/MCPServerManager";
+import { MCPServerConfig } from "./mcp/MCPServerConfig";
 import { devLog } from "./utils/logger";
 
 // Remember to rename these classes and interfaces!
@@ -96,7 +97,7 @@ export interface HydratePluginSettings {
 	remoteEmbeddingApiKey: string;
 	remoteEmbeddingModelName: string;
 	indexFileExtensions: string; // New setting for file extensions
-	mcpServers: any[]; // Added mcpServers property
+	mcpServers: MCPServerConfig[]; // Added mcpServers property
 
 	// --- MCP PATH Configuration ---
 	mcpCustomPaths: string; // Comma-separated list of paths to add to PATH for MCP servers
@@ -176,11 +177,15 @@ const DEFAULT_SETTINGS: HydratePluginSettings = {
 
 export const REACT_HOST_VIEW_TYPE = "hydrate-react-host"; // Define type for React host
 
+interface MCPConfig {
+	servers: MCPServerConfig[];
+}
+
 // Define a type for the prepared tool calls received from the agent
 interface AgentPreparedToolCall {
 	id: string;
 	tool: string;
-	params: any; // Parameters for the tool
+	params: Record<string, unknown>; // Parameters for the tool
 	// action: string; // Might also include 'action' field like 'tool_call'
 }
 
@@ -221,12 +226,12 @@ export default class HydratePlugin extends Plugin {
 			// Create MCP server manager
 			const plugin = this; // Capture reference for use in config storage
 			const configStorage: MCPConfigStorage = {
-				async saveConfig(config: any): Promise<void> {
+				async saveConfig(config: MCPConfig): Promise<void> {
 					// Store MCP config in plugin settings
 					plugin.settings.mcpServers = config.servers || [];
 					await plugin.saveSettings();
 				},
-				async loadConfig(): Promise<any> {
+				async loadConfig(): Promise<MCPConfig> {
 					// Load MCP config from plugin settings
 					return {
 						servers: plugin.settings.mcpServers || [],
@@ -327,7 +332,7 @@ export default class HydratePlugin extends Plugin {
 				if (this.settings.enableRemoteEmbeddings) {
 					// No need to await, let it run in the background
 					deleteDocumentFromIndex(this.app, file.path).catch(
-						(err: any) =>
+						(err: unknown) =>
 							devLog.error(
 								`Error removing deleted file ${file.path} from index:`,
 								err,
@@ -459,7 +464,16 @@ export default class HydratePlugin extends Plugin {
 							.setIcon("droplet")
 							.onClick(() => {
 								// Execute the same logic as the command
-								(this.app as any).commands.executeCommandById(
+								interface AppWithCommands {
+									commands: {
+										executeCommandById: (
+											id: string,
+										) => void;
+									};
+								}
+								(
+									this.app as unknown as AppWithCommands
+								).commands.executeCommandById(
 									"add-selection-to-hydrate",
 								);
 							});
@@ -541,8 +555,14 @@ export default class HydratePlugin extends Plugin {
 		}
 
 		// Pass the source file path in the state when opening the view
-		const viewStateToSet: any = {
-			// Use 'any' temporarily if strict type causes issues
+		interface ViewStateToSet {
+			type: string;
+			active: boolean;
+			state: {
+				sourceFilePath?: string;
+			};
+		}
+		const viewStateToSet: ViewStateToSet = {
 			type: HYDRATE_VIEW_TYPE,
 			active: true,
 			state: {}, // Initialize empty state object
@@ -646,11 +666,19 @@ export default class HydratePlugin extends Plugin {
 					// Get the active leaf to switch the view
 					const activeLeaf = this.app.workspace.getLeaf();
 					if (activeLeaf) {
+						interface ReactHostViewState {
+							type: string;
+							state: {
+								filePath: string;
+								viewKey: string;
+							};
+							active: boolean;
+						}
 						activeLeaf.setViewState({
 							type: REACT_HOST_VIEW_TYPE,
 							state: { filePath: file.path, viewKey: viewKey },
 							active: true, // Ensure the leaf becomes active
-						} as any);
+						} as ReactHostViewState);
 					}
 				}
 				return true;

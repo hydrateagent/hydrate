@@ -17,6 +17,12 @@ import HydratePlugin, {
 import { ReactViewProps } from "./types";
 import { devLog } from "./utils/logger";
 
+interface ReactViewHostState {
+	filePath?: string | null;
+	viewKey?: string | null;
+	[key: string]: unknown;
+}
+
 export class ReactViewHost extends ItemView {
 	plugin: HydratePlugin;
 	currentFilePath: string | null = null;
@@ -44,8 +50,8 @@ export class ReactViewHost extends ItemView {
 	}
 
 	// Store file path and view key in view state
-	getState(): any {
-		const state = {
+	getState(): ReactViewHostState {
+		const state: ReactViewHostState = {
 			...super.getState(), // Preserve scroll position etc. if possible
 			filePath: this.currentFilePath,
 			viewKey: this.currentViewKey,
@@ -54,7 +60,10 @@ export class ReactViewHost extends ItemView {
 	}
 
 	// Set state is called when navigating to this view, potentially reusing the leaf
-	async setState(state: any, result: ViewStateResult): Promise<void> {
+	async setState(
+		state: ReactViewHostState,
+		result: ViewStateResult,
+	): Promise<void> {
 		const newFilePath = state.filePath;
 		const newViewKey = state.viewKey;
 

@@ -11,6 +11,8 @@ import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest"; // Import from vitest
 import IssueBoardView from "./IssueBoardView";
 import { ReactViewProps } from "../types";
+import { App } from "obsidian";
+import HydratePlugin from "../main";
 
 // Mock the updateMarkdownContent prop
 // Make it return a resolved promise to allow .catch() in the component
@@ -22,8 +24,8 @@ const defaultProps: ReactViewProps = {
 	markdownContent: "", // Start with empty, override in tests
 	updateMarkdownContent: mockUpdateMarkdownContent,
 	// Add basic mocks for other required props
-	app: {} as any, // Provide a minimal mock if specific app methods aren't needed
-	plugin: {} as any, // Provide a minimal mock if specific plugin methods aren't needed
+	app: {} as Partial<App> as App, // Provide a minimal mock if specific app methods aren't needed
+	plugin: {} as Partial<HydratePlugin> as HydratePlugin, // Provide a minimal mock if specific plugin methods aren't needed
 	switchToMarkdownView: mockSwitchToMarkdownView, // Use the vi.fn() mock
 	// Add mocks for other props if they become necessary for specific tests
 	// app: {} as any,
