@@ -6,6 +6,7 @@ import {
 	TextComponent,
 	ButtonComponent,
 	Modal,
+	requestUrl,
 } from "obsidian";
 import HydratePlugin, { ALLOWED_MODELS, ModelName } from "../main"; // Corrected path & ADDED IMPORTS
 import { RegistryEditModal } from "./RegistryEditModal";
@@ -1500,7 +1501,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 		}
 	}
 
-	private async handleAPIKeyReregistration() {
+	private handleAPIKeyReregistration(): void {
 		const modal = new (class extends Modal {
 			constructor(
 				app: App,
@@ -1615,10 +1616,18 @@ export class HydrateSettingTab extends PluginSettingTab {
 			headers["X-Google-Key"] = this.plugin.settings.googleApiKey;
 		}
 
-		return fetch(url, {
+		const response = await requestUrl({
+			url,
 			method: "POST",
 			headers,
 			body: JSON.stringify(data),
 		});
+
+		// Return a Response-like object that matches the fetch API
+		return {
+			ok: response.status >= 200 && response.status < 300,
+			status: response.status,
+			json: async () => response.json,
+		} as Response;
 	}
 }
