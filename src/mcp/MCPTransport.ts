@@ -152,7 +152,7 @@ export class StdioTransport extends EventEmitter implements MCPTransport {
 				try {
 					const message = JSON.parse(line);
 					this.emit("message", message);
-				} catch (error) {
+				} catch {
 					this.emit(
 						"error",
 						new Error(`Failed to parse message: ${line}`),
@@ -193,7 +193,7 @@ export class WebSocketTransport extends EventEmitter implements MCPTransport {
 					try {
 						const message = JSON.parse(event.data);
 						this.emit("message", message);
-					} catch (error) {
+					} catch {
 						this.emit(
 							"error",
 							new Error(

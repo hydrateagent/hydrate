@@ -3,7 +3,6 @@ import {
 	PluginSettingTab,
 	Setting,
 	Notice,
-	TextComponent,
 	ButtonComponent,
 	Modal,
 	requestUrl,
@@ -15,7 +14,6 @@ import { MCPServersConfigModal } from "./MCPServerEditModal";
 import { devLog } from "../utils/logger";
 import { MCPServerSettingsModal } from "./MCPServerSettingsModal"; // <<< IMPORT MCP SERVER MODAL
 // Settings styles are now compiled into styles.css via hydrate-styles.css
-import { RuleEntry } from "../types"; // <<< IMPORT RuleEntry
 import {
 	MCPServerConfig,
 	MCPServerStatus,
@@ -833,7 +831,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 		);
 
 		entries.forEach((entry) => {
-			const settingItem = new Setting(containerEl)
+			new Setting(containerEl)
 				.setName(entry.description || `(ID: ${entry.id})`) // Show ID if no description
 				.setDesc(
 					`Trigger: ${entry.slashCommandTrigger || "None"} | Type: ${
@@ -929,7 +927,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 		);
 
 		rules.forEach((rule) => {
-			const settingItem = new Setting(containerEl)
+			new Setting(containerEl)
 				.setName(rule.description || `(ID: ${rule.id})`) // Show ID if no description
 				.setDesc(`Tag: ${rule.id} | v${rule.version}`)
 				.setClass("hydrate-registry-item") // Reuse existing class
@@ -1371,7 +1369,6 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 			const licenseInfo = await response.json();
 			const tierName = licenseInfo.tier?.toUpperCase() || "UNKNOWN";
-			const statusColor = licenseInfo.is_active ? "green" : "red";
 			const statusText = licenseInfo.is_active ? "Active" : "Inactive";
 
 			statusDiv.empty();

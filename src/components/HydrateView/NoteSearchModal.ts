@@ -1,6 +1,5 @@
 import { App, FuzzySuggestModal, TFile, FuzzyMatch } from "obsidian";
 import { HydrateView } from "./hydrateView";
-import { renderFilePills } from "./domUtils";
 
 export class NoteSearchModal extends FuzzySuggestModal<TFile> {
 	private view: HydrateView;

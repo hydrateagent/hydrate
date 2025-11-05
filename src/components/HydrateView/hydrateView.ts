@@ -1375,7 +1375,6 @@ export class HydrateView extends ItemView {
 		this.activePopup = popup;
 
 		// Position popup near the anchor element after adding to DOM
-		const rect = anchorElement.getBoundingClientRect();
 		popup.addClass("hydrate-popup-positioned");
 		// Note: Dynamic positioning disabled to avoid direct style manipulation
 		// Popup will appear in a fixed position relative to the viewport

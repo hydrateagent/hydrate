@@ -18,19 +18,6 @@ interface VectraItem<M extends Record<string, unknown>> {
 	id: string; // Add id field for Vectra item identification
 }
 
-// Define a simple tokenizer to avoid issues with gpt-3-encoder in Obsidian environment
-class SimpleObsidianTokenizer {
-	encode(text: string): number[] {
-		// This is a placeholder. Vectra might use it for internal purposes we are not aware of.
-		// For our primary use (semantic search with externally provided embeddings), this should suffice.
-		// If Vectra uses token counts for something critical even in vector-only mode, this might need refinement.
-		devLog.warn(
-			"[SimpleObsidianTokenizer] encode called. This is a basic placeholder.",
-		);
-		return text.split(" ").map((s) => s.length); // Example: return array of word lengths
-	}
-}
-
 // Define the structure for metadata stored in Vectra
 interface VectraMetadata {
 	filePath: string;
@@ -658,11 +645,9 @@ export async function addOrUpdateDocumentsBatch(
 	}
 
 	// Process documents in batches
-	const totalBatches = Math.ceil(documentsToEmbed.length / batchSize);
 	for (let i = 0; i < documentsToEmbed.length; i += batchSize) {
 		const batch = documentsToEmbed.slice(i, i + batchSize);
 		const batchTexts = batch.map((item) => item.document.text);
-		const batchNumber = Math.floor(i / batchSize) + 1;
 
 		try {
 			const embeddings = await embedTextsViaRemoteApi(

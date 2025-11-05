@@ -1,7 +1,7 @@
 import { MarkdownRenderer, Notice, setIcon, TFile } from "obsidian";
 import { devLog } from "../../utils/logger";
 import { HydrateView } from "./hydrateView"; // Corrected path
-import { RegistryEntry, ChatTurn } from "../../types"; // Corrected path (up two levels from components/HydrateView)
+import { RegistryEntry } from "../../types"; // Corrected path (up two levels from components/HydrateView)
 import {
 	removeFilePill as removeEventHandlerFilePill,
 	handleSuggestionSelect,

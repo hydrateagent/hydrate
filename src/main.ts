@@ -4,7 +4,6 @@ import {
 	Plugin,
 	TFile, // Added
 	WorkspaceLeaf,
-	ItemView,
 } from "obsidian";
 
 import {
@@ -257,22 +256,17 @@ export default class HydratePlugin extends Plugin {
 				this.settings.mcpServers &&
 				this.settings.mcpServers.length > 0
 			) {
-				let loadedCount = 0;
-				let failedCount = 0;
-
 				for (const serverConfig of this.settings.mcpServers) {
 					try {
 						await this.mcpManager.addServer(
 							serverConfig.id,
 							serverConfig,
 						);
-						loadedCount++;
 					} catch (error) {
 						devLog.error(
 							`✗ Failed to load server ${serverConfig.id} (${serverConfig.name}):`,
 							error,
 						);
-						failedCount++;
 					}
 				}
 
@@ -280,17 +274,12 @@ export default class HydratePlugin extends Plugin {
 				const managerServerIds = this.mcpManager.getServerIds();
 
 				// Trigger tool discovery for any servers that are already running
-				let discoveryCount = 0;
 				for (const serverId of managerServerIds) {
 					const server = this.mcpManager.getServer(serverId);
 					const status = this.mcpManager.getServerStatus(serverId);
 					if (server && status === MCPServerStatus.RUNNING) {
 						try {
-							const tools =
-								await this.mcpManager.refreshServerTools(
-									serverId,
-								);
-							discoveryCount++;
+							await this.mcpManager.refreshServerTools(serverId);
 						} catch (error) {
 							devLog.error(
 								`✗ Tool discovery failed for ${serverId}:`,

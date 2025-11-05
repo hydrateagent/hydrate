@@ -1,5 +1,5 @@
 import { EventEmitter } from "events";
-import { MCPServer, MCPServerEvents } from "./MCPServer";
+import { MCPServer } from "./MCPServer";
 import {
 	MCPServerConfig,
 	MCPServerStatus,
@@ -758,15 +758,11 @@ export class MCPServerManager extends EventEmitter {
 	 */
 	getAllDiscoveredTools(): MCPToolSchemaWithMetadata[] {
 		const allTools: MCPToolSchemaWithMetadata[] = [];
-		let serverCount = 0;
-		let toolCount = 0;
 
-		for (const [serverId, server] of this.servers) {
+		for (const [serverId] of this.servers) {
 			try {
 				const tools = this.getToolsFromServer(serverId);
 				allTools.push(...tools);
-				serverCount++;
-				toolCount += tools.length;
 			} catch (error) {
 				devLog.error(
 					`MCPServerManager: Failed to get tools from server ${serverId}:`,

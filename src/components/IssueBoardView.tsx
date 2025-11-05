@@ -11,7 +11,7 @@ import { visit } from "unist-util-visit";
 import { toString } from "mdast-util-to-string";
 import { devLog } from "../utils/logger";
 import { Node, Parent } from "unist"; // Import Node and Parent types
-import { Root, Heading, List, ListItem, Text } from "mdast"; // Import specific mdast types
+import { Root, Heading, List, ListItem } from "mdast"; // Import specific mdast types
 
 // --- Data Model Interfaces ---
 interface IssueItem {

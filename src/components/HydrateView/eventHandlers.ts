@@ -1,7 +1,4 @@
-import { Notice, TFile, requestUrl, MarkdownView } from "obsidian";
-import { TFolder } from "obsidian";
-
-import * as path from "path";
+import { Notice, TFile, requestUrl } from "obsidian";
 import type { HydrateView } from "./hydrateView";
 import { RegistryEntry } from "../../types"; // Added import
 import { MCPToolSchemaWithMetadata } from "../../mcp/MCPServerManager";
@@ -11,10 +8,6 @@ import {
 	setLoadingState as setDomLoadingState,
 	setSuggestions as setDomSuggestions,
 	setTextContent as setDomTextContent,
-	renderSuggestions as renderDomSuggestions,
-	setNoteSearchResults,
-	selectNoteSearchResult,
-	renderNoteSearchSuggestions,
 } from "./domUtils";
 import { NoteSearchModal } from "./NoteSearchModal";
 import { SlashCommandModal } from "./SlashCommandModal";
@@ -624,7 +617,6 @@ export const handleInputChange = (view: HydrateView): void => {
 	// Check for note search pattern [[ first (but not if deleting)
 	const noteSearchMatch = textBeforeCursor.match(/\[\[([^\]]*?)$/);
 	if (noteSearchMatch && !isDeleting) {
-		const query = noteSearchMatch[1];
 		const triggerStart =
 			noteSearchMatch.index !== undefined ? noteSearchMatch.index : -1;
 

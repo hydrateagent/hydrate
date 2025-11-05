@@ -1,8 +1,6 @@
 import { App, TFile, Notice, normalizePath } from "obsidian";
 import HydratePlugin from "../../main";
 import { Patch } from "../../types";
-
-import * as path from "path";
 import { devLog } from "../../utils/logger";
 /**
  * Reads the content of a file within the Obsidian vault.

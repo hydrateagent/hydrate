@@ -6,7 +6,6 @@ import {
 	TAbstractFile,
 	ViewStateResult,
 	Notice,
-	MarkdownView,
 } from "obsidian";
 import * as React from "react";
 import { Root, createRoot } from "react-dom/client";
@@ -142,8 +141,8 @@ export class ReactViewHost extends ItemView {
 
 	private updateDisplayText(): void {
 		// Update tab title - call this after currentFilePath changes
-		const title = this.getDisplayText();
-		// this.leaf.setDisplayText(title); // Remove this line - getDisplayText handles it
+		this.getDisplayText();
+		// this.leaf.setDisplayText() is not needed - getDisplayText handles it
 		// Update icon if desired: this.leaf.tabHeaderInnerIconEl.empty(); this.leaf.tabHeaderInnerIconEl.createEl(...)
 	}
 

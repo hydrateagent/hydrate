@@ -1,20 +1,11 @@
 import {
 	App,
 	Modal,
-	Setting,
 	Notice,
-	TextComponent,
-	DropdownComponent,
-	ToggleComponent,
 	ButtonComponent,
 	TextAreaComponent,
 } from "obsidian";
-import HydratePlugin from "../main";
-import {
-	MCPServerConfig,
-	DEFAULT_MCP_SERVER_CONFIG,
-	MCPServerConfigValidator,
-} from "../mcp/MCPServerConfig";
+import { MCPServerConfig } from "../mcp/MCPServerConfig";
 
 export class MCPServersConfigModal extends Modal {
 	private onSave: (configs: MCPServerConfig[]) => void;
