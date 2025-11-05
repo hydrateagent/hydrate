@@ -34,7 +34,7 @@ import { handleSearchProject } from "./toolHandlers"; // <<< ADD IMPORT
 
 // MCP imports
 import { MCPServerManager, MCPConfigStorage } from "./mcp/MCPServerManager";
-import { MCPServerConfig } from "./mcp/MCPServerConfig";
+import { MCPServerConfig, MCPServerStatus } from "./mcp/MCPServerConfig";
 import { devLog } from "./utils/logger";
 
 // Remember to rename these classes and interfaces!
@@ -224,18 +224,17 @@ export default class HydratePlugin extends Plugin {
 		// --- Initialize MCP Server Manager ---
 		try {
 			// Create MCP server manager
-			const plugin = this; // Capture reference for use in config storage
 			const configStorage: MCPConfigStorage = {
-				async saveConfig(config: MCPConfig): Promise<void> {
+				saveConfig: async (config: MCPConfig): Promise<void> => {
 					// Store MCP config in plugin settings
-					plugin.settings.mcpServers = config.servers || [];
-					await plugin.saveSettings();
+					this.settings.mcpServers = config.servers || [];
+					await this.saveSettings();
 				},
-				async loadConfig(): Promise<MCPConfig> {
+				loadConfig: (): Promise<MCPConfig> => {
 					// Load MCP config from plugin settings
-					return {
-						servers: plugin.settings.mcpServers || [],
-					};
+					return Promise.resolve({
+						servers: this.settings.mcpServers || [],
+					});
 				},
 			};
 
@@ -285,7 +284,7 @@ export default class HydratePlugin extends Plugin {
 				for (const serverId of managerServerIds) {
 					const server = this.mcpManager.getServer(serverId);
 					const status = this.mcpManager.getServerStatus(serverId);
-					if (server && status === "running") {
+					if (server && status === MCPServerStatus.RUNNING) {
 						try {
 							const tools =
 								await this.mcpManager.refreshServerTools(
@@ -349,7 +348,7 @@ export default class HydratePlugin extends Plugin {
 
 		// --- Toggle Command ---
 		this.addCommand({
-			id: "toggle-hydrate-react-view",
+			id: "toggle-react-view",
 			name: "Toggle Markdown / React view",
 			checkCallback: this.checkToggleReactView,
 		});
@@ -361,8 +360,8 @@ export default class HydratePlugin extends Plugin {
 
 		// Add hotkey command to open Hydrate pane
 		this.addCommand({
-			id: "open-hydrate-pane",
-			name: "Open Hydrate pane",
+			id: "open-pane",
+			name: "Open pane",
 			callback: async () => {
 				await this.activateView();
 			},
@@ -390,7 +389,7 @@ export default class HydratePlugin extends Plugin {
 
 		// --- Add Selection Command ---
 		this.addCommand({
-			id: "add-selection-to-hydrate",
+			id: "add-selection-to-context",
 			name: "Add selection to context",
 			checkCallback: (checking: boolean) => {
 				// 1. Check if we have an active Markdown editor with selection
@@ -577,7 +576,7 @@ export default class HydratePlugin extends Plugin {
 	}
 
 	// --- File Open Handler (Simplified for File Attachment Logic) ---
-	handleFileOpen = async (file: TFile | null) => {
+	handleFileOpen = (file: TFile | null) => {
 		// --- Part 1: Notify the Hydrate Pane (Keep this logic) ---
 		const hydrateLeaves =
 			this.app.workspace.getLeavesOfType(HYDRATE_VIEW_TYPE);

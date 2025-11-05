@@ -210,27 +210,35 @@ export class WebSocketTransport extends EventEmitter implements MCPTransport {
 
 				this.ws.onerror = (error) => {
 					this.emit("error", error);
-					reject(error);
+					reject(
+						error instanceof Error
+							? error
+							: new Error(String(error)),
+					);
 				};
 			} catch (error) {
-				reject(error);
+				reject(
+					error instanceof Error ? error : new Error(String(error)),
+				);
 			}
 		});
 	}
 
-	async disconnect(): Promise<void> {
+	disconnect(): Promise<void> {
 		if (this.ws && this.connected) {
 			this.ws.close();
 			this.connected = false;
 		}
+		return Promise.resolve();
 	}
 
-	async send(message: unknown): Promise<void> {
+	send(message: unknown): Promise<void> {
 		if (!this.connected || !this.ws) {
-			throw new Error("Transport not connected");
+			return Promise.reject(new Error("Transport not connected"));
 		}
 
 		this.ws.send(JSON.stringify(message));
+		return Promise.resolve();
 	}
 
 	isConnected(): boolean {

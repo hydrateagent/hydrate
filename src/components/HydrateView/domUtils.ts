@@ -82,7 +82,7 @@ export function addMessageToChat(
 				content,
 				messageEl,
 				"",
-				plugin,
+				view,
 			);
 
 			// Create and add the copy button AFTER rendering

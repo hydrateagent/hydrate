@@ -1,5 +1,9 @@
 import { EventEmitter } from "events";
-import { MCPTransport } from "./MCPTransport";
+import {
+	MCPTransport,
+	StdioTransport,
+	WebSocketTransport,
+} from "./MCPTransport";
 
 /**
  * MCP Protocol message types
@@ -156,7 +160,9 @@ export class MCPClient extends EventEmitter {
 			this.transport.send(message).catch((error) => {
 				this.pendingRequests.delete(id);
 				clearTimeout(timeout);
-				reject(error);
+				reject(
+					error instanceof Error ? error : new Error(String(error)),
+				);
 			});
 		});
 	}
@@ -276,7 +282,6 @@ export function createStdioMCPClient(
 	args: string[] = [],
 	env: Record<string, string> = {},
 ): MCPClient {
-	const { StdioTransport } = require("./MCPTransport");
 	const transport = new StdioTransport(command, args, env);
 	return new MCPClient(transport);
 }
@@ -285,7 +290,6 @@ export function createStdioMCPClient(
  * Utility function to create an MCP client with WebSocket transport
  */
 export function createWebSocketMCPClient(url: string): MCPClient {
-	const { WebSocketTransport } = require("./MCPTransport");
 	const transport = new WebSocketTransport(url);
 	return new MCPClient(transport);
 }

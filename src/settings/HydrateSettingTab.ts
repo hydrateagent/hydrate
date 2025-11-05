@@ -189,18 +189,18 @@ export class HydrateSettingTab extends PluginSettingTab {
 		});
 
 		if (this.plugin.settings.licenseKey) {
-			subscriptionStatusSection.createEl("h4", {
-				text: "Subscription status",
-			});
+			new Setting(subscriptionStatusSection)
+				.setName("Subscription status")
+				.setHeading();
 			const statusDiv = subscriptionStatusSection.createEl("div", {
 				cls: "hydrate-subscription-status-display",
 			});
 			statusDiv.createEl("p", { text: "Loading subscription status..." });
 			void this.loadSubscriptionStatus(statusDiv);
 		} else {
-			subscriptionStatusSection.createEl("h4", {
-				text: "Current tier: free",
-			});
+			new Setting(subscriptionStatusSection)
+				.setName("Current tier: free")
+				.setHeading();
 			const freeInfoDiv = subscriptionStatusSection.createEl("div", {
 				cls: "hydrate-subscription-info",
 			});
@@ -730,9 +730,9 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 										onOpen() {
 											const { contentEl } = this;
-											contentEl.createEl("h2", {
-												text: "Rebuild vector index",
-											});
+											new Setting(contentEl)
+												.setName("Rebuild vector index")
+												.setHeading();
 											contentEl.createEl("p", {
 												text: "This will completely delete the existing index and rebuild it from scratch. This is useful if you're experiencing search errors due to corrupted index data.",
 											});
@@ -1413,7 +1413,9 @@ export class HydrateSettingTab extends PluginSettingTab {
 			const featuresContainer = statusDiv.createDiv({
 				cls: "hydrate-subscription-features",
 			});
-			featuresContainer.createEl("h5", { text: "Available features:" });
+			new Setting(featuresContainer)
+				.setName("Available features:")
+				.setHeading();
 
 			const featuresList = featuresContainer.createEl("ul");
 
@@ -1509,7 +1511,9 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 			onOpen() {
 				const { contentEl } = this;
-				contentEl.createEl("h2", { text: "Re-register API keys" });
+				new Setting(contentEl)
+					.setName("Re-register API keys")
+					.setHeading();
 				contentEl.createEl("p", {
 					text: "Are you sure you want to re-register your API keys? This will revoke all previously registered keys and count against your annual quota.",
 				});

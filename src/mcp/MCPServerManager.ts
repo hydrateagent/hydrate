@@ -756,7 +756,7 @@ export class MCPServerManager extends EventEmitter {
 	/**
 	 * Get all discovered MCP tools from running servers
 	 */
-	async getAllDiscoveredTools(): Promise<MCPToolSchemaWithMetadata[]> {
+	getAllDiscoveredTools(): MCPToolSchemaWithMetadata[] {
 		const allTools: MCPToolSchemaWithMetadata[] = [];
 		let serverCount = 0;
 		let toolCount = 0;
