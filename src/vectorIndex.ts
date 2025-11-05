@@ -920,7 +920,7 @@ export async function initializeVectorSystem(
 				"[initializeVectorSystem] Vault adapter is not a FileSystemAdapter. Cannot get base path for Vectra index.",
 			);
 			new Notice(
-				"Hydrate: cannot initialize vector index due to adapter type. context search may not work.",
+				"Cannot initialize vector index due to adapter type. Context search may not work.",
 			);
 			localIndex = null;
 			return;
@@ -951,7 +951,7 @@ export async function initializeVectorSystem(
 			error,
 		);
 		new Notice(
-			"Hydrate: failed to initialize vector index. context search may not work. check console.",
+			"Failed to initialize vector index. Context search may not work. Check console.",
 		);
 	}
 }

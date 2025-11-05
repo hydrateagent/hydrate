@@ -58,11 +58,11 @@ export class RuleEditModal extends Modal {
 		new Setting(contentEl)
 			.setName("Rule ID (tag)")
 			.setDesc(
-				"Identifier used in `hydrate-rules` frontmatter. must be unique and contain no spaces.",
+				"identifier used in `hydrate-rules` frontmatter. must be unique and contain no spaces.",
 			)
 			.addText((text) => {
 				idInput = text;
-				text.setPlaceholder("e.g., confidentiality-notice")
+				text.setPlaceholder("Name")
 					.setValue(this.entry.id)
 					.setDisabled(!this.isNew) // Disable if editing existing
 					.onChange((value) => {
@@ -84,10 +84,10 @@ export class RuleEditModal extends Modal {
 		let descriptionInput: TextComponent;
 		new Setting(contentEl)
 			.setName("Description")
-			.setDesc("What this rule does or enforces.")
+			.setDesc("Purpose of this rule")
 			.addText((text) => {
 				descriptionInput = text;
-				text.setPlaceholder("e.g., Include standard legal disclaimer")
+				text.setPlaceholder("Description")
 					.setValue(this.entry.description)
 					.onChange((value) => {
 						this.entry.description = value.trim();

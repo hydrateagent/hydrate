@@ -278,22 +278,7 @@ export function setLoadingState(
 				text: "...",
 			});
 
-			// Add CSS animation for the dots
-			const style = document.createElement("style");
-			style.textContent = `
-				.hydrate-loading-dots {
-					animation: hydrate-loading-blink 1.4s infinite both;
-					margin-left: 4px;
-				}
-				@keyframes hydrate-loading-blink {
-					0%, 80%, 100% { opacity: 0; }
-					40% { opacity: 1; }
-				}
-			`;
-			if (!document.head.querySelector("style[data-hydrate-loading]")) {
-				style.setAttribute("data-hydrate-loading", "true");
-				document.head.appendChild(style);
-			}
+			// CSS animation is now defined in hydrate-styles.css
 
 			// Scroll to show the loading indicator
 			if (chatContainer) {

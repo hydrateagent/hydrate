@@ -145,7 +145,7 @@ const parseIssueMarkdown = (
 							currentCardData.headerLineIndex !== undefined
 								? currentCardData.headerLineIndex + 1
 								: "[Unknown Line]";
-						let missing = [];
+						const missing = [];
 						if (currentCardData.items === undefined)
 							missing.push("### Items");
 						if (currentCardData.status === undefined)
@@ -382,7 +382,7 @@ const processCardSiblings = (
 // --- Markdown Serializer ---
 const serializeIssuesToMarkdown = (groups: Group[]): string => {
 	// Accept groups
-	let lines: string[] = [];
+	const lines: string[] = [];
 
 	groups.forEach((group, groupIndex) => {
 		// Add H1 only if it's not the default "Uncategorized" group *or* if it's the only group

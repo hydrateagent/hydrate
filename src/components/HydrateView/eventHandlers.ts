@@ -71,7 +71,7 @@ export const handleDrop = (view: HydrateView, event: DragEvent): void => {
 		.filter((p) => p);
 	const allVaultFiles = view.app.vault.getFiles();
 	let filesAdded = 0;
-	let failedPaths: string[] = [];
+	const failedPaths: string[] = [];
 
 	potentialPaths.forEach((potentialPath) => {
 		let vaultPath: string | null = null;
@@ -673,7 +673,7 @@ export const handleInputChange = (view: HydrateView): void => {
 
 		if (triggerStart !== -1) {
 			const allEntries = view.plugin.getRegistryEntries();
-			let matchingEntries = allEntries.filter(
+			const matchingEntries = allEntries.filter(
 				(entry: RegistryEntry) =>
 					entry.slashCommandTrigger?.startsWith(trigger) &&
 					entry.slashCommandTrigger !== "/",

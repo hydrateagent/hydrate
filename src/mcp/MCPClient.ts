@@ -266,7 +266,7 @@ export class MCPClient extends EventEmitter {
 	}
 
 	private cleanupPendingRequests(): void {
-		for (const [id, pending] of this.pendingRequests) {
+		for (const [, pending] of this.pendingRequests) {
 			clearTimeout(pending.timeout);
 			pending.reject(new Error("Connection closed"));
 		}

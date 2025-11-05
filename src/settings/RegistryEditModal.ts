@@ -62,7 +62,7 @@ export class RegistryEditModal extends Modal {
 		// ID (Read-only)
 		new Setting(contentEl)
 			.setName("ID (unique identifier)")
-			.setDesc("Internal ID. cannot be changed.")
+			.setDesc("Internal ID. Cannot be changed.")
 			.addText((text) => {
 				text.setValue(this.entry.id).setDisabled(true);
 				this.textInputs.push(text);
@@ -72,10 +72,10 @@ export class RegistryEditModal extends Modal {
 		let descriptionInput: TextComponent;
 		new Setting(contentEl)
 			.setName("Description")
-			.setDesc("What this format/context is used for.")
+			.setDesc("Purpose of this format")
 			.addText((text) => {
 				descriptionInput = text;
-				text.setPlaceholder("e.g., Standard Issue Board Template")
+				text.setPlaceholder("Name")
 					.setValue(this.entry.description)
 					.onChange((value) => {
 						this.entry.description = value.trim();
@@ -88,7 +88,7 @@ export class RegistryEditModal extends Modal {
 		new Setting(contentEl)
 			.setName("Slash command trigger (optional)")
 			.setDesc(
-				"Command like /issue. must start with / and contain no spaces, or be empty.",
+				"Command like /issue. Must start with / and contain no spaces, or be empty.",
 			)
 			.addText((text) => {
 				triggerInput = text;

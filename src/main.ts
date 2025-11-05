@@ -294,7 +294,7 @@ export default class HydratePlugin extends Plugin {
 		} catch (error) {
 			devLog.error("Failed to initialize MCP Server Manager:", error);
 			new Notice(
-				"Failed to initialize MCP Server Manager. MCP tools will not be available.",
+				"Failed to initialize server manager. Tools will not be available.",
 			);
 		}
 
@@ -338,7 +338,7 @@ export default class HydratePlugin extends Plugin {
 		// --- Toggle Command ---
 		this.addCommand({
 			id: "toggle-react-view",
-			name: "Toggle Markdown / React view",
+			name: "Toggle view",
 			checkCallback: this.checkToggleReactView,
 		});
 
@@ -359,7 +359,7 @@ export default class HydratePlugin extends Plugin {
 		// This creates an icon in the left ribbon to open the Hydrate pane
 		const ribbonIconEl = this.addRibbonIcon(
 			"droplet", // Water droplet icon for Hydrate
-			"Open Hydrate pane",
+			"Open hydrate pane",
 			async (evt: MouseEvent) => {
 				// Open the pane when the icon is clicked
 				await this.activateView();
@@ -435,7 +435,7 @@ export default class HydratePlugin extends Plugin {
 				hydrateView.textInput.focus();
 
 				new Notice(
-					"Selected text captured and /select added to Hydrate.",
+					"Selected text captured and /select added to hydrate.",
 				);
 
 				return true; // Command executed successfully
@@ -448,7 +448,7 @@ export default class HydratePlugin extends Plugin {
 				// Only add menu item if there's a text selection
 				if (editor.getSelection()) {
 					menu.addItem((item) => {
-						item.setTitle("Capture selection for Hydrate")
+						item.setTitle("Capture selection for hydrate")
 							.setIcon("droplet")
 							.onClick(() => {
 								// Execute the same logic as the command
@@ -1023,7 +1023,7 @@ export default class HydratePlugin extends Plugin {
 			!this.settings.remoteEmbeddingModelName
 		) {
 			new Notice(
-				"Remote embedding configuration is incomplete. Please check settings in Hydrate plugin options.",
+				"Remote embedding configuration is incomplete. Please check settings in hydrate plugin options.",
 			);
 			return;
 		}

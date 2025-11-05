@@ -26,18 +26,18 @@ export class MCPServersConfigModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 
-		contentEl.createEl("h2", { text: "MCP servers" });
+		contentEl.createEl("h2", { text: "Configure servers" });
 
 		contentEl.createEl("p", {
-			text: "Configure all your MCP servers using JSON format. this will replace your current server configuration.",
+			text: "Configure all your servers using JSON format. This will replace your current server configuration.",
 			cls: "setting-item-description",
 		});
 
 		// JSON Configuration
 		// Add a header and description above the textarea
-		contentEl.createEl("h4", { text: "MCP servers JSON" });
+		contentEl.createEl("h4", { text: "Configuration" });
 		contentEl.createEl("p", {
-			text: "Paste your complete MCP servers configuration",
+			text: "Paste your complete servers configuration.",
 		});
 		const jsonTextAreaEl = contentEl.createEl("textarea");
 		jsonTextAreaEl.rows = 20;
@@ -67,12 +67,12 @@ export class MCPServersConfigModal extends Modal {
 
 		// Info section
 		const infoEl = contentEl.createDiv({ cls: "hydrate-mcp-config-info" });
-		infoEl.createEl("h4", { text: "Supported formats:" });
+		infoEl.createEl("h4", { text: "Formats:" });
 		const infoList = infoEl.createEl("ul");
 		infoList.createEl("li", {
-			text: "STDIO servers: use 'command' and 'args' fields",
+			text: "Stdio servers: use 'command' and 'args' fields.",
 		});
-		infoList.createEl("li", { text: "SSE servers: use 'url' field" });
+		infoList.createEl("li", { text: "Sse servers: use 'URL' field" });
 		infoList.createEl("li", {
 			text: "Environment variables: use 'env' object",
 		});

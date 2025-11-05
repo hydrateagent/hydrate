@@ -22,7 +22,7 @@ export class MCPServerSettingsModal extends Modal {
 		contentEl.createEl("h2", { text: `${this.server.name}` });
 
 		contentEl.createEl("p", {
-			text: "Configure advanced settings, metadata, and health checks for this MCP server.",
+			text: "Advanced settings and metadata",
 			cls: "setting-item-description",
 		});
 
@@ -168,9 +168,9 @@ export class MCPServerSettingsModal extends Modal {
 
 		new Setting(contentEl)
 			.setName("Tags")
-			.setDesc("Comma-separated tags for categorizing this server")
+			.setDesc("Comma-separated tags for categorizing")
 			.addText((text) => {
-				text.setPlaceholder("filesystem, development, tools")
+				text.setPlaceholder("Tag")
 					.setValue((this.server.tags || []).join(", "))
 					.onChange((value) => {
 						this.server.tags = value.trim()
