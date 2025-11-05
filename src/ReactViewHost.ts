@@ -44,7 +44,7 @@ export class ReactViewHost extends ItemView {
 
 	getDisplayText(): string {
 		return this.currentFilePath
-			? (this.currentFilePath.split("/").pop() ?? "Hydrate view")
+			? this.currentFilePath.split("/").pop() ?? "Hydrate view"
 			: "Hydrate view";
 	}
 
@@ -61,7 +61,7 @@ export class ReactViewHost extends ItemView {
 	// Set state is called when navigating to this view, potentially reusing the leaf
 	async setState(
 		state: ReactViewHostState,
-		result: ViewStateResult,
+		result: ViewStateResult
 	): Promise<void> {
 		const newFilePath = state.filePath;
 		const newViewKey = state.viewKey;
@@ -113,7 +113,7 @@ export class ReactViewHost extends ItemView {
 		this.addAction(
 			"document", // Icon name
 			"Switch to Markdown view",
-			this.switchToMarkdownView,
+			this.switchToMarkdownView
 		);
 
 		// Listen for modifications to the current file
@@ -124,11 +124,11 @@ export class ReactViewHost extends ItemView {
 			await this.mountReactComponent();
 		} else if (!this.currentFilePath || !this.currentViewKey) {
 			devLog.debug(
-				"ReactViewHost [onOpen]: Missing path or key, cannot mount component yet.",
+				"ReactViewHost [onOpen]: missing path or key, cannot mount component yet."
 			);
 		} else {
 			devLog.debug(
-				"ReactViewHost [onOpen]: React root seems to exist already or mount was triggered by setState.",
+				"ReactViewHost [onOpen]: React root seems to exist already or mount was triggered by setState."
 			);
 		}
 	}
@@ -154,13 +154,13 @@ export class ReactViewHost extends ItemView {
 				this.contentEl.empty(); // Clear the container
 			} catch (e) {
 				devLog.error(
-					"ReactViewHost [unmountReactComponent]: Error during unmount:",
-					e,
+					"ReactViewHost [unmountReactComponent]: error during unmount:",
+					e
 				);
 			}
 		} else {
 			devLog.warn(
-				"ReactViewHost [unmountReactComponent]: No React root to unmount.",
+				"ReactViewHost [unmountReactComponent]: no React root to unmount."
 			);
 		}
 	}
@@ -171,10 +171,10 @@ export class ReactViewHost extends ItemView {
 
 		if (!this.currentFilePath || !this.currentViewKey) {
 			devLog.error(
-				"ReactViewHost [mountReactComponent]: Missing file path or view key.",
+				"ReactViewHost [mountReactComponent]: missing file path or view key."
 			);
 			this.contentEl.setText(
-				"Error: missing file path or view key for React component.",
+				"Error: missing file path or view key for React component."
 			);
 			return;
 		}
@@ -182,10 +182,10 @@ export class ReactViewHost extends ItemView {
 		const ReactComponent = getReactViewComponent(this.currentViewKey);
 		if (!ReactComponent) {
 			devLog.error(
-				`ReactViewHost [mountReactComponent]: No React component registered for key "${this.currentViewKey}".`,
+				`ReactViewHost [mountReactComponent]: no React component registered for key "${this.currentViewKey}".`
 			);
 			this.contentEl.setText(
-				`Error: no React component registered for key "${this.currentViewKey}".`,
+				`Error: no React component registered for key "${this.currentViewKey}".`
 			);
 			return;
 		}
@@ -193,10 +193,10 @@ export class ReactViewHost extends ItemView {
 		const file = this.app.vault.getAbstractFileByPath(this.currentFilePath);
 		if (!(file instanceof TFile)) {
 			devLog.error(
-				`ReactViewHost [mountReactComponent]: File not found or is not a TFile: ${this.currentFilePath}`,
+				`ReactViewHost [mountReactComponent]: file not found or is not a TFile: ${this.currentFilePath}`
 			);
 			this.contentEl.setText(
-				`Error: file not found: ${this.currentFilePath}`,
+				`Error: file not found: ${this.currentFilePath}`
 			);
 			return;
 		}
@@ -217,7 +217,7 @@ export class ReactViewHost extends ItemView {
 			// Ensure the container element exists
 			if (!this.contentEl) {
 				devLog.error(
-					"ReactViewHost [mountReactComponent]: contentEl is not available!",
+					"ReactViewHost [mountReactComponent]: contentEl is not available!"
 				);
 				return;
 			}
@@ -229,13 +229,13 @@ export class ReactViewHost extends ItemView {
 			this.reactRoot.render(React.createElement(ReactComponent, props));
 		} catch (error) {
 			devLog.error(
-				"ReactViewHost [mountReactComponent]: Error mounting React component:",
-				error,
+				"ReactViewHost [mountReactComponent]: error mounting React component:",
+				error
 			);
 			this.contentEl.setText(
 				`Error loading component: ${
 					error instanceof Error ? error.message : String(error)
-				}`,
+				}`
 			);
 		}
 	}
@@ -245,7 +245,7 @@ export class ReactViewHost extends ItemView {
 	updateMarkdownContent = async (newContent: string): Promise<boolean> => {
 		if (!this.currentFilePath) {
 			devLog.error(
-				`ReactViewHost [updateMarkdownContent]: Cannot update markdown, currentFilePath is null.`,
+				`ReactViewHost [updateMarkdownContent]: cannot update markdown, currentFilePath is null.`
 			);
 			new Notice("Error: cannot save changes, file context lost.", 5000);
 			return false;
@@ -255,7 +255,7 @@ export class ReactViewHost extends ItemView {
 		const file = this.app.vault.getAbstractFileByPath(this.currentFilePath);
 		if (!(file instanceof TFile)) {
 			devLog.error(
-				`ReactViewHost [updateMarkdownContent]: File not found during update: ${this.currentFilePath}`,
+				`ReactViewHost [updateMarkdownContent]: file not found during update: ${this.currentFilePath}`
 			);
 			new Notice("Error: file not found, cannot save changes.", 5000);
 			return false;
@@ -272,14 +272,14 @@ export class ReactViewHost extends ItemView {
 			return true;
 		} catch (error) {
 			devLog.error(
-				`ReactViewHost [updateMarkdownContent]: Error updating markdown file ${this.currentFilePath}:`,
-				error,
+				`ReactViewHost [updateMarkdownContent]: error updating markdown file ${this.currentFilePath}:`,
+				error
 			);
 			new Notice(
 				`Error saving changes to ${file.basename}: ${
 					error instanceof Error ? error.message : "Unknown error"
 				}`,
-				5000,
+				5000
 			);
 			return false;
 		}
@@ -290,7 +290,7 @@ export class ReactViewHost extends ItemView {
 	switchToMarkdownView = async (): Promise<void> => {
 		if (!this.currentFilePath) {
 			devLog.error(
-				"ReactViewHost [switchToMarkdownView]: Cannot switch to markdown, currentFilePath is null.",
+				"ReactViewHost [switchToMarkdownView]: cannot switch to markdown, currentFilePath is null."
 			);
 			return;
 		}
@@ -309,8 +309,8 @@ export class ReactViewHost extends ItemView {
 			});
 		} catch (error) {
 			devLog.error(
-				"ReactViewHost [switchToMarkdownView]: Error during setViewState:",
-				error,
+				"ReactViewHost [switchToMarkdownView]: error during setViewState:",
+				error
 			);
 			// Reset flag potentially? Or handle error state
 			this.plugin.isSwitchingToMarkdown = false; // Reset flag on error maybe?
@@ -332,18 +332,18 @@ export class ReactViewHost extends ItemView {
 					await this.mountReactComponent(); // Re-render with new content
 				} else {
 					devLog.warn(
-						"ReactViewHost [handleVaultModify]: Content has not changed, skipping remount.",
+						"ReactViewHost [handleVaultModify]: Content has not changed, skipping remount."
 					);
 				}
 			} catch (error) {
 				devLog.error(
 					`ReactViewHost [handleVaultModify]: Error reading modified file ${this.currentFilePath}:`,
-					error,
+					error
 				);
 				// Optionally show an error message to the user
 				new Notice(
 					`Error reloading ${file.basename} after external modification.`,
-					5000,
+					5000
 				);
 			}
 		}
