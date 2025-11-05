@@ -9,7 +9,7 @@ const isDevelopment = process.env.NODE_ENV === "development";
 export const devLog = {
 	info: (message: string, ...args: unknown[]) => {
 		if (isDevelopment) {
-			console.log(`[Hydrate] ${message}`, ...args);
+			console.debug(`[Hydrate] ${message}`, ...args);
 		}
 	},
 

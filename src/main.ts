@@ -674,7 +674,7 @@ export default class HydratePlugin extends Plugin {
 							};
 							active: boolean;
 						}
-						activeLeaf.setViewState({
+						void activeLeaf.setViewState({
 							type: REACT_HOST_VIEW_TYPE,
 							state: { filePath: file.path, viewKey: viewKey },
 							active: true, // Ensure the leaf becomes active

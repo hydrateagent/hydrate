@@ -20,6 +20,7 @@ import {
 	MCPServerStatus,
 	MCPServerHealth,
 } from "../mcp/MCPServerConfig"; // <<< IMPORT MCP TYPES
+import { ConfirmationModal } from "../utils/ConfirmationModal";
 
 export class HydrateSettingTab extends PluginSettingTab {
 	plugin: HydratePlugin;
@@ -195,7 +196,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 				cls: "hydrate-subscription-status-display",
 			});
 			statusDiv.createEl("p", { text: "Loading subscription status..." });
-			this.loadSubscriptionStatus(statusDiv);
+			void this.loadSubscriptionStatus(statusDiv);
 		} else {
 			subscriptionStatusSection.createEl("h4", {
 				text: "Current tier: free",
@@ -367,7 +368,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 							...this.plugin.getRegistryEntries(), // Use getter to ensure array exists
 							newEntry,
 						];
-						this.plugin.saveSettings();
+						void this.plugin.saveSettings();
 						this.renderFormatRegistryList(formatRegistryListEl); // Use specific renderer
 						new Notice(
 							`Added format entry: ${
@@ -415,7 +416,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 							...this.plugin.getRulesRegistryEntries(), // Use rules getter
 							newRule,
 						];
-						this.plugin.saveSettings();
+						void this.plugin.saveSettings();
 						this.renderRulesRegistryList(rulesRegistryListEl); // Re-render the rules list
 						new Notice(
 							`Added rule: ${newRule.description || newRule.id}`,
@@ -860,7 +861,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 													? updatedEntry
 													: e,
 											);
-									this.plugin.saveSettings();
+									void this.plugin.saveSettings();
 									this.renderFormatRegistryList(containerEl); // Use specific renderer
 									new Notice(
 										`Updated format entry: ${
@@ -879,27 +880,29 @@ export class HydrateSettingTab extends PluginSettingTab {
 						.setIcon("trash") // Use Obsidian's trash icon
 						.setTooltip("Delete format entry") // Updated tooltip
 						.setWarning() // Use Obsidian's warning style for delete
-						.onClick(async () => {
-							// Simple confirmation using window.confirm (consider a custom modal for better UX)
-							if (
-								confirm(
-									`Are you sure you want to delete "${
-										entry.description || entry.id
-									}"?`,
-								)
-							) {
-								this.plugin.settings.registryEntries =
-									this.plugin
-										.getRegistryEntries()
-										.filter((e) => e.id !== entry.id); // Filter out the entry
-								await this.plugin.saveSettings();
-								this.renderFormatRegistryList(containerEl); // Use specific renderer
-								new Notice(
-									`Deleted format entry: ${
-										entry.description || entry.id
-									}`,
-								);
-							}
+						.onClick(() => {
+							new ConfirmationModal(
+								this.app,
+								`Are you sure you want to delete "${
+									entry.description || entry.id
+								}"?`,
+								async () => {
+									this.plugin.settings.registryEntries =
+										this.plugin
+											.getRegistryEntries()
+											.filter((e) => e.id !== entry.id); // Filter out the entry
+									await this.plugin.saveSettings();
+									this.renderFormatRegistryList(containerEl); // Use specific renderer
+									new Notice(
+										`Deleted format entry: ${
+											entry.description || entry.id
+										}`,
+									);
+								},
+								undefined,
+								"Delete",
+								"Cancel",
+							).open();
 						}),
 				);
 		});
@@ -950,7 +953,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 													? updatedRule
 													: r,
 											);
-									this.plugin.saveSettings();
+									void this.plugin.saveSettings();
 									this.renderRulesRegistryList(containerEl); // Re-render this list
 									new Notice(
 										`Updated rule: ${
@@ -969,26 +972,29 @@ export class HydrateSettingTab extends PluginSettingTab {
 						.setIcon("trash")
 						.setTooltip("Delete rule")
 						.setWarning()
-						.onClick(async () => {
-							if (
-								confirm(
-									`Are you sure you want to delete the rule "${
-										rule.description || rule.id
-									}"?`,
-								)
-							) {
-								this.plugin.settings.rulesRegistryEntries =
-									this.plugin
-										.getRulesRegistryEntries()
-										.filter((r) => r.id !== rule.id); // Filter out the rule
-								await this.plugin.saveSettings();
-								this.renderRulesRegistryList(containerEl); // Re-render this list
-								new Notice(
-									`Deleted rule: ${
-										rule.description || rule.id
-									}`,
-								);
-							}
+						.onClick(() => {
+							new ConfirmationModal(
+								this.app,
+								`Are you sure you want to delete the rule "${
+									rule.description || rule.id
+								}"?`,
+								async () => {
+									this.plugin.settings.rulesRegistryEntries =
+										this.plugin
+											.getRulesRegistryEntries()
+											.filter((r) => r.id !== rule.id); // Filter out the rule
+									await this.plugin.saveSettings();
+									this.renderRulesRegistryList(containerEl); // Re-render this list
+									new Notice(
+										`Deleted rule: ${
+											rule.description || rule.id
+										}`,
+									);
+								},
+								undefined,
+								"Delete",
+								"Cancel",
+							).open();
 						}),
 				);
 		});
@@ -1167,7 +1173,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 		}
 
 		this.plugin.settings.mcpServers = servers;
-		this.plugin.saveSettings();
+		void this.plugin.saveSettings();
 
 		// Refresh the display
 		this.display();
@@ -1216,7 +1222,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 		servers.splice(index, 1);
 		this.plugin.settings.mcpServers = servers;
-		this.plugin.saveSettings();
+		void this.plugin.saveSettings();
 		this.display();
 
 		new Notice(`Removed server: ${server.name || server.id}`);
@@ -1339,7 +1345,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 		updatedServer: MCPServerConfig,
 	) {
 		this.plugin.settings.mcpServers[index] = updatedServer;
-		this.plugin.saveSettings();
+		void this.plugin.saveSettings();
 		this.display(); // Refresh the entire display
 	}
 

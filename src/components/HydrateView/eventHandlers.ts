@@ -301,7 +301,7 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 
 		if (triggerMap.size > 0) {
 			const escapedTriggers = Array.from(triggerMap.keys()).map((cmd) =>
-				cmd.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&"),
+				cmd.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&"),
 			);
 			// Regex to find registered commands *only*
 			const commandRegex = new RegExp(

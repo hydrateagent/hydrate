@@ -2,6 +2,7 @@ import { App, FuzzySuggestModal, FuzzyMatch } from "obsidian";
 import { ChatHistory } from "../../types";
 import { HydrateView } from "./hydrateView";
 import { devLog } from "../../utils/logger";
+import { ConfirmationModal } from "../../utils/ConfirmationModal";
 
 export class ChatHistoryModal extends FuzzySuggestModal<ChatHistory> {
 	private view: HydrateView;
@@ -83,21 +84,25 @@ export class ChatHistoryModal extends FuzzySuggestModal<ChatHistory> {
 			e.stopPropagation(); // Prevent selecting the item
 			e.preventDefault();
 
-			// Confirm deletion
-			const confirmed = confirm(
+			// Confirm deletion using custom modal
+			new ConfirmationModal(
+				this.app,
 				`Are you sure you want to delete "${chat.title}"?`,
-			);
-			if (confirmed) {
-				void (async () => {
-					try {
-						await this.view.plugin.deleteChatHistory(chat.id);
+				() => {
+					void (async () => {
+						try {
+							await this.view.plugin.deleteChatHistory(chat.id);
 
-						// Modal will automatically refresh since getItems() fetches current data
-					} catch (error) {
-						devLog.error("Error deleting chat history:", error);
-					}
-				})();
-			}
+							// Modal will automatically refresh since getItems() fetches current data
+						} catch (error) {
+							devLog.error("Error deleting chat history:", error);
+						}
+					})();
+				},
+				undefined,
+				"Delete",
+				"Cancel",
+			).open();
 		});
 
 		// Apply flexbox layout styling via CSS class

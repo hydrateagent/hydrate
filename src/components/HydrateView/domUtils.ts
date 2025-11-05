@@ -16,7 +16,7 @@ export function addMessageToChat(
 	content: string | HTMLElement,
 	isError: boolean = false,
 ): void {
-	const chatContainer = view.chatContainer as HTMLDivElement; // Access private member
+	const chatContainer = view.chatContainer; // Access private member
 	const plugin = view.plugin; // Access private member
 
 	if (!chatContainer) {
@@ -77,7 +77,13 @@ export function addMessageToChat(
 		const originalContentString = content; // Store original string for copying
 		try {
 			// Render markdown first
-			MarkdownRenderer.render(plugin.app, content, messageEl, "", plugin);
+			void MarkdownRenderer.render(
+				plugin.app,
+				content,
+				messageEl,
+				"",
+				plugin,
+			);
 
 			// Create and add the copy button AFTER rendering
 			const copyButton = messageEl.createEl("button", {
@@ -133,7 +139,7 @@ export function addMessageToChat(
 
 		if (allCommandsToHighlight.length > 0) {
 			const escapedCommands = allCommandsToHighlight.map((cmd: string) =>
-				cmd.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&"),
+				cmd.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&"),
 			);
 			const commandRegex = new RegExp(
 				`(${escapedCommands.join("|")})(?=\\s|$)`,
@@ -210,8 +216,8 @@ export function setLoadingState(
 	view.isLoading = loading;
 	const textInput = view.textInput as HTMLTextAreaElement;
 	const stopButton = view.stopButton as HTMLButtonElement | null;
-	const loadingIndicator = view.loadingIndicator as HTMLDivElement | null;
-	const chatContainer = view.chatContainer as HTMLDivElement;
+	const loadingIndicator = view.loadingIndicator;
+	const chatContainer = view.chatContainer;
 	const containerEl = view.containerEl; // Public member
 
 	// Find the actual send button (it has class 'hydrate-overlay-button' and text 'Send')
@@ -349,8 +355,7 @@ export function renderFilePills(view: HydrateView): void {
  * Renders the slash command suggestions.
  */
 export function renderSuggestions(view: HydrateView): void {
-	const suggestionsContainer =
-		view.suggestionsContainer as HTMLDivElement | null;
+	const suggestionsContainer = view.suggestionsContainer;
 	const suggestions = view.suggestions as RegistryEntry[];
 	const activeSuggestionIndex = view.activeSuggestionIndex as number;
 
@@ -431,8 +436,7 @@ export function setTextContent(view: HydrateView, text: string): void {
  * Renders note search suggestions for [[ note linking.
  */
 export function renderNoteSearchSuggestions(view: HydrateView): void {
-	const suggestionsContainer =
-		view.suggestionsContainer as HTMLDivElement | null;
+	const suggestionsContainer = view.suggestionsContainer;
 	const noteSearchResults = view.noteSearchResults;
 	const activeSuggestionIndex = view.activeSuggestionIndex as number;
 
@@ -495,7 +499,7 @@ export function renderNoteSearchSuggestions(view: HydrateView): void {
  */
 export function selectNoteSearchResult(view: HydrateView, index: number): void {
 	const noteSearchResults = view.noteSearchResults;
-	const noteSearchStartIndex = view.noteSearchStartIndex as number;
+	const noteSearchStartIndex = view.noteSearchStartIndex;
 
 	if (
 		index < 0 ||
@@ -552,8 +556,7 @@ export function setNoteSearchResults(
 		renderNoteSearchSuggestions(view);
 	} else {
 		// Hide suggestions container
-		const suggestionsContainer =
-			view.suggestionsContainer as HTMLDivElement | null;
+		const suggestionsContainer = view.suggestionsContainer;
 		if (suggestionsContainer) {
 			suggestionsContainer.addClass("hydrate-suggestions-hidden");
 			suggestionsContainer.removeClass("hydrate-suggestions-visible");

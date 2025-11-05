@@ -1156,7 +1156,7 @@ export class HydrateView extends ItemView {
 	 * Generates a unique chat ID
 	 */
 	private generateChatId(): string {
-		return `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+		return `chat_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 	}
 
 	// --- Chat Context Suggestions Methods ---
