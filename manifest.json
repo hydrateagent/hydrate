@@ -1,7 +1,7 @@
 {
 	"id": "hydrate",
 	"name": "Hydrate",
-	"version": "0.1.14",
+	"version": "0.1.15",
 	"minAppVersion": "0.15.0",
 	"description": "Cursor-like note agent with MCP support.",
 	"author": "hydrateagent",
