@@ -3,9 +3,9 @@ import obsidianmd from "eslint-plugin-obsidianmd";
 
 export default [
   {
-    ignores: ["main.js", "*.js", "node_modules/**", "dist/**", ".obsidian/**", "*.config.js", "*.config.mjs"]
+    ignores: ["main.js", "**/*.js", "**/*.mjs", "node_modules/**", "dist/**", ".obsidian/**", "*.config.js", "*.config.mjs"]
   },
-  ...tseslint.configs.recommended,
+  ...tseslint.configs.recommendedTypeChecked,
   {
     files: ["**/*.ts", "**/*.tsx"],
     languageOptions: {
@@ -25,7 +25,12 @@ export default [
       "@typescript-eslint/ban-ts-comment": "off",
       "no-prototype-builtins": "off",
       "@typescript-eslint/no-empty-function": "off",
-      "@typescript-eslint/no-inferrable-types": "off"
+      "@typescript-eslint/no-inferrable-types": "off",
+      "@typescript-eslint/no-unused-expressions": ["error", {
+        "allowShortCircuit": true,
+        "allowTernary": true,
+        "allowTaggedTemplates": true
+      }]
     }
   }
 ];

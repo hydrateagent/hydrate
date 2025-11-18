@@ -213,10 +213,10 @@ export class MCPClient extends EventEmitter {
 	private handleMessage(message: MCPMessage): void {
 		if ("id" in message) {
 			// This is a response to a request
-			this.handleResponse(message as MCPResponse);
+			this.handleResponse(message);
 		} else {
 			// This is a notification
-			this.handleNotification(message as MCPNotification);
+			this.handleNotification(message);
 		}
 	}
 

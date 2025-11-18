@@ -24,7 +24,6 @@ export class SlashCommandModal extends FuzzySuggestModal<RegistryEntry> {
 
 		// Set initial query if provided
 		if (initialQuery) {
-			// @ts-ignore - accessing private inputEl
 			this.inputEl.value = initialQuery;
 		}
 	}

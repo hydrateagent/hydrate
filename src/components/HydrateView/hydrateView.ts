@@ -353,8 +353,8 @@ export class HydrateView extends ItemView {
 		this.textInput.addEventListener("keydown", (e) =>
 			handleInputKeydown(this, e),
 		);
-		sendButton.addEventListener("click", () => handleSend(this));
-		clearButton.addEventListener("click", () => handleClear(this));
+		sendButton.addEventListener("click", () => void handleSend(this));
+		clearButton.addEventListener("click", () => void handleClear(this));
 		this.stopButton.addEventListener("click", () => handleStop(this));
 		newChatButton.addEventListener("click", () => {
 			void this.handleNewChat();
@@ -515,7 +515,7 @@ export class HydrateView extends ItemView {
 		let mcpTools: MCPToolSchemaWithMetadata[] = [];
 		if (this.plugin.mcpManager) {
 			try {
-				mcpTools = await this.plugin.mcpManager.getAllDiscoveredTools();
+				mcpTools = this.plugin.mcpManager.getAllDiscoveredTools();
 			} catch (error) {
 				devLog.warn(
 					"Error collecting MCP tools for tool result:",
@@ -647,20 +647,20 @@ export class HydrateView extends ItemView {
 
 						results.push({
 							id: toolCall.id,
-							result: `Successfully applied changes to ${
-								toolCall.params.path
-							}. ${reviewResult.message || ""}`,
+							result: `Successfully applied changes to ${String(
+								toolCall.params.path,
+							)}. ${reviewResult.message || ""}`,
 						});
 					} catch (writeError) {
 						devLog.error(
-							`Failed to write changes to ${toolCall.params.path}:`,
+							`Failed to write changes to ${String(toolCall.params.path)}:`,
 							writeError,
 						);
 						results.push({
 							id: toolCall.id,
-							result: `Error writing changes to ${
-								toolCall.params.path
-							}: ${
+							result: `Error writing changes to ${String(
+								toolCall.params.path,
+							)}: ${
 								writeError instanceof Error
 									? writeError.message
 									: String(writeError)
@@ -702,7 +702,7 @@ export class HydrateView extends ItemView {
 				const targetPath = toolCall.params.path;
 				const instructions =
 					(toolCall.params.instructions as string) ||
-					`Apply ${toolCall.tool} to ${targetPath}`;
+					`Apply ${String(toolCall.tool)} to ${targetPath}`;
 
 				// Prepare content based on tool type
 				let originalContent = "";
@@ -733,7 +733,7 @@ export class HydrateView extends ItemView {
 							// If original selection isn't found, maybe show modal with error or just the new content?
 							// For now, let's show the diff against the original, highlighting the intended change might fail.
 							devLog.warn(
-								`Original selection for replaceSelectionInFile not found in ${targetPath}. Diff may be inaccurate.`,
+								`Original selection for replaceSelectionInFile not found in ${String(targetPath)}. Diff may be inaccurate.`,
 							);
 							// Fallback: show the new content as the proposed change for review, although tool execution might fail later.
 							// Alternatively, we could reject here? Let's show the diff for now.
@@ -846,7 +846,7 @@ export class HydrateView extends ItemView {
 					).open();
 				} catch (error) {
 					devLog.error(
-						`Error preparing data for DiffReviewModal for ${targetPath}:`,
+						`Error preparing data for DiffReviewModal for ${String(targetPath)}:`,
 						error,
 					);
 					// Resolve the promise with a rejected state if we can't even show the modal
@@ -1009,7 +1009,7 @@ export class HydrateView extends ItemView {
 	 */
 	private handleChatHistory(): void {
 		const modal = new ChatHistoryModal(this.app, this, (chatHistory) => {
-			this.loadChatHistory(chatHistory);
+			void this.loadChatHistory(chatHistory);
 		});
 		modal.open();
 	}
@@ -1148,7 +1148,7 @@ export class HydrateView extends ItemView {
 
 		// Refresh suggestions based on loaded conversation
 		setTimeout(() => {
-			this.refreshContextSuggestions();
+			void this.refreshContextSuggestions();
 		}, 2000);
 	}
 
@@ -1288,7 +1288,7 @@ export class HydrateView extends ItemView {
 			.slice(-2); // Last 2 agent messages
 
 		// Generate queries from user messages
-		userMessages.forEach((message, index) => {
+		userMessages.forEach((message) => {
 			if (message.length > 10) {
 				// Skip very short messages
 				queries.push({
@@ -1299,7 +1299,7 @@ export class HydrateView extends ItemView {
 		});
 
 		// Generate queries from agent messages (extract key topics)
-		agentMessages.forEach((message, index) => {
+		agentMessages.forEach((message) => {
 			// Extract key phrases/topics from agent responses
 			const topics = this.extractTopicsFromText(message);
 			topics.forEach((topic) => {

@@ -843,7 +843,7 @@ export async function searchIndexRemote(
 			return {
 				id: chunkId,
 				filePath: filePath,
-				embedding: res.item.vector as number[],
+				embedding: res.item.vector,
 				score: res.score,
 			};
 		});

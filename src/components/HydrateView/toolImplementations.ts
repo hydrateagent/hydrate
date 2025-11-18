@@ -45,7 +45,7 @@ export async function toolEditFile(
 	app: App,
 	path: string,
 	final_content: string,
-	instructions: string,
+	_instructions: string,
 ): Promise<string> {
 	const initialNormalizedPath = path.startsWith("./")
 		? path.substring(2)

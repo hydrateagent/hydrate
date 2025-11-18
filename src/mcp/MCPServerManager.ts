@@ -512,7 +512,7 @@ export class MCPServerManager extends EventEmitter {
 
 		try {
 			const config = await this.storage.loadConfig();
-			const servers = (config.servers || []) as MCPServerConfig[];
+			const servers = config.servers || [];
 			let loadedCount = 0;
 
 			for (const serverConfig of servers) {

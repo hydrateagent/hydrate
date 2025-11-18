@@ -360,7 +360,7 @@ export default class HydratePlugin extends Plugin {
 		const ribbonIconEl = this.addRibbonIcon(
 			"droplet", // Water droplet icon for Hydrate
 			"Open hydrate pane",
-			async (evt: MouseEvent) => {
+			async () => {
 				// Open the pane when the icon is clicked
 				await this.activateView();
 			},
@@ -409,7 +409,7 @@ export default class HydratePlugin extends Plugin {
 				}
 
 				// Execute the command
-				const hydrateView = leaves[0].view as HydrateView;
+				const hydrateView = leaves[0].view;
 
 				// 3. Store selection and update input
 				hydrateView.capturedSelections.push(selection); // Push to array
@@ -444,7 +444,7 @@ export default class HydratePlugin extends Plugin {
 
 		// --- Add Context Menu for Text Selection ---
 		this.registerEvent(
-			this.app.workspace.on("editor-menu", (menu, editor, view) => {
+			this.app.workspace.on("editor-menu", (menu, editor) => {
 				// Only add menu item if there's a text selection
 				if (editor.getSelection()) {
 					menu.addItem((item) => {
@@ -516,16 +516,14 @@ export default class HydratePlugin extends Plugin {
 		const existingLeaves = workspace.getLeavesOfType(HYDRATE_VIEW_TYPE);
 		if (existingLeaves.length > 0) {
 			const existingLeaf = existingLeaves[0];
-			workspace.revealLeaf(existingLeaf);
+			void workspace.revealLeaf(existingLeaf);
 			// If a source file was found *now*, and the existing view has no files attached, attach it.
 			if (
 				sourceFilePath &&
 				existingLeaf.view instanceof HydrateView &&
 				existingLeaf.view.attachedFiles.length === 0
 			) {
-				(existingLeaf.view as HydrateView).attachInitialFile(
-					sourceFilePath,
-				);
+				existingLeaf.view.attachInitialFile(sourceFilePath);
 			} else {
 				devLog.warn(
 					`Hydrate activateView: Existing view revealed. Source file: ${sourceFilePath}. View state not modified.`,
@@ -561,7 +559,7 @@ export default class HydratePlugin extends Plugin {
 
 		await leaf.setViewState(viewStateToSet);
 
-		workspace.revealLeaf(leaf); // Reveal after setting state
+		void workspace.revealLeaf(leaf); // Reveal after setting state
 	}
 
 	// --- File Open Handler (Simplified for File Attachment Logic) ---
@@ -596,7 +594,7 @@ export default class HydratePlugin extends Plugin {
 					"Hydrate [file-open]: File is null, switching React Host back to Markdown.",
 				);
 				if (!this.isSwitchingToMarkdown) {
-					activeReactView.switchToMarkdownView();
+					void activeReactView.switchToMarkdownView();
 				} else {
 					devLog.warn(
 						"Hydrate [file-open]: Already switching to markdown, skipping.",
@@ -627,7 +625,7 @@ export default class HydratePlugin extends Plugin {
 		if (activeReactView) {
 			// Can always toggle back to Markdown from React Host
 			if (!checking) {
-				activeReactView.switchToMarkdownView(); // Use the host's method
+				void activeReactView.switchToMarkdownView(); // Use the host's method
 			}
 			return true;
 		}
@@ -803,7 +801,7 @@ export default class HydratePlugin extends Plugin {
 		if (this.mcpManager) {
 			try {
 				// Stop all servers
-				this.mcpManager.stopAllServers();
+				void this.mcpManager.stopAllServers();
 				this.mcpManager = null;
 			} catch (error) {
 				devLog.error(

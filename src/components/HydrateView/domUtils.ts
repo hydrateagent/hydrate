@@ -185,7 +185,7 @@ export function addMessageToChat(
 	// Track this message in chat history (skip system messages and when restoring from history)
 	if (role !== "system" && typeof content === "string") {
 		const chatTurn = {
-			role: role as "user" | "agent",
+			role: role,
 			content: content,
 			timestamp: new Date().toISOString(),
 		};
@@ -197,7 +197,7 @@ export function addMessageToChat(
 			if (role === "user" || role === "agent") {
 				// Use setTimeout to avoid blocking the UI
 				setTimeout(() => {
-					view.refreshContextSuggestions?.();
+					void view.refreshContextSuggestions?.();
 				}, 1000);
 			}
 		}
@@ -214,8 +214,8 @@ export function setLoadingState(
 ): void {
 	// Access private members via 'any' cast or make them accessible
 	view.isLoading = loading;
-	const textInput = view.textInput as HTMLTextAreaElement;
-	const stopButton = view.stopButton as HTMLButtonElement | null;
+	const textInput = view.textInput;
+	const stopButton = view.stopButton;
 	const loadingIndicator = view.loadingIndicator;
 	const chatContainer = view.chatContainer;
 	const containerEl = view.containerEl; // Public member
@@ -341,8 +341,8 @@ export function renderFilePills(view: HydrateView): void {
  */
 export function renderSuggestions(view: HydrateView): void {
 	const suggestionsContainer = view.suggestionsContainer;
-	const suggestions = view.suggestions as RegistryEntry[];
-	const activeSuggestionIndex = view.activeSuggestionIndex as number;
+	const suggestions = view.suggestions;
+	const activeSuggestionIndex = view.activeSuggestionIndex;
 
 	if (!suggestionsContainer) {
 		devLog.error("Hydrate DOM Utils: suggestionsContainer is null!");
@@ -410,7 +410,7 @@ export function setSuggestions(
  * Sets the text content of the input text area and dispatches an input event.
  */
 export function setTextContent(view: HydrateView, text: string): void {
-	const textInput = view.textInput as HTMLTextAreaElement;
+	const textInput = view.textInput;
 	if (textInput) {
 		textInput.value = text;
 		textInput.dispatchEvent(new Event("input", { bubbles: true }));
@@ -423,7 +423,7 @@ export function setTextContent(view: HydrateView, text: string): void {
 export function renderNoteSearchSuggestions(view: HydrateView): void {
 	const suggestionsContainer = view.suggestionsContainer;
 	const noteSearchResults = view.noteSearchResults;
-	const activeSuggestionIndex = view.activeSuggestionIndex as number;
+	const activeSuggestionIndex = view.activeSuggestionIndex;
 
 	if (!suggestionsContainer) {
 		devLog.error("Hydrate DOM Utils: suggestionsContainer is null!");

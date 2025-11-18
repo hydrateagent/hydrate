@@ -11,7 +11,7 @@ import { visit } from "unist-util-visit";
 import { toString } from "mdast-util-to-string";
 import { devLog } from "../utils/logger";
 import { Node, Parent } from "unist"; // Import Node and Parent types
-import { Root, Heading, List, ListItem } from "mdast"; // Import specific mdast types
+import { Heading, List, ListItem } from "mdast"; // Import specific mdast types
 
 // --- Data Model Interfaces ---
 interface IssueItem {
@@ -64,7 +64,7 @@ const parseIssueMarkdown = (
 			.use(remarkParse)
 			.use(remarkFrontmatter, ["yaml"])
 			.use(remarkGfm)
-			.parse(markdownContent) as Root;
+			.parse(markdownContent);
 
 		let currentCardData: Partial<Issue> | null = null;
 		let siblingsBetweenHeadings: Node[] = []; // Store nodes between H1/H2
@@ -80,7 +80,7 @@ const parseIssueMarkdown = (
 			} as Node,
 		];
 
-		nodesToProcess.forEach((node, nodeIndex) => {
+		nodesToProcess.forEach((node) => {
 			const isH1 =
 				node.type === "heading" && (node as Heading).depth === 1;
 			const isH2 =
@@ -218,10 +218,9 @@ const parseIssueMarkdown = (
 					if (
 						nextNode &&
 						nextNode.type === "list" &&
-						(nextNode as List).children.length > 0
+						nextNode.children.length > 0
 					) {
-						const firstNumberListItem = (nextNode as List)
-							.children[0] as ListItem;
+						const firstNumberListItem = nextNode.children[0];
 						if (firstNumberListItem) {
 							const issueNumberText =
 								toString(firstNumberListItem).trim();

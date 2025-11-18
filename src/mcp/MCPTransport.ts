@@ -209,11 +209,15 @@ export class WebSocketTransport extends EventEmitter implements MCPTransport {
 				};
 
 				this.ws.onerror = (error) => {
-					this.emit("error", error);
+					const errorMessage =
+						error instanceof Error
+							? error.message
+							: "WebSocket error occurred";
+					this.emit("error", errorMessage);
 					reject(
 						error instanceof Error
 							? error
-							: new Error(String(error)),
+							: new Error(errorMessage),
 					);
 				};
 			} catch (error) {

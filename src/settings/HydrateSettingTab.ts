@@ -882,18 +882,24 @@ export class HydrateSettingTab extends PluginSettingTab {
 								`Are you sure you want to delete "${
 									entry.description || entry.id
 								}"?`,
-								async () => {
-									this.plugin.settings.registryEntries =
-										this.plugin
-											.getRegistryEntries()
-											.filter((e) => e.id !== entry.id); // Filter out the entry
-									await this.plugin.saveSettings();
-									this.renderFormatRegistryList(containerEl); // Use specific renderer
-									new Notice(
-										`Deleted format entry: ${
-											entry.description || entry.id
-										}`,
-									);
+								() => {
+									void (async () => {
+										this.plugin.settings.registryEntries =
+											this.plugin
+												.getRegistryEntries()
+												.filter(
+													(e) => e.id !== entry.id,
+												); // Filter out the entry
+										await this.plugin.saveSettings();
+										this.renderFormatRegistryList(
+											containerEl,
+										); // Use specific renderer
+										new Notice(
+											`Deleted format entry: ${
+												entry.description || entry.id
+											}`,
+										);
+									})();
 								},
 								undefined,
 								"Delete",
@@ -974,18 +980,24 @@ export class HydrateSettingTab extends PluginSettingTab {
 								`Are you sure you want to delete the rule "${
 									rule.description || rule.id
 								}"?`,
-								async () => {
-									this.plugin.settings.rulesRegistryEntries =
-										this.plugin
-											.getRulesRegistryEntries()
-											.filter((r) => r.id !== rule.id); // Filter out the rule
-									await this.plugin.saveSettings();
-									this.renderRulesRegistryList(containerEl); // Re-render this list
-									new Notice(
-										`Deleted rule: ${
-											rule.description || rule.id
-										}`,
-									);
+								() => {
+									void (async () => {
+										this.plugin.settings.rulesRegistryEntries =
+											this.plugin
+												.getRulesRegistryEntries()
+												.filter(
+													(r) => r.id !== rule.id,
+												); // Filter out the rule
+										await this.plugin.saveSettings();
+										this.renderRulesRegistryList(
+											containerEl,
+										); // Re-render this list
+										new Notice(
+											`Deleted rule: ${
+												rule.description || rule.id
+											}`,
+										);
+									})();
 								},
 								undefined,
 								"Delete",
@@ -1176,7 +1188,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 		// Start the server if enabled
 		if (config.enabled && this.plugin.mcpManager) {
-			this.plugin.mcpManager.startServer(config.id);
+			void this.plugin.mcpManager.startServer(config.id);
 		}
 	}
 
@@ -1213,7 +1225,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 
 		// Stop server if running
 		if (this.plugin.mcpManager) {
-			this.plugin.mcpManager.stopServer(server.id);
+			void this.plugin.mcpManager.stopServer(server.id);
 		}
 
 		servers.splice(index, 1);
@@ -1625,7 +1637,7 @@ export class HydrateSettingTab extends PluginSettingTab {
 		return {
 			ok: response.status >= 200 && response.status < 300,
 			status: response.status,
-			json: async () => response.json,
+			json: () => response.json,
 		} as Response;
 	}
 }

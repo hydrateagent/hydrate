@@ -140,7 +140,7 @@ export const handleDrop = (view: HydrateView, event: DragEvent): void => {
 					vf.path
 						.toLowerCase()
 						.startsWith(
-							normalizedPathForComparison!.toLowerCase() + ".",
+							normalizedPathForComparison.toLowerCase() + ".",
 						),
 				);
 				if (possibleMatches.length === 1) {
@@ -436,7 +436,7 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 	let mcpTools: MCPToolSchemaWithMetadata[] = [];
 	if (view.plugin.mcpManager) {
 		try {
-			mcpTools = await view.plugin.mcpManager.getAllDiscoveredTools();
+			mcpTools = view.plugin.mcpManager.getAllDiscoveredTools();
 		} catch (error) {
 			devLog.warn("[handleSend] Error collecting MCP tools:", error);
 		}
@@ -729,6 +729,6 @@ export const handleInputKeydown = (
 	// Since we're using modals for suggestions, we only need to handle Enter for sending
 	if (event.key === "Enter" && !event.shiftKey) {
 		event.preventDefault();
-		handleSend(view);
+		void handleSend(view);
 	}
 };
