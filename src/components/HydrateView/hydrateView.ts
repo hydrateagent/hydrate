@@ -245,6 +245,9 @@ export class HydrateView extends ItemView {
 		container.empty();
 		container.addClass("hydrate-view");
 
+		// Await any async initialization if needed
+		await Promise.resolve();
+
 		// Styles are now loaded from hydrate-styles.css
 
 		// Auto-adjust textarea height based on content
@@ -355,7 +358,7 @@ export class HydrateView extends ItemView {
 		);
 		sendButton.addEventListener("click", () => void handleSend(this));
 		clearButton.addEventListener("click", () => void handleClear(this));
-		this.stopButton.addEventListener("click", () => handleStop(this));
+		this.stopButton.addEventListener("click", () => void handleStop(this));
 		newChatButton.addEventListener("click", () => {
 			void this.handleNewChat();
 		});
@@ -699,10 +702,15 @@ export class HydrateView extends ItemView {
 		return new Promise((resolve) => {
 			void (async () => {
 				// Determine the target file path
-				const targetPath = toolCall.params.path;
+				const targetPath: string =
+					typeof toolCall.params.path === "string"
+						? toolCall.params.path
+						: "unknown";
+				const toolName: string =
+					typeof toolCall.tool === "string" ? toolCall.tool : "edit";
 				const instructions =
 					(toolCall.params.instructions as string) ||
-					`Apply ${String(toolCall.tool)} to ${targetPath}`;
+					`Apply ${toolName} to ${targetPath}`;
 
 				// Prepare content based on tool type
 				let originalContent = "";
@@ -711,9 +719,8 @@ export class HydrateView extends ItemView {
 
 				try {
 					// Wrap file reading and content generation in try-catch
-					const file = this.app.vault.getAbstractFileByPath(
-						targetPath as string,
-					);
+					const file =
+						this.app.vault.getAbstractFileByPath(targetPath);
 					if (file instanceof TFile) {
 						originalContent = await this.app.vault.read(file);
 					} else {
@@ -834,7 +841,7 @@ export class HydrateView extends ItemView {
 					new DiffReviewModal(
 						this.app,
 						this.plugin, // Pass plugin instance
-						targetPath as string,
+						targetPath,
 						originalContent,
 						proposedContent, // Use the determined proposed content
 						instructions,
