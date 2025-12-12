@@ -1,27 +1,19 @@
 import {
 	ItemView,
 	WorkspaceLeaf,
-	requestUrl,
 	Notice,
 	TFile,
 	ViewStateResult,
 	normalizePath,
 } from "obsidian";
-import HydratePlugin from "../../main"; // Corrected path to be relative to current dir
-import { DiffReviewModal, DiffReviewResult } from "../DiffReviewModal"; // Corrected path (assuming same dir as view)
-import { RegistryEntry, Patch, ChatHistory, ChatTurn } from "../../types"; // Corrected path
-import {
-	toolReadFile,
-	toolReplaceSelectionInFile,
-} from "./toolImplementations"; // Ensure this path is correct for your setup
-import { handleSearchProject } from "../../toolHandlers"; // <<< ADD THIS IMPORT
+import HydratePlugin from "../../main";
+import { RegistryEntry, ChatHistory, ChatTurn } from "../../types";
 import { devLog } from "../../utils/logger";
-import { MCPToolSchemaWithMetadata } from "../../mcp/MCPServerManager";
 import {
 	addMessageToChat,
-	renderFilePills, // Alias dom utils
-	setLoadingState, // Alias dom utils
-} from "./domUtils"; // Corrected path
+	renderFilePills,
+	setLoadingState,
+} from "./domUtils";
 import {
 	handleClear,
 	handleDrop,
@@ -29,46 +21,19 @@ import {
 	handleStop,
 	handleInputChange,
 	handleInputKeydown,
-} from "./eventHandlers"; // Corrected path
+} from "./eventHandlers";
 import { ChatHistoryModal } from "./ChatHistoryModal";
+import {
+	BackendClient,
+	BackendToolCall,
+	BackendResponse,
+	ToolResult,
+	createBackendClient,
+} from "./BackendClient";
+import { ToolExecutor, createToolExecutor } from "./ToolExecutor";
+import { VIEW_TYPES } from "../../constants";
 
-export const HYDRATE_VIEW_TYPE = "hydrate-view";
-
-// Define interfaces for communication with the backend
-interface HistoryMessage {
-	type: "human" | "ai" | "tool" | "system"; // Langchain types
-	content: string;
-	// Optional fields from Langchain messages
-	tool_calls?: { id: string; name: string; args: Record<string, unknown> }[];
-	tool_call_id?: string;
-}
-
-interface MCPToolInfo {
-	server_id: string;
-	server_name: string;
-	is_mcp_tool: boolean;
-}
-
-interface BackendToolCall {
-	action: "tool_call";
-	tool: string;
-	params: Record<string, unknown>;
-	id: string; // Tool call ID from the agent
-	mcp_info?: MCPToolInfo; // Optional MCP routing information
-}
-
-interface BackendResponse {
-	agent_message?: HistoryMessage; // Now receives the full agent message
-	// Update field name to match backend
-	tool_calls_prepared?: BackendToolCall[]; // <<< CHANGED from tool_calls
-	conversation_id: string; // ID is always returned
-}
-
-// Interface for storing tool results with their IDs
-interface ToolResult {
-	id: string;
-	result: unknown;
-}
+export const HYDRATE_VIEW_TYPE = VIEW_TYPES.HYDRATE;
 
 // Interface for HydrateView state
 interface HydrateViewState {
@@ -78,6 +43,8 @@ interface HydrateViewState {
 
 export class HydrateView extends ItemView {
 	plugin: HydratePlugin;
+	backendClient: BackendClient;
+	toolExecutor: ToolExecutor;
 	textInput: HTMLTextAreaElement;
 	chatContainer: HTMLDivElement;
 	filePillsContainer: HTMLDivElement;
@@ -87,7 +54,6 @@ export class HydrateView extends ItemView {
 	stopButton: HTMLButtonElement;
 	initialFilePathFromState: string | null = null;
 	wasInitiallyAttached: boolean = false;
-	// Removed currentRequestController as it seems handled within callBackend now
 	loadingIndicator: HTMLDivElement;
 
 	// --- Slash Command State (Made public for utils & handlers) ---
@@ -123,9 +89,7 @@ export class HydrateView extends ItemView {
 	appliedRuleIds: Set<string> = new Set(); // Stores rule IDs applied in this conversation
 	// --- End State for Tracking Applied Rules ---
 
-	// --- Current API Request Controller ---
-	abortController: AbortController | null = null; // For cancelling requests
-	// --- End Current API Request Controller ---
+	// Note: AbortController is now managed by BackendClient
 
 	// --- Chat History State ---
 	currentChatTurns: ChatTurn[] = []; // Track current conversation turns
@@ -143,6 +107,13 @@ export class HydrateView extends ItemView {
 	constructor(leaf: WorkspaceLeaf, plugin: HydratePlugin) {
 		super(leaf);
 		this.plugin = plugin;
+		this.backendClient = createBackendClient(plugin);
+		this.toolExecutor = createToolExecutor(
+			this.app,
+			plugin,
+			(role, content) => addMessageToChat(this, role, content),
+			(results) => this.sendToolResults(results),
+		);
 	}
 
 	getViewType(): string {
@@ -409,98 +380,55 @@ export class HydrateView extends ItemView {
 
 	// --- Backend Communication ---
 
+	/**
+	 * Handles backend response - updates conversation ID and processes tool calls or displays message
+	 */
+	private async handleBackendResponse(responseData: BackendResponse): Promise<void> {
+		// Update conversation ID from response
+		if (responseData.conversation_id) {
+			this.conversationId = responseData.conversation_id;
+		}
+
+		// Check for tool calls that need to be processed
+		if (
+			responseData.tool_calls_prepared &&
+			responseData.tool_calls_prepared.length > 0
+		) {
+			await this.processToolCalls(responseData.tool_calls_prepared);
+		} else {
+			// No tool calls, just display the agent message
+			if (responseData.agent_message) {
+				addMessageToChat(
+					this,
+					"agent",
+					responseData.agent_message.content,
+				);
+			}
+			setLoadingState(this, false);
+		}
+	}
+
+	/**
+	 * Makes a request to the backend and handles the response
+	 */
 	async callBackend(endpoint: string, payload: Record<string, unknown>) {
-		// Cancel any existing request
-		if (this.abortController) {
-			this.abortController.abort();
-		}
+		// Determine loading message based on endpoint
+		const loadingMessage = endpoint === "/chat"
+			? "Agent is thinking"
+			: endpoint === "/tool_result"
+				? "Processing tool results"
+				: "Processing request";
 
-		// Create new abort controller for this request
-		this.abortController = new AbortController();
-
-		// Update loading message based on endpoint
-		let loadingMessage = "Processing request";
-		if (endpoint === "/chat") {
-			loadingMessage = "Agent is thinking";
-		} else if (endpoint === "/tool_result") {
-			loadingMessage = "Processing tool results";
-		}
-
-		// Set loading state with appropriate message
 		setLoadingState(this, true, loadingMessage);
 
 		try {
-			// Prepare headers with authentication
-			const headers: Record<string, string> = {
-				"Content-Type": "application/json",
-				"X-API-Key": this.plugin.settings.apiKey, // Legacy API key for backward compatibility
-			};
-
-			// Add license key if available
-			if (this.plugin.settings.licenseKey) {
-				headers["X-License-Key"] = this.plugin.settings.licenseKey;
-			}
-
-			// Add user API keys
-			if (this.plugin.settings.openaiApiKey) {
-				headers["X-OpenAI-Key"] = this.plugin.settings.openaiApiKey;
-			}
-			if (this.plugin.settings.anthropicApiKey) {
-				headers["X-Anthropic-Key"] =
-					this.plugin.settings.anthropicApiKey;
-			}
-			if (this.plugin.settings.googleApiKey) {
-				headers["X-Google-Key"] = this.plugin.settings.googleApiKey;
-			}
-
-			const response = await requestUrl({
-				url: `${this.plugin.getBackendUrl()}${endpoint}`,
-				method: "POST",
-				headers,
-				body: JSON.stringify(payload),
-				throw: false, // Don't throw on HTTP errors, handle them manually
-			});
-
-			// Reset abort controller after successful completion
-			this.abortController = null;
-
-			if (response.status >= 400) {
-				throw new Error(
-					`HTTP ${response.status}: ${
-						response.text || "Unknown error"
-					}`,
-				);
-			}
-
-			const responseData: BackendResponse = response.json;
-
-			// Update conversation ID from response
-			if (responseData.conversation_id) {
-				this.conversationId = responseData.conversation_id;
-			}
-
-			// Check for tool calls that need to be processed
-			if (
-				responseData.tool_calls_prepared &&
-				responseData.tool_calls_prepared.length > 0
-			) {
-				await this.processToolCalls(responseData.tool_calls_prepared);
-			} else {
-				// No tool calls, just display the agent message
-				if (responseData.agent_message) {
-					addMessageToChat(
-						this,
-						"agent",
-						responseData.agent_message.content,
-					);
-				}
-				setLoadingState(this, false);
-			}
+			const responseData = await this.backendClient.request<BackendResponse>(
+				endpoint,
+				payload,
+			);
+			await this.handleBackendResponse(responseData);
 		} catch (error: unknown) {
-			// Reset abort controller on error
-			this.abortController = null;
-
-			if (error instanceof Error && error.name === "AbortError") {
+			if (error instanceof Error && error.message === "Request cancelled by user") {
 				addMessageToChat(this, "agent", "Request cancelled by user.");
 			} else {
 				devLog.error("Backend call failed:", error);
@@ -513,477 +441,35 @@ export class HydrateView extends ItemView {
 		}
 	}
 
+	/**
+	 * Sends tool results back to the backend
+	 */
 	private async sendToolResults(results: ToolResult[]) {
-		// Collect MCP tools from running servers
-		let mcpTools: MCPToolSchemaWithMetadata[] = [];
-		if (this.plugin.mcpManager) {
-			try {
-				mcpTools = this.plugin.mcpManager.getAllDiscoveredTools();
-			} catch (error) {
-				devLog.warn(
-					"Error collecting MCP tools for tool result:",
-					error,
-				);
-			}
-		} else {
-			devLog.warn("[sendToolResults] No MCP Manager found!");
-		}
+		const mcpTools = this.backendClient.collectMCPTools();
 
-		const payload: {
-			tool_results: ToolResult[];
-			conversation_id: string | null;
-			mcp_tools: MCPToolSchemaWithMetadata[];
-		} = {
+		const payload = {
 			tool_results: results,
 			conversation_id: this.conversationId,
-			mcp_tools: mcpTools, // Include MCP tools in tool result request
+			mcp_tools: mcpTools,
 		};
 
 		await this.callBackend("/tool_result", payload);
 	}
 
+	/**
+	 * Process tool calls by delegating to the ToolExecutor
+	 */
 	private async processToolCalls(
 		toolCalls: BackendToolCall[],
 	): Promise<void> {
-		// Add tool call indication to chat for each tool being called
-		for (const toolCall of toolCalls) {
-			const toolDisplayName = toolCall.mcp_info?.server_name
-				? `${toolCall.tool} (${toolCall.mcp_info.server_name})`
-				: toolCall.tool;
-			addMessageToChat(
-				this,
-				"system",
-				`Calling tool: ${toolDisplayName}`,
-			);
-		}
-
-		// Separate tool calls that need review from those that can execute directly
-		const editToolCalls = toolCalls.filter((call) =>
-			[
-				"editFile",
-				"replaceSelectionInFile",
-				"applyPatchesToFile",
-			].includes(call.tool),
-		);
-		const otherToolCalls = toolCalls.filter(
-			(call) =>
-				![
-					"editFile",
-					"replaceSelectionInFile",
-					"applyPatchesToFile",
-				].includes(call.tool),
-		);
-
-		const results: ToolResult[] = [];
-
-		// Process edit tools through review modal
-		if (editToolCalls.length > 0) {
-			try {
-				const editResults =
-					await this.reviewAndExecuteEdits(editToolCalls);
-				results.push(...editResults);
-			} catch (error) {
-				devLog.error("Error processing edit tools:", error);
-				// Add error results for failed edit tools
-				for (const call of editToolCalls) {
-					results.push({
-						id: call.id,
-						result: `Error: ${
-							error instanceof Error
-								? error.message
-								: String(error)
-						}`,
-					});
-				}
-			}
-		}
-
-		// Process other tools directly
-		for (const toolCall of otherToolCalls) {
-			try {
-				const result = await this.executeSingleTool(toolCall);
-				results.push({ id: toolCall.id, result });
-			} catch (error) {
-				devLog.error(`Error executing tool ${toolCall.tool}:`, error);
-				results.push({
-					id: toolCall.id,
-					result: `Error: ${
-						error instanceof Error ? error.message : String(error)
-					}`,
-				});
-			}
-		}
-
-		// Send all results back to backend
-		await this.sendToolResults(results);
-	}
-
-	private async reviewAndExecuteEdits(
-		pendingEdits: BackendToolCall[],
-	): Promise<ToolResult[]> {
-		const results: ToolResult[] = [];
-
-		for (const toolCall of pendingEdits) {
-			try {
-				// Show diff modal for review
-				const reviewResult =
-					await this.displayDiffModalForReview(toolCall);
-
-				if (reviewResult.applied) {
-					// Actually apply the changes to the file
-					try {
-						const file = this.app.vault.getAbstractFileByPath(
-							toolCall.params.path as string,
-						);
-						if (file instanceof TFile) {
-							await this.app.vault.modify(
-								file,
-								reviewResult.finalContent || "",
-							);
-						} else {
-							// File doesn't exist, create it
-							await this.app.vault.create(
-								toolCall.params.path as string,
-								reviewResult.finalContent || "",
-							);
-						}
-
-						results.push({
-							id: toolCall.id,
-							result: `Successfully applied changes to ${String(
-								toolCall.params.path,
-							)}. ${reviewResult.message || ""}`,
-						});
-					} catch (writeError) {
-						devLog.error(
-							`Failed to write changes to ${String(toolCall.params.path)}:`,
-							writeError,
-						);
-						results.push({
-							id: toolCall.id,
-							result: `Error writing changes to ${String(
-								toolCall.params.path,
-							)}: ${
-								writeError instanceof Error
-									? writeError.message
-									: String(writeError)
-							}`,
-						});
-					}
-				} else {
-					// If the user rejected the changes, return an error result
-					results.push({
-						id: toolCall.id,
-						result: `Edit rejected: ${
-							reviewResult.message || "User declined changes"
-						}`,
-					});
-				}
-			} catch (error) {
-				devLog.error(
-					`Error in review process for ${toolCall.tool}:`,
-					error,
-				);
-				results.push({
-					id: toolCall.id,
-					result: `Error during review: ${
-						error instanceof Error ? error.message : String(error)
-					}`,
-				});
-			}
-		}
-
-		return results;
-	}
-
-	private displayDiffModalForReview(
-		toolCall: BackendToolCall,
-	): Promise<DiffReviewResult> {
-		return new Promise((resolve) => {
-			void (async () => {
-				// Determine the target file path
-				const targetPath: string =
-					typeof toolCall.params.path === "string"
-						? toolCall.params.path
-						: "unknown";
-				const toolName: string =
-					typeof toolCall.tool === "string" ? toolCall.tool : "edit";
-				const instructions =
-					(toolCall.params.instructions as string) ||
-					`Apply ${toolName} to ${targetPath}`;
-
-				// Prepare content based on tool type
-				let originalContent = "";
-				let proposedContent = "";
-				const simulationErrors: string[] = [];
-
-				try {
-					// Wrap file reading and content generation in try-catch
-					const file =
-						this.app.vault.getAbstractFileByPath(targetPath);
-					if (file instanceof TFile) {
-						originalContent = await this.app.vault.read(file);
-					} else {
-						originalContent = ""; // Treat as new file creation
-					}
-
-					// Determine proposed content based on the tool type
-					if (toolCall.tool === "editFile") {
-						proposedContent =
-							(toolCall.params.code_edit as string) || ""; // Assuming code_edit holds the full proposed content
-					} else if (toolCall.tool === "replaceSelectionInFile") {
-						const original_selection = toolCall.params
-							.original_selection as string;
-						const new_content = toolCall.params
-							.new_content as string;
-						if (!originalContent.includes(original_selection)) {
-							// If original selection isn't found, maybe show modal with error or just the new content?
-							// For now, let's show the diff against the original, highlighting the intended change might fail.
-							devLog.warn(
-								`Original selection for replaceSelectionInFile not found in ${String(targetPath)}. Diff may be inaccurate.`,
-							);
-							// Fallback: show the new content as the proposed change for review, although tool execution might fail later.
-							// Alternatively, we could reject here? Let's show the diff for now.
-							proposedContent = originalContent.replace(
-								original_selection,
-								new_content,
-							);
-						} else {
-							proposedContent = originalContent.replace(
-								original_selection,
-								new_content,
-							);
-						}
-					} else if (toolCall.tool === "applyPatchesToFile") {
-						const patches = toolCall.params.patches as Patch[];
-						if (!Array.isArray(patches)) {
-							throw new Error(
-								"Invalid patches data for applyPatchesToFile.",
-							);
-						}
-						// Simulate applying patches to get proposed content
-						let simulatedContent = originalContent;
-						for (const patch of patches) {
-							const before = patch.before ?? "";
-							const oldText = patch.old;
-							const after = patch.after ?? "";
-							const newText = patch.new;
-							const contextString = before + oldText + after;
-							const contextIndex =
-								simulatedContent.indexOf(contextString);
-							if (contextIndex === -1) {
-								devLog.error(
-									`Context not found during simulation. Searching for:\n${JSON.stringify(
-										contextString,
-									)}\nin content:\n${JSON.stringify(
-										simulatedContent,
-									)}`,
-								);
-								devLog.warn(
-									`Context for patch not found during simulation: ${JSON.stringify(
-										patch,
-									)}`,
-								);
-								simulationErrors.push(
-									"Context not found for patch.",
-								); // Record error
-								continue;
-							}
-							// Simple ambiguity check for simulation - only if context is not empty
-							if (
-								contextString &&
-								simulatedContent.indexOf(
-									contextString,
-									contextIndex + 1,
-								) !== -1
-							) {
-								devLog.warn(
-									`Ambiguous context for patch found during simulation: ${JSON.stringify(
-										patch,
-									)}`,
-								);
-								simulationErrors.push(
-									"Ambiguous context for patch.",
-								); // Record error
-								continue;
-							}
-							const startIndex = contextIndex + before.length;
-							const endIndex = startIndex + oldText.length;
-							simulatedContent =
-								simulatedContent.substring(0, startIndex) +
-								newText +
-								simulatedContent.substring(endIndex);
-						}
-						proposedContent = simulatedContent;
-					} else {
-						// Handle unexpected tool types if necessary, though filtering should prevent this
-						proposedContent = `Error: Unexpected tool type '${toolCall.tool}' for diff review.`;
-					}
-
-					// Check for simulation errors before opening modal
-					if (simulationErrors.length > 0) {
-						devLog.error(
-							"Simulation failed, cannot show diff modal reliably.",
-							simulationErrors,
-						);
-						resolve({
-							applied: false,
-							message: `Could not apply patches due to context errors: ${simulationErrors.join(
-								", ",
-							)}`,
-							finalContent: originalContent, // Return original content
-							toolCallId: toolCall.id,
-						});
-						return; // Stop before opening modal
-					}
-
-					// Call constructor with all 8 arguments
-					new DiffReviewModal(
-						this.app,
-						this.plugin, // Pass plugin instance
-						targetPath,
-						originalContent,
-						proposedContent, // Use the determined proposed content
-						instructions,
-						toolCall.id,
-						(result: DiffReviewResult) => {
-							// Add type to result
-							resolve(result);
-						},
-					).open();
-				} catch (error) {
-					devLog.error(
-						`Error preparing data for DiffReviewModal for ${String(targetPath)}:`,
-						error,
-					);
-					// Resolve the promise with a rejected state if we can't even show the modal
-					resolve({
-						applied: false,
-						message: `Error preparing diff review: ${error.message}`,
-						finalContent: originalContent, // Return original content on error
-						toolCallId: toolCall.id,
-					});
-				}
-			})();
-		});
-	}
-
-	private async executeSingleTool(
-		toolCall: BackendToolCall,
-	): Promise<unknown> {
-		// Check if this is an MCP tool
-		if (toolCall.mcp_info && toolCall.mcp_info.is_mcp_tool) {
-			return await this.executeMCPTool(toolCall);
-		}
-
-		// Handle native tools
-		switch (toolCall.tool) {
-			case "readFile": // Match tool name from backend
-				return await toolReadFile(
-					this.app,
-					toolCall.params.path as string,
-				);
-			case "replaceSelectionInFile": // <<< KEPT CASE (but now also goes through review)
-				// This case should ideally not be hit directly anymore if filtering is correct,
-				// but kept for safety. Review logic handles execution.
-				devLog.warn(
-					"executeSingleTool called for replaceSelectionInFile - should go through review.",
-				);
-				// Fallback to direct execution if somehow called directly (not ideal)
-				return await toolReplaceSelectionInFile(
-					this.app,
-					toolCall.params.path as string,
-					toolCall.params.original_selection as string,
-					toolCall.params.new_content as string,
-				);
-			case "search_project": // <<< ADD THIS CASE
-				return await handleSearchProject(
-					toolCall,
-					this.app,
-					this.plugin.settings,
-				);
-
-			default:
-				throw new Error(
-					`Unknown or unsupported tool for direct execution: ${toolCall.tool}`,
-				);
-		}
-	}
-
-	private async executeMCPTool(toolCall: BackendToolCall): Promise<unknown> {
-		if (!toolCall.mcp_info) {
-			throw new Error("MCP tool call missing routing information");
-		}
-
-		// Check if MCPServerManager is available
-		if (!this.plugin.mcpManager) {
-			throw new Error("MCP Server Manager not available");
-		}
-
-		try {
-			// Validate parameters
-			if (!toolCall.params || typeof toolCall.params !== "object") {
-				throw new Error("Invalid parameters for MCP tool call");
-			}
-
-			// Unwrap kwargs if present (LangChain wraps MCP tool parameters in kwargs)
-			let actualParams: Record<string, unknown> = toolCall.params;
-			if (
-				toolCall.params.kwargs &&
-				typeof toolCall.params.kwargs === "object"
-			) {
-				actualParams = toolCall.params.kwargs as Record<
-					string,
-					unknown
-				>;
-			}
-
-			// Execute the tool via MCPServerManager
-			const result = await this.plugin.mcpManager.executeToolCall(
-				toolCall.mcp_info.server_id,
-				toolCall.tool,
-				actualParams,
-			);
-
-			return result;
-		} catch (error) {
-			devLog.error(
-				`MCP tool execution failed for ${toolCall.tool}:`,
-				error,
-			);
-
-			// Provide more specific error messages
-			if (error instanceof Error) {
-				if (error.message.includes("Server not found")) {
-					throw new Error(
-						`MCP server '${toolCall.mcp_info.server_name}' (${toolCall.mcp_info.server_id}) is not available. Please check server configuration.`,
-					);
-				} else if (error.message.includes("Tool not found")) {
-					throw new Error(
-						`Tool '${toolCall.tool}' not found on MCP server '${toolCall.mcp_info.server_name}'. The tool may have been removed or the server may need to be restarted.`,
-					);
-				} else if (error.message.includes("timeout")) {
-					throw new Error(
-						`MCP tool '${toolCall.tool}' timed out. The operation may be taking longer than expected.`,
-					);
-				}
-			}
-
-			throw new Error(
-				`MCP tool execution failed: ${
-					error instanceof Error ? error.message : String(error)
-				}`,
-			);
-		}
+		await this.toolExecutor.processToolCalls(toolCalls);
 	}
 
 	// --- Lifecycle Methods ---
 
 	onClose(): Promise<void> {
 		// Cancel any pending requests
-		if (this.abortController) {
-			this.abortController.abort();
-		}
+		this.backendClient.cancelRequest();
 
 		// Close any active popup
 		this.closeActivePopup();

@@ -20,6 +20,7 @@ import {
 	MCPServerHealth,
 } from "../mcp/MCPServerConfig"; // <<< IMPORT MCP TYPES
 import { ConfirmationModal } from "../utils/ConfirmationModal";
+import { createApiKeySetting } from "../utils/settingsUtils";
 
 export class HydrateSettingTab extends PluginSettingTab {
 	plugin: HydratePlugin;
@@ -258,83 +259,38 @@ export class HydrateSettingTab extends PluginSettingTab {
 		});
 		apiKeysDesc.addClass("hydrate-api-keys-desc");
 
-		new Setting(containerEl)
-			.setName("Openai key")
-			.setDesc("Required for gpt models.")
-			.addText((text) => {
-				let visible = false;
-				text.setPlaceholder("API key")
-					.setValue(this.plugin.settings.openaiApiKey)
-					.onChange(async (value) => {
-						this.plugin.settings.openaiApiKey = value.trim();
-						await this.plugin.saveSettings();
-					});
-				text.inputEl.type = "password";
-				// Add flat eye icon button
-				const eyeBtn = document.createElement("button");
-				eyeBtn.type = "button";
-				eyeBtn.addClass("hydrate-eye-button");
-				const eyeChar = document.createTextNode("\u{1F441}");
-				eyeBtn.appendChild(eyeChar);
-				eyeBtn.onclick = (e) => {
-					e.preventDefault();
-					visible = !visible;
-					text.inputEl.type = visible ? "text" : "password";
-				};
-				text.inputEl.parentElement?.appendChild(eyeBtn);
-			});
+		createApiKeySetting({
+			containerEl,
+			name: "Openai key",
+			desc: "Required for gpt models.",
+			value: this.plugin.settings.openaiApiKey,
+			onChange: async (value) => {
+				this.plugin.settings.openaiApiKey = value;
+				await this.plugin.saveSettings();
+			},
+		});
 
-		new Setting(containerEl)
-			.setName("Anthropic key")
-			.setDesc("Required for claude models.")
-			.addText((text) => {
-				let visible = false;
-				text.setPlaceholder("API key")
-					.setValue(this.plugin.settings.anthropicApiKey)
-					.onChange(async (value) => {
-						this.plugin.settings.anthropicApiKey = value.trim();
-						await this.plugin.saveSettings();
-					});
-				text.inputEl.type = "password";
-				// Add flat eye icon button
-				const eyeBtn = document.createElement("button");
-				eyeBtn.type = "button";
-				eyeBtn.addClass("hydrate-eye-button");
-				const eyeChar2 = document.createTextNode("\u{1F441}");
-				eyeBtn.appendChild(eyeChar2);
-				eyeBtn.onclick = (e) => {
-					e.preventDefault();
-					visible = !visible;
-					text.inputEl.type = visible ? "text" : "password";
-				};
-				text.inputEl.parentElement?.appendChild(eyeBtn);
-			});
+		createApiKeySetting({
+			containerEl,
+			name: "Anthropic key",
+			desc: "Required for claude models.",
+			value: this.plugin.settings.anthropicApiKey,
+			onChange: async (value) => {
+				this.plugin.settings.anthropicApiKey = value;
+				await this.plugin.saveSettings();
+			},
+		});
 
-		new Setting(containerEl)
-			.setName("Google key")
-			.setDesc("Required for gemini models.")
-			.addText((text) => {
-				let visible = false;
-				text.setPlaceholder("API key")
-					.setValue(this.plugin.settings.googleApiKey)
-					.onChange(async (value) => {
-						this.plugin.settings.googleApiKey = value.trim();
-						await this.plugin.saveSettings();
-					});
-				text.inputEl.type = "password";
-				// Add flat eye icon button
-				const eyeBtn = document.createElement("button");
-				eyeBtn.type = "button";
-				eyeBtn.addClass("hydrate-eye-button");
-				const eyeChar3 = document.createTextNode("\u{1F441}");
-				eyeBtn.appendChild(eyeChar3);
-				eyeBtn.onclick = (e) => {
-					e.preventDefault();
-					visible = !visible;
-					text.inputEl.type = visible ? "text" : "password";
-				};
-				text.inputEl.parentElement?.appendChild(eyeBtn);
-			});
+		createApiKeySetting({
+			containerEl,
+			name: "Google key",
+			desc: "Required for gemini models.",
+			value: this.plugin.settings.googleApiKey,
+			onChange: async (value) => {
+				this.plugin.settings.googleApiKey = value;
+				await this.plugin.saveSettings();
+			},
+		});
 
 		// --- END BYOK SUBSCRIPTION SETTINGS ---
 

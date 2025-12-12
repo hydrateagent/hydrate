@@ -484,7 +484,7 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
  * Stops the current backend request.
  */
 export const handleStop = async (view: HydrateView): Promise<void> => {
-	if (!view.isLoading || !view.abortController) {
+	if (!view.isLoading) {
 		devLog.warn("Hydrate: Stop clicked, but no request is active.");
 		return;
 	}
@@ -492,9 +492,8 @@ export const handleStop = async (view: HydrateView): Promise<void> => {
 	devLog.debug("Hydrate: Stop requested. Aborting current request...");
 	const currentConversationId = view.conversationId; // Capture ID before clearing
 
-	// Abort the frontend fetch request immediately
-	view.abortController.abort();
-	view.abortController = null; // Clear the controller
+	// Abort the frontend fetch request immediately via BackendClient
+	view.backendClient.cancelRequest();
 
 	// Stop the loading state visually
 	setDomLoadingState(view, false);
