@@ -63,12 +63,12 @@ export function getReactViewComponent(
 
 // Define allowed model names (matches backend agent.py ModelName Literal)
 export const ALLOWED_MODELS = [
-	"gpt-4.1-mini", // Default
-	"gpt-4.1",
-	"o4-mini",
-	"claude-3-7-sonnet-latest",
-	"claude-3-5-haiku-latest",
+	"gpt-5-mini", // Default
+	"gpt-5",
+	"gpt-5.1",
+	"gpt-5.2",
 	"claude-sonnet-4-0",
+	"claude-3-5-haiku-latest",
 	"gemini-2.5-flash-preview-05-20",
 	"gemini-2.5-pro-preview-05-06",
 ] as const; // Use const assertion for stricter typing
@@ -151,11 +151,11 @@ const DEFAULT_CONVERSATION_RULE: RuleEntry = {
 
 const DEFAULT_SETTINGS: HydratePluginSettings = {
 	developmentPath: "", // <<< ADDED default empty developmentPath set dynamically
-	backendUrl: "https://api.hydrateagent.com",
+	backendUrl: "", // Empty default - getBackendUrl() handles dev vs prod
 	registryEntries: [], // Existing initialization
 	rulesRegistryEntries: [], // <<< Initialized as empty
 	chatHistories: [], // Initialize chat histories as empty
-	selectedModel: "gpt-4.1-mini", // Set default model
+	selectedModel: "gpt-5-mini", // Set default model
 	apiKey: "", // <<< ADDED default empty API Key (deprecated, kept for compatibility)
 
 	// --- BYOK Subscription Settings ---
@@ -933,20 +933,21 @@ export default class HydratePlugin extends Plugin {
 		// Ensure the stored value is valid, otherwise return default
 		return ALLOWED_MODELS.includes(this.settings.selectedModel)
 			? this.settings.selectedModel
-			: "gpt-4.1-mini";
+			: "gpt-5-mini";
 	}
 
 	// NOTE: __HYDRATE_DEV__ must be set by the bundler at build time (true for dev, false for prod)
 	getBackendUrl(): string {
-		// Only use the user-configured backend in true development builds
+		// In development builds, use localhost unless explicitly overridden
 		if (
 			typeof __HYDRATE_DEV__ !== "undefined" &&
 			(__HYDRATE_DEV__ === true || __HYDRATE_DEV__ === "true")
 		) {
+			// In dev mode, default to localhost:8000
 			return this.settings.backendUrl || "http://localhost:8000";
 		}
-		// In all other cases, always use the production backend
-		return "https://api.hydrateagent.com";
+		// In production builds, use configured URL or production default
+		return this.settings.backendUrl || "https://api.hydrateagent.com";
 	}
 
 	private isDevelopmentMode(): boolean {
