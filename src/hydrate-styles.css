@@ -948,3 +948,214 @@
 		opacity: 1;
 	}
 }
+
+/* ========================================
+   INLINE REVIEW MODE STYLES
+   ======================================== */
+
+/* --- Deletion (strikethrough with red background) --- */
+.hydrate-review-deletion {
+	text-decoration: line-through;
+	text-decoration-color: var(--text-error, #dc2626);
+	background-color: rgba(239, 68, 68, 0.15);
+	border-radius: 2px;
+	padding: 0 2px;
+}
+
+.hydrate-review-deletion.hydrate-review-accepted {
+	opacity: 0.4;
+	text-decoration: line-through;
+	background-color: rgba(239, 68, 68, 0.08);
+}
+
+.hydrate-review-deletion.hydrate-review-rejected {
+	text-decoration: none;
+	background-color: transparent;
+}
+
+/* --- Addition (green background) --- */
+.hydrate-review-addition {
+	background-color: rgba(34, 197, 94, 0.2);
+	border-radius: 2px;
+	padding: 0 2px;
+	color: var(--text-normal);
+}
+
+.hydrate-review-addition.hydrate-review-accepted {
+	background-color: rgba(34, 197, 94, 0.1);
+}
+
+.hydrate-review-addition.hydrate-review-rejected {
+	display: none;
+}
+
+/* --- Dark mode adjustments --- */
+.theme-dark .hydrate-review-deletion {
+	background-color: rgba(239, 68, 68, 0.2);
+}
+
+.theme-dark .hydrate-review-addition {
+	background-color: rgba(34, 197, 94, 0.25);
+}
+
+/* --- Hover widget (accept/reject buttons) --- */
+.hydrate-review-hover-widget {
+	display: flex;
+	gap: 4px;
+	padding: 4px 6px;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+	z-index: 1000;
+}
+
+.hydrate-review-btn {
+	width: 24px;
+	height: 24px;
+	border: none;
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: 14px;
+	font-weight: bold;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: all 0.15s ease;
+}
+
+.hydrate-review-accept {
+	background: rgba(34, 197, 94, 0.15);
+	color: var(--text-success, #22c55e);
+}
+
+.hydrate-review-accept:hover {
+	background: rgba(34, 197, 94, 0.3);
+}
+
+.hydrate-review-reject {
+	background: rgba(239, 68, 68, 0.15);
+	color: var(--text-error, #ef4444);
+}
+
+.hydrate-review-reject:hover {
+	background: rgba(239, 68, 68, 0.3);
+}
+
+/* --- Selected change state (click-to-select) --- */
+.hydrate-review-selected {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 1px;
+	border-radius: 2px;
+}
+
+.hydrate-review-widget-selected {
+	border-color: var(--interactive-accent);
+	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+}
+
+/* --- Review Toolbar --- */
+.hydrate-review-toolbar {
+	position: fixed;
+	right: 16px;
+	bottom: 16px;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+	padding: 12px;
+	z-index: 1000;
+	min-width: 200px;
+	cursor: move;
+}
+
+.hydrate-review-toolbar-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 10px;
+	padding-bottom: 8px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.hydrate-review-toolbar-count {
+	font-size: 13px;
+	color: var(--text-muted);
+	font-weight: 500;
+}
+
+.hydrate-review-toolbar-buttons {
+	display: flex;
+	gap: 8px;
+}
+
+.hydrate-review-toolbar-btn {
+	padding: 6px 12px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	font-size: 12px;
+	cursor: pointer;
+	transition: all 0.15s ease;
+}
+
+.hydrate-review-toolbar-btn:hover {
+	background: var(--background-modifier-hover);
+}
+
+.hydrate-review-accept-all {
+	background: rgba(34, 197, 94, 0.1);
+	border-color: rgba(34, 197, 94, 0.3);
+	color: var(--text-success, #22c55e);
+}
+
+.hydrate-review-accept-all:hover {
+	background: rgba(34, 197, 94, 0.2);
+}
+
+.hydrate-review-reject-all {
+	background: rgba(239, 68, 68, 0.1);
+	border-color: rgba(239, 68, 68, 0.3);
+	color: var(--text-error, #ef4444);
+}
+
+.hydrate-review-reject-all:hover {
+	background: rgba(239, 68, 68, 0.2);
+}
+
+.hydrate-review-done {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-color: var(--interactive-accent);
+}
+
+.hydrate-review-done:hover {
+	background: var(--interactive-accent-hover);
+}
+
+.hydrate-review-jump {
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	font-size: 14px;
+}
+
+/* --- Review Mode Indicator --- */
+.hydrate-review-mode-active {
+	border: 2px solid var(--interactive-accent) !important;
+	border-radius: 4px;
+}
+
+.hydrate-review-mode-badge {
+	position: absolute;
+	top: 4px;
+	right: 4px;
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	padding: 2px 8px;
+	border-radius: 4px;
+	font-size: 11px;
+	font-weight: 500;
+	z-index: 100;
+}

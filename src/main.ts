@@ -35,6 +35,7 @@ import { handleSearchProject } from "./toolHandlers"; // <<< ADD IMPORT
 import { MCPServerManager, MCPConfigStorage } from "./mcp/MCPServerManager";
 import { MCPServerConfig, MCPServerStatus } from "./mcp/MCPServerConfig";
 import { devLog } from "./utils/logger";
+import { createInlineReviewExtension } from "./components/InlineReview";
 
 // Remember to rename these classes and interfaces!
 
@@ -304,6 +305,9 @@ export default class HydratePlugin extends Plugin {
 		this.registerView(HYDRATE_VIEW_TYPE, (leaf: WorkspaceLeaf) => {
 			return new HydrateView(leaf, this);
 		});
+
+		// Register inline review CodeMirror extension for track-changes style diff review
+		this.registerEditorExtension(createInlineReviewExtension());
 
 		// Register example component (we'll create this later)
 		registerReactView("issue-board", IssueBoardView); // <<< ADD THIS REGISTRATION

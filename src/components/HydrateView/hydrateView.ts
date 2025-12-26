@@ -9,6 +9,10 @@ import {
 } from "obsidian";
 import HydratePlugin from "../../main"; // Corrected path to be relative to current dir
 import { DiffReviewModal, DiffReviewResult } from "../DiffReviewModal"; // Corrected path (assuming same dir as view)
+import {
+	getInlineReviewController,
+	InlineReviewController,
+} from "../InlineReview"; // New inline review system
 import { RegistryEntry, Patch, ChatHistory, ChatTurn } from "../../types"; // Corrected path
 import {
 	toolReadFile,
@@ -107,6 +111,9 @@ export class HydrateView extends ItemView {
 
 	// --- Input State Tracking ---
 	lastInputLength: number = 0;
+
+	// --- Inline Review Controller ---
+	inlineReviewController: InlineReviewController;
 	isDeleting: boolean = false;
 	// --- End Input State Tracking ---
 
@@ -143,6 +150,10 @@ export class HydrateView extends ItemView {
 	constructor(leaf: WorkspaceLeaf, plugin: HydratePlugin) {
 		super(leaf);
 		this.plugin = plugin;
+		this.inlineReviewController = getInlineReviewController(
+			this.app,
+			plugin,
+		);
 	}
 
 	getViewType(): string {
@@ -820,10 +831,10 @@ export class HydrateView extends ItemView {
 						proposedContent = `Error: Unexpected tool type '${toolCall.tool}' for diff review.`;
 					}
 
-					// Check for simulation errors before opening modal
+					// Check for simulation errors before opening review
 					if (simulationErrors.length > 0) {
 						devLog.error(
-							"Simulation failed, cannot show diff modal reliably.",
+							"Simulation failed, cannot show review reliably.",
 							simulationErrors,
 						);
 						resolve({
@@ -834,32 +845,27 @@ export class HydrateView extends ItemView {
 							finalContent: originalContent, // Return original content
 							toolCallId: toolCall.id,
 						});
-						return; // Stop before opening modal
+						return; // Stop before opening review
 					}
 
-					// Call constructor with all 8 arguments
-					new DiffReviewModal(
-						this.app,
-						this.plugin, // Pass plugin instance
-						targetPath,
-						originalContent,
-						proposedContent, // Use the determined proposed content
-						instructions,
-						toolCall.id,
-						(result: DiffReviewResult) => {
-							// Add type to result
-							resolve(result);
-						},
-					).open();
+					// Use inline review (track changes style) instead of modal
+					const result =
+						await this.inlineReviewController.startReview(
+							targetPath,
+							originalContent,
+							proposedContent,
+							toolCall.id,
+						);
+					resolve(result);
 				} catch (error) {
 					devLog.error(
-						`Error preparing data for DiffReviewModal for ${String(targetPath)}:`,
+						`Error preparing data for inline review for ${String(targetPath)}:`,
 						error,
 					);
-					// Resolve the promise with a rejected state if we can't even show the modal
+					// Resolve the promise with a rejected state if we can't start review
 					resolve({
 						applied: false,
-						message: `Error preparing diff review: ${error.message}`,
+						message: `Error preparing diff review: ${error instanceof Error ? error.message : String(error)}`,
 						finalContent: originalContent, // Return original content on error
 						toolCallId: toolCall.id,
 					});
