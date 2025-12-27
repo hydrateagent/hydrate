@@ -8,13 +8,61 @@ import {
 } from "./eventHandlers"; // Import the handler
 
 /**
+ * Content block from Gemini's response when include_thoughts=True
+ */
+interface GeminiContentBlock {
+	type: "thinking" | "text";
+	thinking?: string;
+	text?: string;
+}
+
+/**
+ * Processes agent message content which may be a string or Gemini's list-of-blocks format.
+ * Returns an object with thinking (optional) and text content.
+ */
+export function parseAgentContent(
+	content: string | GeminiContentBlock[] | unknown
+): { thinking: string | null; text: string } {
+	// Simple string content
+	if (typeof content === "string") {
+		return { thinking: null, text: content };
+	}
+
+	// Gemini's list-of-blocks format
+	if (Array.isArray(content)) {
+		let thinking: string | null = null;
+		const textParts: string[] = [];
+
+		for (const block of content) {
+			if (typeof block === "string") {
+				textParts.push(block);
+			} else if (block && typeof block === "object") {
+				const typedBlock = block as GeminiContentBlock;
+				if (typedBlock.type === "thinking" && typedBlock.thinking) {
+					thinking = typedBlock.thinking;
+				} else if (typedBlock.type === "text" && typedBlock.text) {
+					textParts.push(typedBlock.text);
+				}
+			}
+		}
+
+		return { thinking, text: textParts.join("\n") };
+	}
+
+	// Fallback
+	return { thinking: null, text: String(content || "") };
+}
+
+/**
  * Adds a message to the chat container with appropriate styling.
+ * @param rawTextForCopy - Optional raw markdown text for copy button when content is HTMLElement
  */
 export function addMessageToChat(
 	view: HydrateView,
 	role: "user" | "agent" | "system",
 	content: string | HTMLElement,
 	isError: boolean = false,
+	rawTextForCopy?: string,
 ): void {
 	const chatContainer = view.chatContainer; // Access private member
 	const plugin = view.plugin; // Access private member
@@ -73,6 +121,36 @@ export function addMessageToChat(
 
 	if (content instanceof HTMLElement) {
 		messageEl.appendChild(content);
+		// Add copy button for agent messages with pre-rendered HTML
+		if (role === "agent" && rawTextForCopy) {
+			const copyButton = messageEl.createEl("button", {
+				cls: "hydrate-copy-button absolute bottom-1 right-1 p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-normal)] hover:bg-[var(--background-modifier-hover)] transition-colors duration-150",
+				attr: { "aria-label": "Copy message" },
+			});
+			setIcon(copyButton, "copy");
+			copyButton.children[0]?.setAttribute("width", "14");
+			copyButton.children[0]?.setAttribute("height", "14");
+
+			copyButton.addEventListener("click", (e) => {
+				e.stopPropagation();
+				void (async () => {
+					try {
+						await navigator.clipboard.writeText(rawTextForCopy);
+						setIcon(copyButton, "check");
+						copyButton.children[0]?.setAttribute("width", "14");
+						copyButton.children[0]?.setAttribute("height", "14");
+						setTimeout(() => {
+							setIcon(copyButton, "copy");
+							copyButton.children[0]?.setAttribute("width", "14");
+							copyButton.children[0]?.setAttribute("height", "14");
+						}, 1500);
+					} catch (err) {
+						devLog.error("Failed to copy text: ", err);
+						new Notice("Failed to copy message.");
+					}
+				})();
+			});
+		}
 	} else if (role === "agent") {
 		const originalContentString = content; // Store original string for copying
 		try {

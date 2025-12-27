@@ -5,6 +5,7 @@ import {
 	TFile,
 	ViewStateResult,
 	normalizePath,
+	MarkdownRenderer,
 } from "obsidian";
 import { httpRequest } from "../../utils/httpClient";
 import HydratePlugin from "../../main"; // Corrected path to be relative to current dir
@@ -23,6 +24,7 @@ import { devLog } from "../../utils/logger";
 import { MCPToolSchemaWithMetadata } from "../../mcp/MCPServerManager";
 import {
 	addMessageToChat,
+	parseAgentContent,
 	renderFilePills, // Alias dom utils
 	setLoadingState, // Alias dom utils
 } from "./domUtils"; // Corrected path
@@ -506,11 +508,42 @@ export class HydrateView extends ItemView {
 			} else {
 				// No tool calls, just display the agent message
 				if (responseData.agent_message) {
-					addMessageToChat(
-						this,
-						"agent",
-						responseData.agent_message.content,
+					const { thinking, text } = parseAgentContent(
+						responseData.agent_message.content
 					);
+
+					// Build content with optional thinking section
+					if (thinking) {
+						const container = document.createElement("div");
+
+						// Collapsible thinking section
+						const details = document.createElement("details");
+						details.className = "hydrate-thinking-section";
+						const summary = document.createElement("summary");
+						summary.className = "hydrate-thinking-summary";
+						summary.textContent = "Model thinking...";
+						details.appendChild(summary);
+						const thinkingContent = document.createElement("div");
+						thinkingContent.className = "hydrate-thinking-content";
+						thinkingContent.textContent = thinking;
+						details.appendChild(thinkingContent);
+						container.appendChild(details);
+
+						// Main text content - render as markdown
+						const textDiv = document.createElement("div");
+						await MarkdownRenderer.render(
+							this.plugin.app,
+							text,
+							textDiv,
+							"",
+							this,
+						);
+						container.appendChild(textDiv);
+
+						addMessageToChat(this, "agent", container, false, text);
+					} else {
+						addMessageToChat(this, "agent", text);
+					}
 				}
 				setLoadingState(this, false);
 			}

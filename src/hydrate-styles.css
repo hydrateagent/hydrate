@@ -1159,3 +1159,55 @@
 	font-weight: 500;
 	z-index: 100;
 }
+
+/* --- Gemini Thinking Section Styles --- */
+.hydrate-thinking-section {
+	margin-bottom: 12px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	background: var(--background-secondary);
+}
+
+.hydrate-thinking-summary {
+	padding: 8px 12px;
+	cursor: pointer;
+	font-size: 12px;
+	color: var(--text-muted);
+	user-select: none;
+	list-style: none;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.hydrate-thinking-summary::-webkit-details-marker {
+	display: none;
+}
+
+.hydrate-thinking-summary::before {
+	content: "▶";
+	font-size: 10px;
+	transition: transform 0.2s ease;
+}
+
+.hydrate-thinking-section[open] .hydrate-thinking-summary::before {
+	transform: rotate(90deg);
+}
+
+.hydrate-thinking-summary:hover {
+	color: var(--text-normal);
+	background: var(--background-modifier-hover);
+	border-radius: 6px 6px 0 0;
+}
+
+.hydrate-thinking-content {
+	padding: 12px;
+	font-size: 13px;
+	color: var(--text-muted);
+	border-top: 1px solid var(--background-modifier-border);
+	white-space: pre-wrap;
+	font-family: var(--font-text);
+	line-height: 1.5;
+	max-height: 300px;
+	overflow-y: auto;
+}
