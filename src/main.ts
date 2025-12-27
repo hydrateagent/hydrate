@@ -68,8 +68,8 @@ export const ALLOWED_MODELS = [
 	"gpt-5",
 	"gpt-5.1",
 	"gpt-5.2",
-	"claude-sonnet-4-0",
-	"claude-3-5-haiku-latest",
+	"claude-sonnet-4-5",
+	"claude-haiku-4-5",
 	"gemini-3-flash-preview",
 	"gemini-3-pro-preview",
 ] as const; // Use const assertion for stricter typing
