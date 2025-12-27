@@ -464,6 +464,11 @@ export class HydrateView extends ItemView {
 				headers["X-Google-Key"] = this.plugin.settings.googleApiKey;
 			}
 
+			// Debug: log which API key headers are being sent
+			devLog.info(
+				`[callBackend] API key headers present: openai=${!!this.plugin.settings.openaiApiKey}, anthropic=${!!this.plugin.settings.anthropicApiKey}, google=${!!this.plugin.settings.googleApiKey}`
+			);
+
 			// Use httpRequest utility that handles localhost vs production
 			const response = await httpRequest(
 				`${this.plugin.getBackendUrl()}${endpoint}`,
