@@ -947,11 +947,11 @@ export default class HydratePlugin extends Plugin {
 			typeof __HYDRATE_DEV__ !== "undefined" &&
 			(__HYDRATE_DEV__ === true || __HYDRATE_DEV__ === "true")
 		) {
-			// In dev mode, default to localhost:8000
+			// In dev mode, allow custom URL or default to localhost
 			return this.settings.backendUrl || "http://localhost:8000";
 		}
-		// In production builds, use configured URL or production default
-		return this.settings.backendUrl || "https://api.hydrateagent.com";
+		// In production builds, ALWAYS use production URL (ignore settings)
+		return "https://api.hydrateagent.com";
 	}
 
 	private isDevelopmentMode(): boolean {

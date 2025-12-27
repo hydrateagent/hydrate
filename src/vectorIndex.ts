@@ -6,6 +6,7 @@ import {
 	Notice,
 	FileSystemAdapter, // Import FileSystemAdapter
 } from "obsidian";
+import { httpRequest } from "./utils/httpClient";
 import { LocalIndex, QueryResult as VectraQueryResult } from "vectra";
 import { devLog } from "./utils/logger";
 
@@ -236,8 +237,8 @@ async function embedTextsViaRemoteApi(
 
 	// --- Execute API Call ---
 	try {
-		// Use native fetch instead of Obsidian's requestUrl for better localhost compatibility
-		const response = await fetch(apiUrl, {
+		// Use httpRequest utility that handles localhost vs production
+		const response = await httpRequest(apiUrl, {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
@@ -247,7 +248,8 @@ async function embedTextsViaRemoteApi(
 		});
 
 		// --- Process Response ---
-		const responseData = await response.json();
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const responseData = (await response.json()) as any;
 
 		if (!response.ok) {
 			const errorDetail =

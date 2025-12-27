@@ -6,6 +6,7 @@ import {
 	ViewStateResult,
 	normalizePath,
 } from "obsidian";
+import { httpRequest } from "../../utils/httpClient";
 import HydratePlugin from "../../main"; // Corrected path to be relative to current dir
 import { DiffReviewModal, DiffReviewResult } from "../DiffReviewModal"; // Corrected path (assuming same dir as view)
 import {
@@ -463,8 +464,8 @@ export class HydrateView extends ItemView {
 				headers["X-Google-Key"] = this.plugin.settings.googleApiKey;
 			}
 
-			// Use native fetch instead of Obsidian's requestUrl for better compatibility
-			const response = await fetch(
+			// Use httpRequest utility that handles localhost vs production
+			const response = await httpRequest(
 				`${this.plugin.getBackendUrl()}${endpoint}`,
 				{
 					method: "POST",
@@ -483,7 +484,7 @@ export class HydrateView extends ItemView {
 				);
 			}
 
-			const responseData: BackendResponse = await response.json();
+			const responseData = (await response.json()) as BackendResponse;
 
 			// Update conversation ID from response
 			if (responseData.conversation_id) {

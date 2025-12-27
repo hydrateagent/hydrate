@@ -5,13 +5,13 @@ import {
 	Notice,
 	ButtonComponent,
 	Modal,
-	requestUrl,
 } from "obsidian";
 import HydratePlugin, { ALLOWED_MODELS, ModelName } from "../main"; // Corrected path & ADDED IMPORTS
 import { RegistryEditModal } from "./RegistryEditModal";
 import { RuleEditModal } from "./RuleEditModal"; // <<< IMPORT NEW MODAL
 import { MCPServersConfigModal } from "./MCPServerEditModal";
 import { devLog } from "../utils/logger";
+import { httpRequest } from "../utils/httpClient";
 import { MCPServerSettingsModal } from "./MCPServerSettingsModal"; // <<< IMPORT MCP SERVER MODAL
 // Settings styles are now compiled into styles.css via hydrate-styles.css
 import {
@@ -1630,8 +1630,8 @@ export class HydrateSettingTab extends PluginSettingTab {
 		}
 
 		try {
-			// Use native fetch instead of Obsidian's requestUrl for better compatibility
-			const response = await fetch(url, {
+			// Use httpRequest utility that handles localhost vs production
+			const response = await httpRequest(url, {
 				method: "POST",
 				headers,
 				body: JSON.stringify(data),

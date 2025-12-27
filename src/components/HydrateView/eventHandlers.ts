@@ -1,4 +1,5 @@
 import { Notice, TFile } from "obsidian";
+import { httpRequest } from "../../utils/httpClient";
 import type { HydrateView } from "./hydrateView";
 import { RegistryEntry } from "../../types"; // Added import
 import { MCPToolSchemaWithMetadata } from "../../mcp/MCPServerManager";
@@ -515,8 +516,8 @@ export const handleStop = async (view: HydrateView): Promise<void> => {
 
 		try {
 			// Send a quick POST request to the /stop endpoint
-			// Note: This request doesn't need an abort signal itself
-			const stopResponse = await fetch(stopUrl, {
+			// Use httpRequest utility that handles localhost vs production
+			const stopResponse = await httpRequest(stopUrl, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
