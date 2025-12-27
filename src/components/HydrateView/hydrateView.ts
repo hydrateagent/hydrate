@@ -461,7 +461,8 @@ export class HydrateView extends ItemView {
 					this.plugin.settings.anthropicApiKey;
 			}
 			if (this.plugin.settings.googleApiKey) {
-				headers["X-Google-Key"] = this.plugin.settings.googleApiKey;
+				// Note: X-Google-Key gets stripped by Cloud Run, so we use X-Gemini-Key
+				headers["X-Gemini-Key"] = this.plugin.settings.googleApiKey;
 			}
 
 			// Debug: log which API key headers are being sent

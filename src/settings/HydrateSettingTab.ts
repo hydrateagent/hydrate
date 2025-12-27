@@ -1626,7 +1626,8 @@ export class HydrateSettingTab extends PluginSettingTab {
 			headers["X-Anthropic-Key"] = this.plugin.settings.anthropicApiKey;
 		}
 		if (this.plugin.settings.googleApiKey) {
-			headers["X-Google-Key"] = this.plugin.settings.googleApiKey;
+			// Note: X-Google-Key gets stripped by Cloud Run, so we use X-Gemini-Key
+			headers["X-Gemini-Key"] = this.plugin.settings.googleApiKey;
 		}
 
 		try {
