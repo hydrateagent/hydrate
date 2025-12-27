@@ -1,4 +1,4 @@
-import { Notice, TFile, requestUrl } from "obsidian";
+import { Notice, TFile } from "obsidian";
 import type { HydrateView } from "./hydrateView";
 import { RegistryEntry } from "../../types"; // Added import
 import { MCPToolSchemaWithMetadata } from "../../mcp/MCPServerManager";
@@ -516,26 +516,26 @@ export const handleStop = async (view: HydrateView): Promise<void> => {
 		try {
 			// Send a quick POST request to the /stop endpoint
 			// Note: This request doesn't need an abort signal itself
-			const stopResponse = await requestUrl({
-				url: stopUrl,
+			const stopResponse = await fetch(stopUrl, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
 					"X-API-Key": apiKey,
 				},
 				body: JSON.stringify({}), // Empty body, ID is in URL
-				throw: false, // Don't throw on 4xx/5xx for this signal
 			});
 
-			if (stopResponse.status >= 400) {
+			if (!stopResponse.ok) {
+				const errorText = await stopResponse.text();
 				devLog.warn(
-					`Hydrate: Backend returned status ${stopResponse.status} on stop signal: ${stopResponse.text}`,
+					`Hydrate: Backend returned status ${stopResponse.status} on stop signal: ${errorText}`,
 				);
 				// Optionally notify user if backend stop failed, but might be noise
 			} else {
+				const responseData = await stopResponse.json();
 				devLog.debug(
 					"Hydrate: Backend acknowledged stop signal.",
-					stopResponse.json,
+					responseData,
 				);
 			}
 		} catch (error) {

@@ -3,8 +3,6 @@ import {
 	TFile,
 	// TAbstractFile, // No longer needed
 	normalizePath,
-	requestUrl,
-	RequestUrlParam,
 	Notice,
 	FileSystemAdapter, // Import FileSystemAdapter
 } from "obsidian";
@@ -236,25 +234,22 @@ async function embedTextsViaRemoteApi(
 		// encoding_format: "float", // Optional
 	});
 
-	const requestParams: RequestUrlParam = {
-		url: apiUrl,
-		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-			Authorization: `Bearer ${apiKey}`,
-		},
-		body: requestBody,
-		throw: false, // Handle errors manually
-	};
-
 	// --- Execute API Call ---
 	try {
-		const response = await requestUrl(requestParams); // <<< THE ACTUAL API CALL
+		// Use native fetch instead of Obsidian's requestUrl for better localhost compatibility
+		const response = await fetch(apiUrl, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${apiKey}`,
+			},
+			body: requestBody,
+		});
 
 		// --- Process Response ---
-		const responseData = response.json;
+		const responseData = await response.json();
 
-		if (response.status >= 400) {
+		if (!response.ok) {
 			const errorDetail =
 				responseData?.error?.message ||
 				responseData?.detail ||

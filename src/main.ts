@@ -70,8 +70,8 @@ export const ALLOWED_MODELS = [
 	"gpt-5.2",
 	"claude-sonnet-4-0",
 	"claude-3-5-haiku-latest",
-	"gemini-2.5-flash-preview-05-20",
-	"gemini-2.5-pro-preview-05-06",
+	"gemini-3-flash-preview",
+	"gemini-3-pro-preview",
 ] as const; // Use const assertion for stricter typing
 
 export type ModelName = (typeof ALLOWED_MODELS)[number]; // Create type from array values

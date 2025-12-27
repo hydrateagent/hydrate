@@ -1,7 +1,6 @@
 import {
 	ItemView,
 	WorkspaceLeaf,
-	requestUrl,
 	Notice,
 	TFile,
 	ViewStateResult,
@@ -464,26 +463,27 @@ export class HydrateView extends ItemView {
 				headers["X-Google-Key"] = this.plugin.settings.googleApiKey;
 			}
 
-			const response = await requestUrl({
-				url: `${this.plugin.getBackendUrl()}${endpoint}`,
-				method: "POST",
-				headers,
-				body: JSON.stringify(payload),
-				throw: false, // Don't throw on HTTP errors, handle them manually
-			});
+			// Use native fetch instead of Obsidian's requestUrl for better compatibility
+			const response = await fetch(
+				`${this.plugin.getBackendUrl()}${endpoint}`,
+				{
+					method: "POST",
+					headers,
+					body: JSON.stringify(payload),
+				},
+			);
 
 			// Reset abort controller after successful completion
 			this.abortController = null;
 
-			if (response.status >= 400) {
+			if (!response.ok) {
+				const errorText = await response.text();
 				throw new Error(
-					`HTTP ${response.status}: ${
-						response.text || "Unknown error"
-					}`,
+					`HTTP ${response.status}: ${errorText || "Unknown error"}`,
 				);
 			}
 
-			const responseData: BackendResponse = response.json;
+			const responseData: BackendResponse = await response.json();
 
 			// Update conversation ID from response
 			if (responseData.conversation_id) {

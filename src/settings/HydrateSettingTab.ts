@@ -1376,7 +1376,8 @@ export class HydrateSettingTab extends PluginSettingTab {
 				return;
 			}
 
-			const licenseInfo = await response.json();
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const licenseInfo = await (response.json as () => Promise<any>)();
 			const tierName = licenseInfo.tier?.toUpperCase() || "UNKNOWN";
 			const statusText = licenseInfo.is_active ? "Active" : "Inactive";
 
@@ -1481,7 +1482,8 @@ export class HydrateSettingTab extends PluginSettingTab {
 				return;
 			}
 
-			const quota = await response.json();
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const quota = await (response.json as () => Promise<any>)();
 			statusDiv.empty();
 
 			statusDiv
@@ -1597,7 +1599,8 @@ export class HydrateSettingTab extends PluginSettingTab {
 					await this.loadRegistrationStatus(statusDiv);
 				}
 			} else {
-				const error = await response.json();
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				const error = await (response.json as () => Promise<any>)();
 				new Notice(`Error re-registering API keys: ${error.detail}`);
 			}
 		} catch (error) {
@@ -1626,18 +1629,29 @@ export class HydrateSettingTab extends PluginSettingTab {
 			headers["X-Google-Key"] = this.plugin.settings.googleApiKey;
 		}
 
-		const response = await requestUrl({
-			url,
-			method: "POST",
-			headers,
-			body: JSON.stringify(data),
-		});
+		try {
+			// Use native fetch instead of Obsidian's requestUrl for better compatibility
+			const response = await fetch(url, {
+				method: "POST",
+				headers,
+				body: JSON.stringify(data),
+			});
 
-		// Return a Response-like object that matches the fetch API
-		return {
-			ok: response.status >= 200 && response.status < 300,
-			status: response.status,
-			json: () => response.json,
-		} as Response;
+			// Return a Response-like object that matches the fetch API
+			return {
+				ok: response.ok,
+				status: response.status,
+				json: async () => response.json(),
+			} as Response;
+		} catch (error) {
+			// Log the actual error for debugging
+			console.error("[Hydrate] API call failed:", url, error);
+			// Return a failed response object
+			return {
+				ok: false,
+				status: 0,
+				json: () => ({ error: String(error) }),
+			} as unknown as Response;
+		}
 	}
 }
