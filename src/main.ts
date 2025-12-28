@@ -33,6 +33,7 @@ import { handleSearchProject } from "./toolHandlers"; // <<< ADD IMPORT
 
 // MCP imports
 import { MCPServerManager, MCPConfigStorage } from "./mcp/MCPServerManager";
+import { ViewLoader } from "./ViewLoader";
 import { MCPServerConfig, MCPServerStatus } from "./mcp/MCPServerConfig";
 import { devLog } from "./utils/logger";
 import { createInlineReviewExtension } from "./components/InlineReview";
@@ -200,6 +201,7 @@ export default class HydratePlugin extends Plugin {
 	isSwitchingToMarkdown: boolean = false;
 	isIndexing: boolean = false; // Flag to prevent concurrent indexing
 	mcpManager: MCPServerManager | null = null; // MCP Server Manager
+	viewLoader: ViewLoader | null = null; // Custom view loader
 
 	async onload() {
 		await this.loadSettings();
@@ -309,8 +311,37 @@ export default class HydratePlugin extends Plugin {
 		// Register inline review CodeMirror extension for track-changes style diff review
 		this.registerEditorExtension(createInlineReviewExtension());
 
-		// Register example component (we'll create this later)
-		registerReactView("issue-board", IssueBoardView); // <<< ADD THIS REGISTRATION
+		// Register built-in view components
+		registerReactView("issue-board", IssueBoardView);
+
+		// --- Initialize Custom View Loader ---
+		this.viewLoader = new ViewLoader(this.app);
+		await this.viewLoader.loadAllViews();
+
+		// Watch for changes to custom view files for hot reloading
+		this.registerEvent(
+			this.app.vault.on("modify", async (file) => {
+				if (
+					file.path.startsWith(this.viewLoader?.getViewsDir() ?? "") &&
+					file.path.endsWith(".jsx")
+				) {
+					devLog.debug(`ViewLoader: Detected change in ${file.path}`);
+					await this.viewLoader?.reloadView(file.path);
+				}
+			})
+		);
+
+		this.registerEvent(
+			this.app.vault.on("create", async (file) => {
+				if (
+					file.path.startsWith(this.viewLoader?.getViewsDir() ?? "") &&
+					file.path.endsWith(".jsx")
+				) {
+					devLog.debug(`ViewLoader: Detected new view ${file.path}`);
+					await this.viewLoader?.loadView(file.path);
+				}
+			})
+		);
 
 		// --- Event Listeners for File Changes ---
 		// REMOVED: Automatic indexing on file create/modify to prevent unwanted indexing on startup
@@ -901,13 +932,26 @@ export default class HydratePlugin extends Plugin {
 
 	// --- Helper function to get registry entries (for agent/slash commands) ---
 	getRegistryEntries(): RegistryEntry[] {
-		// Ensure array exists, return empty array if not
-		return this.settings.registryEntries || [];
+		// Built-in commands that are always available
+		const builtInCommands: RegistryEntry[] = [
+			{
+				id: "builtin-create-view",
+				description: "Create a custom view for the attached file",
+				slashCommandTrigger: "/create-view",
+				content: "", // Handled specially in eventHandlers
+				contentType: "text",
+				version: 1,
+			},
+		];
+
+		// Ensure array exists, combine with built-ins
+		const userEntries = this.settings.registryEntries || [];
+		return [...builtInCommands, ...userEntries];
 	}
 
 	getRegistryEntryByTrigger(trigger: string): RegistryEntry | undefined {
-		// Ensure array exists before searching
-		return this.settings.registryEntries?.find(
+		// Search all entries including built-ins
+		return this.getRegistryEntries().find(
 			(entry) => entry.slashCommandTrigger === trigger,
 		);
 	}

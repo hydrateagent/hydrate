@@ -13,6 +13,7 @@ import {
 import { NoteSearchModal } from "./NoteSearchModal";
 import { SlashCommandModal } from "./SlashCommandModal";
 import { devLog } from "../../utils/logger";
+import { isCreateViewCommand, handleCreateView } from "./createViewHandler";
 
 // Define types for clarity if needed, e.g., for state or complex parameters
 
@@ -226,6 +227,13 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 	}
 
 	const originalMessageContent = view.textInput.value.trim();
+
+	// --- Handle /create-view command ---
+	if (isCreateViewCommand(originalMessageContent)) {
+		setDomTextContent(view, ""); // Clear input
+		await handleCreateView(view, originalMessageContent);
+		return;
+	}
 	let payloadContent = originalMessageContent;
 
 	// --- Step 1: Handle /selectNN commands ---
