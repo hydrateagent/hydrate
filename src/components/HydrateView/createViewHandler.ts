@@ -1,8 +1,9 @@
 // src/components/HydrateView/createViewHandler.ts
-import { TFile } from "obsidian";
+import { TFile, MarkdownView } from "obsidian";
 import type { HydrateView } from "./hydrateView";
 import { addMessageToChat, setLoadingState } from "./domUtils";
 import { devLog } from "../../utils/logger";
+import { REACT_HOST_VIEW_TYPE } from "../../main";
 
 interface GenerateViewResponse {
 	content: string;
@@ -230,6 +231,51 @@ export function extractViewDescription(message: string): string {
 }
 
 /**
+ * Switch any leaves showing the file to the React view (or refresh if already React)
+ */
+async function switchFileToReactView(
+	view: HydrateView,
+	filePath: string,
+	viewName: string
+): Promise<void> {
+	const app = view.plugin.app;
+
+	// Find all leaves showing this file
+	app.workspace.iterateAllLeaves((leaf) => {
+		const leafView = leaf.view;
+
+		// Handle MarkdownView - switch to React
+		if (leafView instanceof MarkdownView && leafView.file?.path === filePath) {
+			devLog.debug(`Switching MarkdownView to React view for ${filePath}`);
+			leaf.setViewState({
+				type: REACT_HOST_VIEW_TYPE,
+				state: {
+					filePath: filePath,
+					viewKey: viewName,
+				},
+				active: leaf === app.workspace.getLeaf(),
+			});
+		}
+
+		// Handle ReactViewHost - force remount by re-setting state
+		if (
+			leafView.getViewType() === REACT_HOST_VIEW_TYPE &&
+			(leafView as any).currentFilePath === filePath
+		) {
+			devLog.debug(`Refreshing React view for ${filePath}`);
+			leaf.setViewState({
+				type: REACT_HOST_VIEW_TYPE,
+				state: {
+					filePath: filePath,
+					viewKey: viewName,
+				},
+				active: leaf === app.workspace.getLeaf(),
+			});
+		}
+	});
+}
+
+/**
  * Handle the /create-view command
  */
 export async function handleCreateView(
@@ -398,8 +444,8 @@ Return ONLY the JSX code, starting with "import React from 'react';".`;
 				`View "${viewName}" created successfully!\n\nThe file is now being rendered with your custom view. If you want to make changes, just describe what you'd like to modify.`
 			);
 
-			// Trigger a re-render of the current file if it's open
-			// The hot-reload should handle this automatically
+			// Switch any leaves showing the attached file to the React view
+			await switchFileToReactView(view, attachedFile, viewName);
 		} else {
 			throw new Error("Failed to save view file");
 		}
@@ -539,6 +585,11 @@ Update the component according to the user's feedback. Return ONLY the complete 
 				"agent",
 				`View "${viewName}" updated! The changes should be visible now.`
 			);
+
+			// Refresh any leaves showing the attached file
+			if (attachedFile) {
+				await switchFileToReactView(view, attachedFile, viewName);
+			}
 		} else {
 			throw new Error("Failed to save updated view");
 		}

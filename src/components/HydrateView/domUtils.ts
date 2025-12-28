@@ -105,7 +105,6 @@ export function addMessageToChat(
 	if (isError) {
 		messageClasses.push(
 			"hydrate-error-message",
-			"bg-[var(--background-modifier-error)]",
 			"text-[var(--text-error)]",
 		);
 	}

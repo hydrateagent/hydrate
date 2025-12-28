@@ -1,5 +1,5 @@
 # vscode
-.vscode 
+.vscode
 
 # Intellij
 *.iml
@@ -23,3 +23,4 @@ data.json
 
 # Exclude test coverage
 coverage/
+views/
