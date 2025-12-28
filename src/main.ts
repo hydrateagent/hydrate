@@ -203,6 +203,14 @@ export default class HydratePlugin extends Plugin {
 	mcpManager: MCPServerManager | null = null; // MCP Server Manager
 	viewLoader: ViewLoader | null = null; // Custom view loader
 
+	/**
+	 * Check if user has a pro license (any valid license key)
+	 * Image support and other premium features require this
+	 */
+	hasProLicense(): boolean {
+		return !!this.settings.licenseKey && this.settings.licenseKey.trim().length > 0;
+	}
+
 	async onload() {
 		await this.loadSettings();
 		// Set developmentPath dynamically based on the actual config directory

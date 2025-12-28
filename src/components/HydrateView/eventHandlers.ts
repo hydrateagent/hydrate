@@ -55,8 +55,15 @@ export const handleClear = (view: HydrateView): void => {
 
 /**
  * Handles image files dropped into the input area.
+ * Requires pro license.
  */
 async function handleImageDrop(view: HydrateView, files: File[]): Promise<void> {
+	// Check for pro license
+	if (!view.plugin.hasProLicense()) {
+		new Notice("Image support requires a Hydrate Pro license. Visit hydrateagent.com to upgrade.");
+		return;
+	}
+
 	const { attachments, errors } = await processImageFiles(files);
 
 	// Show errors if any
@@ -76,12 +83,19 @@ async function handleImageDrop(view: HydrateView, files: File[]): Promise<void> 
 
 /**
  * Handles paste events to capture images from clipboard.
+ * Requires pro license for image pasting.
  */
 export const handlePaste = async (view: HydrateView, event: ClipboardEvent): Promise<void> => {
 	if (!event.clipboardData) return;
 
 	const imageFiles = extractImagesFromDataTransfer(event.clipboardData);
 	if (imageFiles.length === 0) return;
+
+	// Check for pro license
+	if (!view.plugin.hasProLicense()) {
+		new Notice("Image support requires a Hydrate Pro license. Visit hydrateagent.com to upgrade.");
+		return;
+	}
 
 	// Prevent default paste behavior for images
 	event.preventDefault();

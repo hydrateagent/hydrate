@@ -1445,6 +1445,11 @@ export class HydrateSettingTab extends PluginSettingTab {
 				text: `${advancedIcon} advanced file operations`,
 			});
 
+			const imageIcon = licenseInfo.tier === "free" ? "✗" : "✓";
+			featuresList.createEl("li", {
+				text: `${imageIcon} image input support`,
+			});
+
 			const supportIcon = licenseInfo.tier === "free" ? "✗" : "✓";
 			featuresList.createEl("li", {
 				text: `${supportIcon} priority support`,
