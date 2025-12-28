@@ -14,7 +14,7 @@ import {
 	getInlineReviewController,
 	InlineReviewController,
 } from "../InlineReview"; // New inline review system
-import { RegistryEntry, Patch, ChatHistory, ChatTurn } from "../../types"; // Corrected path
+import { RegistryEntry, Patch, ChatHistory, ChatTurn, ImageAttachment } from "../../types"; // Corrected path
 import {
 	toolReadFile,
 	toolReplaceSelectionInFile,
@@ -31,6 +31,7 @@ import {
 import {
 	handleClear,
 	handleDrop,
+	handlePaste,
 	handleSend,
 	handleStop,
 	handleInputChange,
@@ -88,6 +89,7 @@ export class HydrateView extends ItemView {
 	chatContainer: HTMLDivElement;
 	filePillsContainer: HTMLDivElement;
 	public attachedFiles: string[] = [];
+	public attachedImages: ImageAttachment[] = [];
 	isLoading: boolean = false;
 	conversationId: string | null = null;
 	stopButton: HTMLButtonElement;
@@ -369,6 +371,10 @@ export class HydrateView extends ItemView {
 		this.textInput.addEventListener("keydown", (e) =>
 			handleInputKeydown(this, e),
 		);
+		// Handle paste for images
+		this.textInput.addEventListener("paste", (e: ClipboardEvent) => {
+			handlePaste(this, e);
+		});
 		sendButton.addEventListener("click", () => void handleSend(this));
 		clearButton.addEventListener("click", () => void handleClear(this));
 		this.stopButton.addEventListener("click", () => void handleStop(this));

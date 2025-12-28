@@ -6,6 +6,7 @@ import { MCPToolSchemaWithMetadata } from "../../mcp/MCPServerManager";
 import {
 	addMessageToChat,
 	renderFilePills as renderDomFilePills,
+	renderImagePreviews as renderDomImagePreviews,
 	setLoadingState as setDomLoadingState,
 	setSuggestions as setDomSuggestions,
 	setTextContent as setDomTextContent,
@@ -14,6 +15,10 @@ import { NoteSearchModal } from "./NoteSearchModal";
 import { SlashCommandModal } from "./SlashCommandModal";
 import { devLog } from "../../utils/logger";
 import { isCreateViewCommand, handleCreateView } from "./createViewHandler";
+import {
+	extractImagesFromDataTransfer,
+	processImageFiles,
+} from "./imageUtils";
 
 // Define types for clarity if needed, e.g., for state or complex parameters
 
@@ -23,10 +28,12 @@ import { isCreateViewCommand, handleCreateView } from "./createViewHandler";
 export const handleClear = (view: HydrateView): void => {
 	setDomTextContent(view, "");
 	view.attachedFiles = [];
+	view.attachedImages = [];
 	view.initialFilePathFromState = null;
 	view.wasInitiallyAttached = false;
 	view.capturedSelections = [];
 	renderDomFilePills(view);
+	renderDomImagePreviews(view);
 	view.conversationId = null;
 	view.sentFileContentRegistry.clear();
 	view.appliedRuleIds.clear();
@@ -45,9 +52,66 @@ export const handleClear = (view: HydrateView): void => {
 };
 
 /**
+ * Handles image files dropped into the input area.
+ */
+async function handleImageDrop(view: HydrateView, files: File[]): Promise<void> {
+	const { attachments, errors } = await processImageFiles(files);
+
+	// Show errors if any
+	if (errors.length > 0) {
+		errors.forEach((error) => {
+			addMessageToChat(view, "system", error, true);
+		});
+	}
+
+	// Add valid images to state
+	if (attachments.length > 0) {
+		view.attachedImages.push(...attachments);
+		renderImagePreviews(view);
+		devLog.debug(`Added ${attachments.length} image(s) to attachedImages`);
+	}
+}
+
+/**
+ * Handles paste events to capture images from clipboard.
+ */
+export const handlePaste = async (view: HydrateView, event: ClipboardEvent): Promise<void> => {
+	if (!event.clipboardData) return;
+
+	const imageFiles = extractImagesFromDataTransfer(event.clipboardData);
+	if (imageFiles.length === 0) return;
+
+	// Prevent default paste behavior for images
+	event.preventDefault();
+
+	const { attachments, errors } = await processImageFiles(imageFiles);
+
+	// Show errors if any
+	if (errors.length > 0) {
+		errors.forEach((error) => {
+			addMessageToChat(view, "system", error, true);
+		});
+	}
+
+	// Add valid images to state
+	if (attachments.length > 0) {
+		view.attachedImages.push(...attachments);
+		renderImagePreviews(view);
+		devLog.debug(`Pasted ${attachments.length} image(s)`);
+	}
+};
+
+/**
+ * Renders image preview thumbnails in the input area.
+ */
+function renderImagePreviews(view: HydrateView): void {
+	renderDomImagePreviews(view);
+}
+
+/**
  * Handles file drops into the input area.
  */
-export const handleDrop = (view: HydrateView, event: DragEvent): void => {
+export const handleDrop = async (view: HydrateView, event: DragEvent): Promise<void> => {
 	event.preventDefault();
 	event.stopPropagation();
 	const containerEl = view.containerEl;
@@ -55,10 +119,23 @@ export const handleDrop = (view: HydrateView, event: DragEvent): void => {
 	if (!inputSection) return;
 	inputSection.classList.remove("hydrate-drag-over");
 
+	if (!event.dataTransfer) {
+		devLog.warn("Hydrate drop: No dataTransfer available.");
+		return;
+	}
+
+	// Check for image files first
+	const imageFiles = extractImagesFromDataTransfer(event.dataTransfer);
+	if (imageFiles.length > 0) {
+		await handleImageDrop(view, imageFiles);
+		return;
+	}
+
+	// Fall through to existing file path handling
 	let pathData = "";
-	if (event.dataTransfer?.types.includes("text/uri-list")) {
+	if (event.dataTransfer.types.includes("text/uri-list")) {
 		pathData = event.dataTransfer.getData("text/uri-list");
-	} else if (event.dataTransfer?.types.includes("text/plain")) {
+	} else if (event.dataTransfer.types.includes("text/plain")) {
 		pathData = event.dataTransfer.getData("text/plain");
 	}
 
@@ -438,6 +515,9 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 		"user",
 		originalMessageContent ||
 			`(Sent with ${currentAttachedFiles.length} attached file(s))`,
+		false,
+		undefined,
+		view.attachedImages.map((img) => ({ data: img.data, mimeType: img.mimeType }))
 	);
 	// --- END: Apply diff for conditional send and user message ---
 
@@ -458,12 +538,21 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 		conversation_id: string | null;
 		model: string;
 		mcp_tools: MCPToolSchemaWithMetadata[];
+		images?: { data: string; mime_type: string }[];
 	} = {
 		message: combinedPayload, // Use the carefully constructed combinedPayload
 		conversation_id: view.conversationId,
 		model: view.plugin.getSelectedModel(),
 		mcp_tools: mcpTools, // Include MCP tools in the request
 	};
+
+	// Add images if any are attached
+	if (view.attachedImages.length > 0) {
+		payload.images = view.attachedImages.map((img) => ({
+			data: img.data,
+			mime_type: img.mimeType,
+		}));
+	}
 
 	// --- END: Apply diff debug log for payload ---
 
@@ -486,6 +575,8 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 		view.textInput.dispatchEvent(new Event("input"));
 		// Ensure captured selection is cleared even on error
 		view.capturedSelections = [];
+		view.attachedImages = [];
+		renderImagePreviews(view);
 	}
 };
 

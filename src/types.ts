@@ -50,12 +50,24 @@ export interface Patch {
 
 // --- END Patch Type ---
 
+// --- Image Attachment Type ---
+
+/** Represents an attached image for chat messages */
+export interface ImageAttachment {
+	data: string;      // base64-encoded image data (without data URI prefix)
+	mimeType: string;  // e.g., "image/png", "image/jpeg", "image/webp", "image/gif"
+	filename?: string; // optional original filename
+}
+
+// --- END Image Attachment Type ---
+
 // --- Chat History Types ---
 
 /** Represents a single turn in a chat conversation */
 export interface ChatTurn {
 	role: "user" | "agent";
 	content: string;
+	images?: ImageAttachment[]; // optional images for this turn
 	timestamp: string; // ISO timestamp
 }
 

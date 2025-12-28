@@ -1,7 +1,7 @@
 import { MarkdownRenderer, Notice, setIcon, TFile } from "obsidian";
 import { devLog } from "../../utils/logger";
 import { HydrateView } from "./hydrateView"; // Corrected path
-import { RegistryEntry } from "../../types"; // Corrected path (up two levels from components/HydrateView)
+import { RegistryEntry, ChatTurn } from "../../types"; // Corrected path (up two levels from components/HydrateView)
 import {
 	removeFilePill as removeEventHandlerFilePill,
 	handleSuggestionSelect,
@@ -63,6 +63,7 @@ export function addMessageToChat(
 	content: string | HTMLElement,
 	isError: boolean = false,
 	rawTextForCopy?: string,
+	images?: { data: string; mimeType: string }[],
 ): void {
 	const chatContainer = view.chatContainer; // Access private member
 	const plugin = view.plugin; // Access private member
@@ -116,6 +117,31 @@ export function addMessageToChat(
 	// Make agent messages relative for absolute positioning of the copy button
 	if (role === "agent") {
 		messageEl.addClass("hydrate-message-agent");
+	}
+
+	// Render images if present
+	if (images && images.length > 0) {
+		const imagesContainer = messageEl.createDiv({
+			cls: "hydrate-message-images",
+		});
+		imagesContainer.style.cssText = `
+			display: flex;
+			flex-wrap: wrap;
+			gap: 8px;
+			margin-bottom: 8px;
+		`;
+
+		images.forEach((img) => {
+			const imgEl = document.createElement("img");
+			imgEl.src = `data:${img.mimeType};base64,${img.data}`;
+			imgEl.style.cssText = `
+				max-width: 200px;
+				max-height: 200px;
+				border-radius: 4px;
+				border: 1px solid var(--background-modifier-border);
+			`;
+			imagesContainer.appendChild(imgEl);
+		});
 	}
 
 	if (content instanceof HTMLElement) {
@@ -261,9 +287,10 @@ export function addMessageToChat(
 
 	// Track this message in chat history (skip system messages and when restoring from history)
 	if (role !== "system" && typeof content === "string") {
-		const chatTurn = {
+		const chatTurn: ChatTurn = {
 			role: role,
 			content: content,
+			images: images,
 			timestamp: new Date().toISOString(),
 		};
 		// Only add to history if we're not currently restoring from history
@@ -412,6 +439,95 @@ export function renderFilePills(view: HydrateView): void {
 		);
 	});
 }
+
+/**
+ * Renders image preview thumbnails in the input area.
+ */
+export const renderImagePreviews = (view: HydrateView): void => {
+	const containerEl = view.containerEl;
+
+	// Find or create image previews container
+	let imagePreviews = containerEl.querySelector(".hydrate-image-previews") as HTMLDivElement;
+	if (!imagePreviews) {
+		const inputSection = containerEl.querySelector(".hydrate-input-section");
+		if (!inputSection) return;
+
+		imagePreviews = document.createElement("div");
+		imagePreviews.className = "hydrate-image-previews";
+		imagePreviews.style.cssText = `
+			display: flex;
+			flex-wrap: wrap;
+			gap: 8px;
+			padding: 8px;
+			border-bottom: 1px solid var(--background-modifier-border);
+		`;
+		inputSection.insertBefore(imagePreviews, inputSection.firstChild);
+	}
+
+	// Clear existing previews
+	imagePreviews.innerHTML = "";
+
+	// Hide if no images
+	if (view.attachedImages.length === 0) {
+		imagePreviews.style.display = "none";
+		return;
+	}
+
+	imagePreviews.style.display = "flex";
+
+	// Create preview for each image
+	view.attachedImages.forEach((img, index) => {
+		const preview = document.createElement("div");
+		preview.className = "hydrate-image-preview";
+		preview.style.cssText = `
+			position: relative;
+			width: 60px;
+			height: 60px;
+			border-radius: 4px;
+			overflow: hidden;
+			border: 1px solid var(--background-modifier-border);
+		`;
+
+		const imgEl = document.createElement("img");
+		imgEl.src = `data:${img.mimeType};base64,${img.data}`;
+		imgEl.style.cssText = `
+			width: 100%;
+			height: 100%;
+			object-fit: cover;
+		`;
+		imgEl.alt = img.filename || `Image ${index + 1}`;
+
+		const removeBtn = document.createElement("button");
+		removeBtn.className = "hydrate-image-remove";
+		removeBtn.innerHTML = "×";
+		removeBtn.style.cssText = `
+			position: absolute;
+			top: 2px;
+			right: 2px;
+			width: 18px;
+			height: 18px;
+			border-radius: 50%;
+			border: none;
+			background: var(--background-modifier-error);
+			color: white;
+			cursor: pointer;
+			font-size: 12px;
+			line-height: 1;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+		`;
+		removeBtn.onclick = (e) => {
+			e.stopPropagation();
+			view.attachedImages.splice(index, 1);
+			renderImagePreviews(view);
+		};
+
+		preview.appendChild(imgEl);
+		preview.appendChild(removeBtn);
+		imagePreviews.appendChild(preview);
+	});
+};
 
 /**
  * Renders the slash command suggestions.
