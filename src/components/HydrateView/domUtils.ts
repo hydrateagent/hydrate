@@ -1,7 +1,8 @@
 import { MarkdownRenderer, Notice, setIcon, TFile } from "obsidian";
 import { devLog } from "../../utils/logger";
 import { HydrateView } from "./hydrateView"; // Corrected path
-import { RegistryEntry, ChatTurn } from "../../types"; // Corrected path (up two levels from components/HydrateView)
+import { RegistryEntry, ChatTurn, ChatImage, isStoredImage } from "../../types"; // Corrected path (up two levels from components/HydrateView)
+import { getImageDataUrl } from "./imageUtils";
 import {
 	removeFilePill as removeEventHandlerFilePill,
 	handleSuggestionSelect,
@@ -63,7 +64,7 @@ export function addMessageToChat(
 	content: string | HTMLElement,
 	isError: boolean = false,
 	rawTextForCopy?: string,
-	images?: { data: string; mimeType: string }[],
+	images?: ChatImage[],
 ): void {
 	const chatContainer = view.chatContainer; // Access private member
 	const plugin = view.plugin; // Access private member
@@ -133,13 +134,37 @@ export function addMessageToChat(
 
 		images.forEach((img) => {
 			const imgEl = document.createElement("img");
-			imgEl.src = `data:${img.mimeType};base64,${img.data}`;
 			imgEl.style.cssText = `
 				max-width: 200px;
 				max-height: 200px;
+				min-width: 60px;
+				min-height: 60px;
 				border-radius: 4px;
 				border: 1px solid var(--background-modifier-border);
+				background: var(--background-secondary);
 			`;
+
+			// Handle both base64 and vault-stored images
+			if (isStoredImage(img)) {
+				// Load async from vault
+				devLog.debug("Loading stored image from vault:", img.vaultPath);
+				imgEl.alt = "Loading...";
+				getImageDataUrl(plugin.app, img)
+					.then((dataUrl) => {
+						devLog.debug("Image loaded successfully, length:", dataUrl.length);
+						imgEl.src = dataUrl;
+						imgEl.alt = "";
+					})
+					.catch((error) => {
+						devLog.error("Failed to load image from vault:", error);
+						imgEl.alt = "Image not found";
+					});
+			} else {
+				// Direct base64
+				devLog.debug("Using base64 image, data length:", img.data?.length);
+				imgEl.src = `data:${img.mimeType};base64,${img.data}`;
+			}
+
 			imagesContainer.appendChild(imgEl);
 		});
 	}

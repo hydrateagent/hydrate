@@ -1,5 +1,6 @@
 // src/components/HydrateView/imageUtils.ts
-import { ImageAttachment } from "../../types";
+import { App, normalizePath, TFile } from "obsidian";
+import { ImageAttachment, StoredImageAttachment, ChatImage, isStoredImage } from "../../types";
 import { devLog } from "../../utils/logger";
 
 /** Supported image MIME types */
@@ -137,4 +138,111 @@ export async function processImageFiles(
 	}
 
 	return { attachments, errors };
+}
+
+// --- Vault Storage Functions ---
+
+/** Folder path for storing chat images (not hidden - Obsidian can't embed from dot folders) */
+export const IMAGES_FOLDER = "hydrate-chats/images";
+
+/**
+ * Get file extension from MIME type
+ */
+function getExtensionFromMimeType(mimeType: string): string {
+	const extensions: Record<string, string> = {
+		"image/png": "png",
+		"image/jpeg": "jpg",
+		"image/webp": "webp",
+		"image/gif": "gif",
+	};
+	return extensions[mimeType] || "png";
+}
+
+/**
+ * Ensure the images folder exists in the vault
+ */
+export async function ensureImagesFolderExists(app: App): Promise<void> {
+	const folderPath = normalizePath(IMAGES_FOLDER);
+	// Use adapter.exists() instead of getAbstractFileByPath to avoid vault index issues
+	const exists = await app.vault.adapter.exists(folderPath);
+	if (!exists) {
+		await app.vault.createFolder(folderPath);
+		devLog.debug(`Created images folder: ${folderPath}`);
+	}
+}
+
+/**
+ * Save a base64 ImageAttachment to vault, returning a StoredImageAttachment
+ */
+export async function saveImageToVault(
+	app: App,
+	image: ImageAttachment,
+	index: number
+): Promise<StoredImageAttachment> {
+	await ensureImagesFolderExists(app);
+
+	const ext = getExtensionFromMimeType(image.mimeType);
+	const timestamp = Date.now();
+	const filename = `img_${timestamp}_${index}.${ext}`;
+	const vaultPath = normalizePath(`${IMAGES_FOLDER}/${filename}`);
+
+	// Convert base64 to binary
+	const binaryString = atob(image.data);
+	const binaryData = new ArrayBuffer(binaryString.length);
+	const view = new Uint8Array(binaryData);
+	for (let i = 0; i < binaryString.length; i++) {
+		view[i] = binaryString.charCodeAt(i);
+	}
+
+	// Create file in vault
+	await app.vault.createBinary(vaultPath, binaryData);
+	devLog.debug(`Saved image to vault: ${vaultPath}`);
+
+	return {
+		vaultPath,
+		mimeType: image.mimeType,
+		filename: image.filename,
+	};
+}
+
+/**
+ * Load an image from vault path as a data URL for display
+ */
+export async function loadImageFromVault(
+	app: App,
+	storedImage: StoredImageAttachment
+): Promise<string> {
+	// Use adapter.readBinary() directly instead of vault.readBinary()
+	// This works even if the vault index hasn't updated yet after createBinary()
+	const normalizedPath = normalizePath(storedImage.vaultPath);
+
+	// Check if file exists using adapter
+	const exists = await app.vault.adapter.exists(normalizedPath);
+	if (!exists) {
+		throw new Error(`Image file not found: ${storedImage.vaultPath}`);
+	}
+
+	const binaryData = await app.vault.adapter.readBinary(normalizedPath);
+	const base64 = btoa(
+		new Uint8Array(binaryData).reduce(
+			(data, byte) => data + String.fromCharCode(byte),
+			""
+		)
+	);
+
+	return `data:${storedImage.mimeType};base64,${base64}`;
+}
+
+/**
+ * Get data URL for any ChatImage (handles both base64 and vault-stored)
+ */
+export async function getImageDataUrl(
+	app: App,
+	image: ChatImage
+): Promise<string> {
+	if (isStoredImage(image)) {
+		return loadImageFromVault(app, image);
+	} else {
+		return `data:${image.mimeType};base64,${image.data}`;
+	}
 }

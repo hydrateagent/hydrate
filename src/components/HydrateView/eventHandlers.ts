@@ -18,7 +18,9 @@ import { isCreateViewCommand, handleCreateView } from "./createViewHandler";
 import {
 	extractImagesFromDataTransfer,
 	processImageFiles,
+	saveImageToVault,
 } from "./imageUtils";
+import { StoredImageAttachment } from "../../types";
 
 // Define types for clarity if needed, e.g., for state or complex parameters
 
@@ -510,6 +512,24 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 	// --- START: Apply diff for conditional send and user message ---
 	if (currentAttachedFiles.length === 0 && !originalMessageContent) return;
 
+	// Save images to vault for persistent storage (chat history)
+	let storedImages: StoredImageAttachment[] = [];
+	if (view.attachedImages.length > 0) {
+		devLog.debug(`Attempting to save ${view.attachedImages.length} images to vault`);
+		try {
+			storedImages = await Promise.all(
+				view.attachedImages.map((img, index) =>
+					saveImageToVault(view.plugin.app, img, index)
+				)
+			);
+			devLog.debug(`Successfully saved ${storedImages.length} images:`, storedImages.map(s => s.vaultPath));
+		} catch (error) {
+			devLog.error("Failed to save images to vault:", error);
+			new Notice(`Failed to save image to vault: ${error instanceof Error ? error.message : "Unknown error"}`);
+			// Fall back to base64 for display but won't persist
+		}
+	}
+
 	addMessageToChat(
 		view,
 		"user",
@@ -517,7 +537,9 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 			`(Sent with ${currentAttachedFiles.length} attached file(s))`,
 		false,
 		undefined,
-		view.attachedImages.map((img) => ({ data: img.data, mimeType: img.mimeType }))
+		storedImages.length > 0
+			? storedImages
+			: view.attachedImages.map((img) => ({ data: img.data, mimeType: img.mimeType }))
 	);
 	// --- END: Apply diff for conditional send and user message ---
 

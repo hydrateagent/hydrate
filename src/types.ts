@@ -50,16 +50,31 @@ export interface Patch {
 
 // --- END Patch Type ---
 
-// --- Image Attachment Type ---
+// --- Image Attachment Types ---
 
-/** Represents an attached image for chat messages */
+/** Represents an attached image for chat messages (in-memory, base64) */
 export interface ImageAttachment {
 	data: string;      // base64-encoded image data (without data URI prefix)
 	mimeType: string;  // e.g., "image/png", "image/jpeg", "image/webp", "image/gif"
 	filename?: string; // optional original filename
 }
 
-// --- END Image Attachment Type ---
+/** Represents an image stored as a file in the vault (for chat history persistence) */
+export interface StoredImageAttachment {
+	vaultPath: string;  // e.g., ".hydrate/images/img_1703789123456_0.png"
+	mimeType: string;
+	filename?: string;
+}
+
+/** Union type for images that may be base64 or vault-stored */
+export type ChatImage = ImageAttachment | StoredImageAttachment;
+
+/** Type guard to check if an image is stored in vault */
+export function isStoredImage(img: ChatImage): img is StoredImageAttachment {
+	return "vaultPath" in img;
+}
+
+// --- END Image Attachment Types ---
 
 // --- Chat History Types ---
 
@@ -67,7 +82,7 @@ export interface ImageAttachment {
 export interface ChatTurn {
 	role: "user" | "agent";
 	content: string;
-	images?: ImageAttachment[]; // optional images for this turn
+	images?: ChatImage[]; // optional images (base64 or vault-stored)
 	timestamp: string; // ISO timestamp
 }
 

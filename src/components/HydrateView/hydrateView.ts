@@ -14,7 +14,7 @@ import {
 	getInlineReviewController,
 	InlineReviewController,
 } from "../InlineReview"; // New inline review system
-import { RegistryEntry, Patch, ChatHistory, ChatTurn, ImageAttachment } from "../../types"; // Corrected path
+import { RegistryEntry, Patch, ChatHistory, ChatTurn, ImageAttachment, isStoredImage } from "../../types"; // Corrected path
 import {
 	toolReadFile,
 	toolReplaceSelectionInFile,
@@ -1617,6 +1617,15 @@ export class HydrateView extends ItemView {
 		for (const turn of this.currentChatTurns) {
 			if (turn.role === "user") {
 				dialogueContent += `## User:\n\n${turn.content}\n\n`;
+				// Include images if present
+				if (turn.images && turn.images.length > 0) {
+					for (const img of turn.images) {
+						if (isStoredImage(img)) {
+							// Vault-stored image - use Obsidian embed syntax
+							dialogueContent += `![[${img.vaultPath}]]\n\n`;
+						}
+					}
+				}
 			} else if (turn.role === "agent") {
 				dialogueContent += `## Agent:\n\n${turn.content}\n\n`;
 			}
