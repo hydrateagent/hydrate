@@ -211,6 +211,17 @@ export default class HydratePlugin extends Plugin {
 		return !!this.settings.licenseKey && this.settings.licenseKey.trim().length > 0;
 	}
 
+	/**
+	 * Check if user has a max license
+	 * Custom view creation requires this
+	 * Note: Backend validates the actual tier - this is a frontend gate
+	 */
+	hasMaxLicense(): boolean {
+		// For now, any license key grants Max access
+		// Backend will validate the actual tier
+		return !!this.settings.licenseKey && this.settings.licenseKey.trim().length > 0;
+	}
+
 	async onload() {
 		await this.loadSettings();
 		// Set developmentPath dynamically based on the actual config directory

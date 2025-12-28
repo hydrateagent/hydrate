@@ -355,12 +355,16 @@ export async function handleCreateView(
 		return true;
 	}
 
-	// TODO: Check Max subscription
-	// const subscription = await view.plugin.getSubscriptionStatus();
-	// if (!subscription.isMax) {
-	//   addMessageToChat(view, "system", "Custom views is a Max feature. Upgrade to create your own views.");
-	//   return true;
-	// }
+	// Check Max subscription
+	if (!view.plugin.hasMaxLicense()) {
+		addMessageToChat(
+			view,
+			"system",
+			"Custom view creation is a Hydrate Max feature. Visit hydrateagent.com to upgrade.",
+			true
+		);
+		return true;
+	}
 
 	// Show user message
 	addMessageToChat(view, "user", message);
@@ -538,6 +542,17 @@ export async function handleEditViewCommand(
 			view,
 			"system",
 			"Cannot edit the built-in 'issue-board' view.",
+			true
+		);
+		return true;
+	}
+
+	// Check Max subscription
+	if (!view.plugin.hasMaxLicense()) {
+		addMessageToChat(
+			view,
+			"system",
+			"Custom view editing is a Hydrate Max feature. Visit hydrateagent.com to upgrade.",
 			true
 		);
 		return true;
