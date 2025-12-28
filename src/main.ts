@@ -950,6 +950,14 @@ export default class HydratePlugin extends Plugin {
 				contentType: "text",
 				version: 1,
 			},
+			{
+				id: "builtin-edit-view",
+				description: "Edit an existing custom view for the attached file",
+				slashCommandTrigger: "/edit-view",
+				content: "", // Handled specially in eventHandlers
+				contentType: "text",
+				version: 1,
+			},
 		];
 
 		// Ensure array exists, combine with built-ins

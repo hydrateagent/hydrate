@@ -224,10 +224,24 @@ export function isCreateViewCommand(message: string): boolean {
 }
 
 /**
+ * Check if this is a /edit-view command
+ */
+export function isEditViewCommand(message: string): boolean {
+	return message.trim().toLowerCase().startsWith("/edit-view");
+}
+
+/**
  * Extract the description from a /create-view command
  */
 export function extractViewDescription(message: string): string {
 	return message.replace(/^\/create-view\s*/i, "").trim();
+}
+
+/**
+ * Extract the description from a /edit-view command
+ */
+export function extractEditViewDescription(message: string): string {
+	return message.replace(/^\/edit-view\s*/i, "").trim();
 }
 
 /**
@@ -239,6 +253,7 @@ async function switchFileToReactView(
 	viewName: string
 ): Promise<void> {
 	const app = view.plugin.app;
+	const refreshToken = Date.now(); // Unique token to force remount
 
 	// Find all leaves showing this file
 	app.workspace.iterateAllLeaves((leaf) => {
@@ -252,12 +267,13 @@ async function switchFileToReactView(
 				state: {
 					filePath: filePath,
 					viewKey: viewName,
+					refreshToken: refreshToken,
 				},
 				active: leaf === app.workspace.getLeaf(),
 			});
 		}
 
-		// Handle ReactViewHost - force remount by re-setting state
+		// Handle ReactViewHost - force remount by re-setting state with new refreshToken
 		if (
 			leafView.getViewType() === REACT_HOST_VIEW_TYPE &&
 			(leafView as any).currentFilePath === filePath
@@ -268,6 +284,7 @@ async function switchFileToReactView(
 				state: {
 					filePath: filePath,
 					viewKey: viewName,
+					refreshToken: refreshToken,
 				},
 				active: leaf === app.workspace.getLeaf(),
 			});
@@ -465,9 +482,78 @@ Return ONLY the JSX code, starting with "import React from 'react';".`;
 }
 
 /**
- * Handle view iteration/editing via chat
+ * Handle the /edit-view command
  */
-export async function handleViewEdit(
+export async function handleEditViewCommand(
+	view: HydrateView,
+	message: string
+): Promise<boolean> {
+	const description = extractEditViewDescription(message);
+
+	if (!description) {
+		addMessageToChat(
+			view,
+			"system",
+			"Please describe what changes you want to make.\n\nExample: /edit-view make the cards larger and add a delete button",
+			true
+		);
+		return true;
+	}
+
+	// Get the currently attached file
+	const attachedFile = view.attachedFiles[0];
+	if (!attachedFile) {
+		addMessageToChat(
+			view,
+			"system",
+			"Please attach a markdown file that uses the view you want to edit.\n\nThe file should have `hydrate-plugin: your-view-name` in the frontmatter.",
+			true
+		);
+		return true;
+	}
+
+	// Read the file content to get the view name
+	const file = view.plugin.app.vault.getAbstractFileByPath(attachedFile);
+	if (!(file instanceof TFile)) {
+		addMessageToChat(view, "system", "Could not read the attached file.", true);
+		return true;
+	}
+
+	const fileContent = await view.plugin.app.vault.read(file);
+	const viewName = extractViewNameFromFrontmatter(fileContent);
+
+	if (!viewName) {
+		addMessageToChat(
+			view,
+			"system",
+			"The attached file needs `hydrate-plugin: your-view-name` in the frontmatter to identify which view to edit.",
+			true
+		);
+		return true;
+	}
+
+	// Check if it's a built-in view
+	if (viewName === "issue-board") {
+		addMessageToChat(
+			view,
+			"system",
+			"Cannot edit the built-in 'issue-board' view.",
+			true
+		);
+		return true;
+	}
+
+	// Show user message
+	addMessageToChat(view, "user", message);
+
+	// Delegate to the existing edit handler
+	return handleViewEdit(view, description, viewName);
+}
+
+/**
+ * Handle view iteration/editing via chat (internal)
+ */
+async function handleViewEdit(
 	view: HydrateView,
 	message: string,
 	viewName: string

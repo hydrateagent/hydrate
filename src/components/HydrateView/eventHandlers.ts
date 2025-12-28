@@ -14,7 +14,7 @@ import {
 import { NoteSearchModal } from "./NoteSearchModal";
 import { SlashCommandModal } from "./SlashCommandModal";
 import { devLog } from "../../utils/logger";
-import { isCreateViewCommand, handleCreateView } from "./createViewHandler";
+import { isCreateViewCommand, handleCreateView, isEditViewCommand, handleEditViewCommand } from "./createViewHandler";
 import {
 	extractImagesFromDataTransfer,
 	processImageFiles,
@@ -327,6 +327,14 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 		await handleCreateView(view, originalMessageContent);
 		return;
 	}
+
+	// --- Handle /edit-view command ---
+	if (isEditViewCommand(originalMessageContent)) {
+		setDomTextContent(view, ""); // Clear input
+		await handleEditViewCommand(view, originalMessageContent);
+		return;
+	}
+
 	let payloadContent = originalMessageContent;
 
 	// --- Step 1: Handle /selectNN commands ---

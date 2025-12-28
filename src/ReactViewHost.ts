@@ -19,6 +19,7 @@ import { devLog } from "./utils/logger";
 interface ReactViewHostState {
 	filePath?: string | null;
 	viewKey?: string | null;
+	refreshToken?: number; // Used to force remount when view code changes
 	[key: string]: unknown;
 }
 
@@ -26,6 +27,7 @@ export class ReactViewHost extends ItemView {
 	plugin: HydratePlugin;
 	currentFilePath: string | null = null;
 	currentViewKey: string | null = null;
+	private currentRefreshToken: number = 0;
 	private reactRoot: Root | null = null;
 	private currentMarkdownContent: string | null = null; // Store current content for comparison
 
@@ -65,6 +67,7 @@ export class ReactViewHost extends ItemView {
 	): Promise<void> {
 		const newFilePath = state.filePath;
 		const newViewKey = state.viewKey;
+		const newRefreshToken = state.refreshToken ?? 0;
 
 		let shouldRemount = false;
 
@@ -76,12 +79,14 @@ export class ReactViewHost extends ItemView {
 		) {
 			this.currentFilePath = newFilePath;
 			this.currentViewKey = newViewKey;
+			this.currentRefreshToken = newRefreshToken;
 			this.updateDisplayText(); // Update tab title
 			shouldRemount = true;
-		} else {
-			// If path/key are the same, but maybe content updated externally?
-			// The handleVaultModify listener should handle remounting in that case.
-			// We still need to call super.setState later.
+		} else if (newRefreshToken !== this.currentRefreshToken) {
+			// Same file/view but refreshToken changed - force remount (view code was updated)
+			this.currentRefreshToken = newRefreshToken;
+			shouldRemount = true;
+			devLog.debug(`ReactViewHost: refreshToken changed, forcing remount for "${newViewKey}"`);
 		}
 
 		if (shouldRemount) {

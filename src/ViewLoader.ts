@@ -6,8 +6,8 @@ import { devLog } from "./utils/logger";
 import { registerReactView } from "./main";
 import { ReactViewProps } from "./types";
 
-// Views directory relative to vault root
-const VIEWS_DIR = ".obsidian/plugins/hydrate/views";
+// Views directory relative to vault root (visible in sidebar for easy access)
+const VIEWS_DIR = "hydrate-chats/views";
 
 export class ViewLoader {
 	private app: App;
@@ -107,7 +107,7 @@ export class ViewLoader {
 
 	/**
 	 * Extract view name from file path
-	 * e.g., ".obsidian/plugins/hydrate/views/recipe-cards.jsx" -> "recipe-cards"
+	 * e.g., "hydrate-chats/views/recipe-cards.jsx" -> "recipe-cards"
 	 */
 	private getViewNameFromPath(filePath: string): string {
 		const fileName = filePath.split("/").pop() || "";
