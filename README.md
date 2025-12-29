@@ -46,33 +46,15 @@ Hydrate transforms your Obsidian vault into an intelligent knowledge companion. 
 -   Accelerate research and synthesize information
 -   Overcome creative blocks and enhance your writing
 
-Hydrate is **not** in the official Obsidian Community Plugins marketplace yet. You can install it easily using the [Obsidian42 BRAT](https://github.com/TfTHacker/obsidian42-brat) plugin.
-
 ---
 
-## 🚀 Installation (via BRAT)
+## 🚀 Installation
 
-### Prerequisites
+1. In Obsidian, go to **Settings → Community plugins → Browse**
+2. Search for `Hydrate`
+3. Click **Install** and then **Enable**
 
--   Obsidian v0.15.0 or higher
--   [Obsidian42 BRAT](https://github.com/TfTHacker/obsidian42-brat) plugin installed and enabled
-
-### Step-by-Step Instructions
-
-1. **Install BRAT**
-    - In Obsidian, go to **Settings → Community plugins → Browse**
-    - Search for `BRAT` or `Obsidian42 - BRAT`
-    - Click **Install** and then **Enable**
-2. **Add Hydrate Plugin via BRAT**
-    - Copy this repository URL:
-      `https://github.com/hydrateagent/hydrate`
-    - Open the **Command Palette** (Cmd+P or Ctrl+P)
-    - Run: `BRAT: Add a beta plugin for testing`
-    - Paste the URL above into the modal and confirm
-    - Wait for BRAT to download and install the plugin
-3. **Enable Hydrate**
-    - Go to **Settings → Community plugins**
-    - Find `Hydrate` in the list and click **Enable**
+Or visit [hydrateagent.com/install](https://hydrateagent.com/install) for detailed instructions.
 
 ---
 
@@ -89,14 +71,6 @@ Hydrate is **not** in the official Obsidian Community Plugins marketplace yet. Y
 
 ---
 
-## 🔄 Updating Hydrate
-
--   To update, open the Command Palette and run:
-    `BRAT: Check for updates to all beta plugins and UPDATE`
--   You can also enable auto-updates for beta plugins in the BRAT settings tab.
-
----
-
 ## 🧑‍💻 Quick Start
 
 -   Open the Hydrate panel from the ribbon to chat with your notes
@@ -106,17 +80,31 @@ Hydrate is **not** in the official Obsidian Community Plugins marketplace yet. Y
 
 ---
 
-## 🧩 Troubleshooting
+## 🔍 Setting Up Semantic Search with LM Studio
 
--   If Hydrate does not appear after installation, try restarting Obsidian
--   Ensure you have the latest version of BRAT and Obsidian
--   For issues, open an issue on [GitHub](https://github.com/hydrateagent/hydrate/issues)
+Hydrate supports semantic search using local embeddings via [LM Studio](https://lmstudio.ai/). This lets you search your vault by meaning, not just keywords.
+
+### Setup Steps
+
+1. **Install LM Studio** from [lmstudio.ai](https://lmstudio.ai/)
+2. **Download an embedding model** - search for `nomic-embed-text` in LM Studio and download it
+3. **Start the local server** in LM Studio (Developer tab → Start Server)
+4. **Configure Hydrate:**
+   - Open Hydrate settings in Obsidian
+   - Enable "Remote Embeddings"
+   - Set the embedding URL to: `http://localhost:1234/v1/embeddings`
+   - Set the model name to match your downloaded model (e.g., `nomic-embed-text`)
+5. **Index your vault** - use the "Reindex Vault" button in settings
+
+Once indexed, Hydrate will suggest relevant notes during chat and you can search by meaning across your entire vault.
 
 ---
 
-## 💡 About BRAT
+## 🧩 Troubleshooting
 
-BRAT (Beta Reviewer's Auto-update Tool) lets you easily install and update plugins that are not yet in the official Obsidian marketplace. [Learn more about BRAT](https://tfthacker.com/BRAT).
+-   If Hydrate does not appear after installation, try restarting Obsidian
+-   Ensure you have the latest version of Obsidian
+-   For issues, open an issue on [GitHub](https://github.com/hydrateagent/hydrate/issues)
 
 ---
 
