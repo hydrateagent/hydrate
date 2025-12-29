@@ -2,6 +2,8 @@
 
 **Your AI-powered thinking partner for writing, research, and knowledge discovery in Obsidian.**
 
+![Hydrate Demo](media/view-demo.gif)
+
 ---
 
 ## ⚠️ Important Disclosures
