@@ -4,6 +4,8 @@
 
 ![Hydrate Demo](media/view-demo.gif)
 
+![Track Changes](media/track.gif)
+
 ---
 
 ## ⚠️ Important Disclosures
