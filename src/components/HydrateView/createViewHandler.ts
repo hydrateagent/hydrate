@@ -9,6 +9,61 @@ interface GenerateViewResponse {
 	content: string;
 }
 
+interface ScaffoldResponse {
+	viewName: string;
+	sampleMarkdown: string;
+}
+
+// System prompt for scaffold generation (view name + sample markdown)
+const SCAFFOLD_GENERATION_SYSTEM_PROMPT = `You are a markdown structure generator for Hydrate, an Obsidian plugin that creates custom React views from markdown files.
+
+Your task is to generate:
+1. A kebab-case view name (e.g., "recipe-cards", "task-kanban", "reading-list")
+2. Sample markdown content with appropriate structure for the user's described view
+
+## Requirements
+
+1. The view name should be:
+   - Lowercase kebab-case (e.g., "my-view-name")
+   - Descriptive of the view's purpose
+   - 2-4 words maximum
+
+2. The markdown should:
+   - Start with YAML frontmatter containing: hydrate-plugin: {viewName}
+   - Include realistic sample data (3-5 items)
+   - Use a logical structure (headings, lists, tables, etc.) that fits the view type
+   - Be parseable for the React component to render
+
+## Output Format
+
+Return ONLY valid JSON with this exact structure:
+{
+  "viewName": "your-view-name",
+  "sampleMarkdown": "---\\nhydrate-plugin: your-view-name\\n---\\n\\n# Your content here..."
+}
+
+## Examples
+
+For "show my recipes as cards with images":
+{
+  "viewName": "recipe-cards",
+  "sampleMarkdown": "---\\nhydrate-plugin: recipe-cards\\n---\\n\\n# Recipes\\n\\n## Chocolate Cake\\n- **Time**: 45 mins\\n- **Difficulty**: Medium\\n- **Image**: https://example.com/cake.jpg\\n\\nA rich chocolate cake...\\n\\n## Pasta Carbonara\\n- **Time**: 20 mins\\n- **Difficulty**: Easy\\n- **Image**: https://example.com/pasta.jpg\\n\\nCreamy Italian classic..."
+}
+
+For "kanban board for my tasks":
+{
+  "viewName": "task-kanban",
+  "sampleMarkdown": "---\\nhydrate-plugin: task-kanban\\n---\\n\\n# To Do\\n\\n## Research competitors\\nAnalyze top 5 competitors\\n\\n## Write proposal\\nDraft initial proposal\\n\\n# In Progress\\n\\n## Design mockups\\nCreate wireframes for homepage\\n\\n# Done\\n\\n## Setup project\\nInitialized repository"
+}
+
+For "reading list with progress tracking":
+{
+  "viewName": "reading-tracker",
+  "sampleMarkdown": "---\\nhydrate-plugin: reading-tracker\\n---\\n\\n# Reading List\\n\\n## Currently Reading\\n\\n### The Pragmatic Programmer\\n- **Author**: David Thomas\\n- **Pages**: 352\\n- **Progress**: 45%\\n\\n## Want to Read\\n\\n### Clean Code\\n- **Author**: Robert Martin\\n- **Pages**: 464\\n\\n## Completed\\n\\n### Atomic Habits\\n- **Author**: James Clear\\n- **Pages**: 320\\n- **Rating**: ⭐⭐⭐⭐⭐"
+}
+
+Return ONLY the JSON object, no markdown fences or explanations.`;
+
 // System prompt for view generation
 const VIEW_GENERATION_SYSTEM_PROMPT = `You are a React component generator for Hydrate, an Obsidian plugin.
 
@@ -217,6 +272,92 @@ function extractViewNameFromFrontmatter(content: string): string | null {
 }
 
 /**
+ * Check if the file content needs scaffolding (is essentially empty or minimal)
+ */
+function needsScaffolding(content: string): boolean {
+	// Remove frontmatter if present
+	const withoutFrontmatter = content.replace(/^---\n[\s\S]*?\n---\n*/, "").trim();
+
+	// If content is very short (less than 50 chars of actual content), it needs scaffolding
+	// This catches blank notes and notes with just a title
+	return withoutFrontmatter.length < 50;
+}
+
+/**
+ * Generate scaffold (view name + sample markdown) from user's description
+ */
+async function generateScaffold(
+	view: HydrateView,
+	description: string
+): Promise<ScaffoldResponse | null> {
+	const backendUrl = view.plugin.getBackendUrl();
+	const headers: Record<string, string> = {
+		"Content-Type": "application/json",
+	};
+
+	// Add license key if available
+	const licenseKey = view.plugin.settings.licenseKey;
+	if (licenseKey) {
+		headers["X-License-Key"] = licenseKey;
+	}
+
+	// Add API keys for BYOK
+	const settings = view.plugin.settings;
+	if (settings.openaiApiKey) headers["X-OpenAI-Key"] = settings.openaiApiKey;
+	if (settings.anthropicApiKey) headers["X-Anthropic-Key"] = settings.anthropicApiKey;
+	if (settings.googleApiKey) headers["X-Gemini-Key"] = settings.googleApiKey;
+
+	const userPrompt = `Generate a view name and sample markdown structure for the following user request:
+
+"${description}"
+
+Remember to return ONLY valid JSON with viewName and sampleMarkdown fields.`;
+
+	try {
+		const fetchResponse = await fetch(`${backendUrl}/generate-view`, {
+			method: "POST",
+			headers,
+			body: JSON.stringify({
+				system_prompt: SCAFFOLD_GENERATION_SYSTEM_PROMPT,
+				user_prompt: userPrompt,
+				model: view.plugin.settings.selectedModel,
+			}),
+		});
+
+		if (!fetchResponse.ok) {
+			const errorData = await fetchResponse.json().catch(() => ({}));
+			throw new Error(errorData.detail || `Server error: ${fetchResponse.status}`);
+		}
+
+		const response: GenerateViewResponse = await fetchResponse.json();
+
+		if (!response || !response.content) {
+			throw new Error("No response from scaffold generation");
+		}
+
+		// Parse the JSON response
+		let jsonContent = response.content.trim();
+
+		// Remove markdown code fences if present
+		jsonContent = jsonContent
+			.replace(/^```(?:json)?\n?/i, "")
+			.replace(/\n?```$/i, "")
+			.trim();
+
+		const scaffold: ScaffoldResponse = JSON.parse(jsonContent);
+
+		if (!scaffold.viewName || !scaffold.sampleMarkdown) {
+			throw new Error("Invalid scaffold response structure");
+		}
+
+		return scaffold;
+	} catch (error) {
+		devLog.error("Failed to generate scaffold:", error);
+		return null;
+	}
+}
+
+/**
  * Check if this is a /create-view command
  */
 export function isCreateViewCommand(message: string): boolean {
@@ -317,7 +458,7 @@ export async function handleCreateView(
 		addMessageToChat(
 			view,
 			"system",
-			"Please attach a markdown file with your sample data structure first.\n\nThe file should have `hydrate-plugin: your-view-name` in the frontmatter.",
+			"Please attach a markdown file first (can be blank - I'll generate sample content for you).",
 			true
 		);
 		return true;
@@ -330,15 +471,80 @@ export async function handleCreateView(
 		return true;
 	}
 
-	const fileContent = await view.plugin.app.vault.read(file);
+	let fileContent = await view.plugin.app.vault.read(file);
 
-	// Extract view name from frontmatter
-	const viewName = extractViewNameFromFrontmatter(fileContent);
+	// Check if we need to scaffold (generate name and/or sample content)
+	let viewName = extractViewNameFromFrontmatter(fileContent);
+	const contentNeedsScaffolding = needsScaffolding(fileContent);
+	let didScaffold = false;
+
+	// If missing view name OR content is minimal, generate scaffold
+	if (!viewName || contentNeedsScaffolding) {
+		// Check Max subscription before scaffolding
+		if (!view.plugin.hasMaxLicense()) {
+			addMessageToChat(
+				view,
+				"system",
+				"Custom view creation is a Hydrate Max feature. Visit hydrateagent.com to upgrade.",
+				true
+			);
+			return true;
+		}
+
+		// Show user message first
+		addMessageToChat(view, "user", message);
+
+		setLoadingState(view, true);
+		addMessageToChat(
+			view,
+			"system",
+			"Generating sample structure for your view..."
+		);
+
+		const scaffold = await generateScaffold(view, description);
+
+		if (!scaffold) {
+			setLoadingState(view, false);
+			addMessageToChat(
+				view,
+				"system",
+				"Failed to generate view structure. Please try again or provide a sample markdown structure manually.",
+				true
+			);
+			return true;
+		}
+
+		// Write the scaffold to the file
+		try {
+			await view.plugin.app.vault.modify(file, scaffold.sampleMarkdown);
+			fileContent = scaffold.sampleMarkdown;
+			viewName = scaffold.viewName;
+
+			addMessageToChat(
+				view,
+				"system",
+				`Created sample structure with view name "${viewName}". Now generating the view...`
+			);
+
+			didScaffold = true;
+		} catch (error) {
+			setLoadingState(view, false);
+			addMessageToChat(
+				view,
+				"system",
+				`Failed to write scaffold to file: ${error instanceof Error ? error.message : "Unknown error"}`,
+				true
+			);
+			return true;
+		}
+	}
+
+	// At this point we should have a viewName
 	if (!viewName) {
 		addMessageToChat(
 			view,
 			"system",
-			"The attached file needs `hydrate-plugin: your-view-name` in the frontmatter.\n\nExample:\n```\n---\nhydrate-plugin: recipe-cards\n---\n```",
+			"Could not determine view name. Please add `hydrate-plugin: your-view-name` to the frontmatter.",
 			true
 		);
 		return true;
@@ -355,8 +561,8 @@ export async function handleCreateView(
 		return true;
 	}
 
-	// Check Max subscription
-	if (!view.plugin.hasMaxLicense()) {
+	// Check Max subscription (skip if already checked during scaffolding)
+	if (!didScaffold && !view.plugin.hasMaxLicense()) {
 		addMessageToChat(
 			view,
 			"system",
@@ -366,16 +572,16 @@ export async function handleCreateView(
 		return true;
 	}
 
-	// Show user message
-	addMessageToChat(view, "user", message);
-
-	// Show loading state
-	setLoadingState(view, true);
-	addMessageToChat(
-		view,
-		"system",
-		`Creating view "${viewName}"...`
-	);
+	// Show user message and loading state (skip if already done during scaffolding)
+	if (!didScaffold) {
+		addMessageToChat(view, "user", message);
+		setLoadingState(view, true);
+		addMessageToChat(
+			view,
+			"system",
+			`Creating view "${viewName}"...`
+		);
+	}
 
 	try {
 		// Build the prompt for the LLM
