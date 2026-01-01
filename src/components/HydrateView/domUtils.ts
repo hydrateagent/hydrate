@@ -379,11 +379,12 @@ export function setLoadingState(
 	// Update stop button
 	if (stopButton) {
 		if (loading) {
-			stopButton.addClass("hydrate-stop-button-visible");
+			stopButton.removeClass("hydrate-stop-button-default");
 			stopButton.removeClass("hydrate-stop-button-hidden");
+			stopButton.addClass("hydrate-stop-button-visible");
 		} else {
-			stopButton.addClass("hydrate-stop-button-hidden");
 			stopButton.removeClass("hydrate-stop-button-visible");
+			stopButton.addClass("hydrate-stop-button-hidden");
 		}
 		stopButton.disabled = !loading;
 	}
