@@ -1,7 +1,7 @@
-import { App, MarkdownView, TFile, Notice } from 'obsidian';
+import { App, MarkdownView, TFile, Notice, WorkspaceLeaf } from 'obsidian';
 import { EditorView } from '@codemirror/view';
 import { Extension } from '@codemirror/state';
-import HydratePlugin from '../../main';
+import HydratePlugin, { REACT_HOST_VIEW_TYPE } from '../../main';
 import {
   InlineChangeManager,
   getInlineChangeManager,
@@ -30,6 +30,8 @@ export class InlineReviewController {
   private resolvePromise: ((result: DiffReviewResult) => void) | null = null;
   private toolCallId: string = '';
   private eventUnsubscribe: (() => void) | null = null;
+  private switchedFromReactView: boolean = false; // Track if we need to switch back
+  private reactViewKey: string | null = null; // Store the view key to restore
 
   constructor(app: App, plugin: HydratePlugin) {
     this.app = app;
@@ -69,20 +71,53 @@ export class InlineReviewController {
       };
     }
 
-    // Get or create a markdown view for this file
-    let leaf = this.app.workspace.getLeavesOfType('markdown').find((l) => {
-      const view = l.view as MarkdownView;
-      return view.file?.path === filePath;
+    // Reset ReactView tracking
+    this.switchedFromReactView = false;
+    this.reactViewKey = null;
+
+    // Check if file is currently open in a ReactView - if so, switch that leaf to markdown
+    let leaf: WorkspaceLeaf | undefined;
+    const reactLeaf = this.app.workspace.getLeavesOfType(REACT_HOST_VIEW_TYPE).find((l) => {
+      const state = l.getViewState();
+      return state.state?.filePath === filePath;
     });
 
-    if (!leaf) {
-      // Open the file in a new leaf
-      leaf = this.app.workspace.getLeaf(false);
-      await leaf.openFile(file);
+    if (reactLeaf) {
+      // File is in ReactView - switch to markdown in the same leaf
+      this.switchedFromReactView = true;
+      this.reactViewKey = (reactLeaf.getViewState().state as any)?.viewKey || null;
+
+      // Set flag to prevent handleLayoutChange from switching back
+      this.plugin.isInlineReviewActive = true;
+
+      await reactLeaf.setViewState({
+        type: 'markdown',
+        state: { file: filePath },
+      });
+      leaf = reactLeaf;
+    } else {
+      // Look for existing markdown view
+      leaf = this.app.workspace.getLeavesOfType('markdown').find((l) => {
+        const view = l.view as MarkdownView;
+        return view.file?.path === filePath;
+      });
+
+      if (!leaf) {
+        // Open the file in a new leaf
+        leaf = this.app.workspace.getLeaf('tab');
+        await leaf.setViewState({
+          type: 'markdown',
+          state: { file: filePath },
+        });
+      }
     }
+
+    // Wait a tick for the view to initialize
+    await new Promise((resolve) => setTimeout(resolve, 50));
 
     const markdownView = leaf.view as MarkdownView;
     if (!markdownView || markdownView.getViewType() !== 'markdown') {
+      this.plugin.isInlineReviewActive = false; // Reset flag on failure
       return {
         toolCallId,
         applied: false,
@@ -260,6 +295,9 @@ export class InlineReviewController {
    * Complete the review and clean up
    */
   private async completeReview(result: ReviewResult): Promise<void> {
+    const filePath = this.currentView?.file?.path;
+    const shouldSwitchBack = this.switchedFromReactView && this.reactViewKey && filePath;
+
     // Write the final content to the file if changes were applied
     if (result.applied && this.currentView?.file) {
       try {
@@ -270,8 +308,31 @@ export class InlineReviewController {
       }
     }
 
+    // Get the leaf before cleanup (cleanup clears currentView)
+    // Find the leaf that contains our current markdown view
+    const leaf = this.currentView
+      ? this.app.workspace.getLeavesOfType('markdown').find(l => l.view === this.currentView)
+      : null;
+
     // Clean up UI
     this.cleanup();
+
+    // Switch back to ReactView if we came from one
+    if (shouldSwitchBack && leaf) {
+      try {
+        await leaf.setViewState({
+          type: REACT_HOST_VIEW_TYPE,
+          state: { filePath, viewKey: this.reactViewKey },
+        });
+      } catch (error) {
+        console.error('Failed to switch back to ReactView:', error);
+      }
+    }
+
+    // Reset the flag after switching back
+    this.plugin.isInlineReviewActive = false;
+    this.switchedFromReactView = false;
+    this.reactViewKey = null;
 
     // Resolve the promise with the result
     if (this.resolvePromise) {

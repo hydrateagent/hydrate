@@ -485,11 +485,9 @@ export class HydrateView extends ItemView {
 					method: "POST",
 					headers,
 					body: JSON.stringify(payload),
+					signal: this.abortController?.signal,
 				},
 			);
-
-			// Reset abort controller after successful completion
-			this.abortController = null;
 
 			if (!response.ok) {
 				const errorText = await response.text();
@@ -551,6 +549,8 @@ export class HydrateView extends ItemView {
 						addMessageToChat(this, "agent", text);
 					}
 				}
+				// Reset abort controller after successful completion (no tool calls)
+				this.abortController = null;
 				setLoadingState(this, false);
 			}
 		} catch (error: unknown) {

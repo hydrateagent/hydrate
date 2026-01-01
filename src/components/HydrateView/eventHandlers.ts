@@ -26,8 +26,20 @@ import { StoredImageAttachment } from "../../types";
 
 /**
  * Clears the chat input and attached files.
+ * Also aborts any running request.
  */
 export const handleClear = (view: HydrateView): void => {
+	// Abort any running request
+	if (view.abortController) {
+		view.abortController.abort();
+		view.abortController = null;
+	}
+
+	// Reset loading state if active
+	if (view.isLoading) {
+		setDomLoadingState(view, false);
+	}
+
 	setDomTextContent(view, "");
 	view.attachedFiles = [];
 	view.attachedImages = [];

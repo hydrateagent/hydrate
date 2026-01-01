@@ -199,6 +199,7 @@ interface ToolExecutionResult {
 export default class HydratePlugin extends Plugin {
 	settings: HydratePluginSettings;
 	isSwitchingToMarkdown: boolean = false;
+	isInlineReviewActive: boolean = false; // Prevents auto-switch to ReactView during inline review
 	isIndexing: boolean = false; // Flag to prevent concurrent indexing
 	mcpManager: MCPServerManager | null = null; // MCP Server Manager
 	viewLoader: ViewLoader | null = null; // Custom view loader
@@ -735,6 +736,11 @@ export default class HydratePlugin extends Plugin {
 		// Check if we are intentionally switching back to markdown
 		if (this.isSwitchingToMarkdown) {
 			this.isSwitchingToMarkdown = false; // Reset the flag *after* skipping the check
+			return;
+		}
+
+		// Skip view switching during inline review (file is temporarily in markdown mode)
+		if (this.isInlineReviewActive) {
 			return;
 		}
 
