@@ -37,6 +37,7 @@ import { ViewLoader } from "./ViewLoader";
 import { MCPServerConfig, MCPServerStatus } from "./mcp/MCPServerConfig";
 import { devLog } from "./utils/logger";
 import { createInlineReviewExtension } from "./components/InlineReview";
+import { ViewPickerModal } from "./components/ViewPickerModal";
 
 // Remember to rename these classes and interfaces!
 
@@ -209,7 +210,10 @@ export default class HydratePlugin extends Plugin {
 	 * Image support and other premium features require this
 	 */
 	hasProLicense(): boolean {
-		return !!this.settings.licenseKey && this.settings.licenseKey.trim().length > 0;
+		return (
+			!!this.settings.licenseKey &&
+			this.settings.licenseKey.trim().length > 0
+		);
 	}
 
 	/**
@@ -220,7 +224,10 @@ export default class HydratePlugin extends Plugin {
 	hasMaxLicense(): boolean {
 		// For now, any license key grants Max access
 		// Backend will validate the actual tier
-		return !!this.settings.licenseKey && this.settings.licenseKey.trim().length > 0;
+		return (
+			!!this.settings.licenseKey &&
+			this.settings.licenseKey.trim().length > 0
+		);
 	}
 
 	async onload() {
@@ -342,25 +349,29 @@ export default class HydratePlugin extends Plugin {
 		this.registerEvent(
 			this.app.vault.on("modify", async (file) => {
 				if (
-					file.path.startsWith(this.viewLoader?.getViewsDir() ?? "") &&
+					file.path.startsWith(
+						this.viewLoader?.getViewsDir() ?? "",
+					) &&
 					file.path.endsWith(".jsx")
 				) {
 					devLog.debug(`ViewLoader: Detected change in ${file.path}`);
 					await this.viewLoader?.reloadView(file.path);
 				}
-			})
+			}),
 		);
 
 		this.registerEvent(
 			this.app.vault.on("create", async (file) => {
 				if (
-					file.path.startsWith(this.viewLoader?.getViewsDir() ?? "") &&
+					file.path.startsWith(
+						this.viewLoader?.getViewsDir() ?? "",
+					) &&
 					file.path.endsWith(".jsx")
 				) {
 					devLog.debug(`ViewLoader: Detected new view ${file.path}`);
 					await this.viewLoader?.loadView(file.path);
 				}
-			})
+			}),
 		);
 
 		// --- Event Listeners for File Changes ---
@@ -408,6 +419,58 @@ export default class HydratePlugin extends Plugin {
 			name: "Open pane",
 			callback: async () => {
 				await this.activateView();
+			},
+		});
+
+		// Add hotkey command to apply a custom view to the active file
+		this.addCommand({
+			id: "apply-custom-view",
+			name: "Apply custom view to file",
+			checkCallback: (checking: boolean) => {
+				const activeFile = this.app.workspace.getActiveFile();
+				if (!activeFile) return false;
+
+				if (checking) return true;
+
+				// Collect available views: built-in + custom
+				const views: { name: string; source: "built-in" | "custom" }[] =
+					[{ name: "issue-board", source: "built-in" }];
+
+				const customViewNames =
+					this.viewLoader?.getLoadedViewNames() ?? [];
+				for (const name of customViewNames) {
+					views.push({ name, source: "custom" });
+				}
+
+				if (views.length === 0) {
+					new Notice("No custom views available.");
+					return true;
+				}
+
+				new ViewPickerModal(
+					this.app,
+					views,
+					async (viewName: string) => {
+						const file = this.app.workspace.getActiveFile();
+						if (!file) {
+							new Notice("No active file.");
+							return;
+						}
+
+						await this.app.fileManager.processFrontMatter(
+							file,
+							(frontmatter) => {
+								frontmatter["hydrate-plugin"] = viewName;
+							},
+						);
+
+						new Notice(
+							`Applied view "${viewName}" to ${file.basename}.`,
+						);
+					},
+				).open();
+
+				return true;
 			},
 		});
 
@@ -969,7 +1032,8 @@ export default class HydratePlugin extends Plugin {
 			},
 			{
 				id: "builtin-edit-view",
-				description: "Edit an existing custom view for the attached file",
+				description:
+					"Edit an existing custom view for the attached file",
 				slashCommandTrigger: "/edit-view",
 				content: "", // Handled specially in eventHandlers
 				contentType: "text",
