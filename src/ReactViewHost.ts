@@ -273,7 +273,6 @@ export class ReactViewHost extends ItemView {
 				return newContent;
 			});
 			// Update internal cache AFTER successful write
-			new Notice(`${file.basename} updated.`, 1500); // Brief confirmation
 			return true;
 		} catch (error) {
 			devLog.error(

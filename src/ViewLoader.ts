@@ -1,4 +1,5 @@
 // src/ViewLoader.ts
+import * as obsidian from "obsidian";
 import { App, TFile, TFolder } from "obsidian";
 import { transform } from "sucrase";
 import * as React from "react";
@@ -134,6 +135,7 @@ export class ViewLoader {
 				{};
 			const require = (moduleName: string): unknown => {
 				if (moduleName === "react") return React;
+				if (moduleName === "obsidian") return obsidian;
 				throw new Error(`Unknown module: ${moduleName}`);
 			};
 
