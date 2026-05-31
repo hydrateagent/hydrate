@@ -66,14 +66,16 @@ export function getReactViewComponent(
 
 // Define allowed model names (matches backend agent.py ModelName Literal)
 export const ALLOWED_MODELS = [
-	"gpt-5-mini", // Default
-	"gpt-5",
-	"gpt-5.1",
-	"gpt-5.2",
-	"claude-sonnet-4-5",
+	"gpt-5.4-mini", // Default
+	"gpt-5.5",
+	"gpt-5.4",
+	"gpt-5.4-nano",
+	"claude-opus-4-8",
+	"claude-sonnet-4-6",
 	"claude-haiku-4-5",
-	"gemini-3-flash-preview",
-	"gemini-3-pro-preview",
+	"gemini-3.1-pro-preview",
+	"gemini-3.5-flash",
+	"gemini-3.1-flash-lite",
 ] as const; // Use const assertion for stricter typing
 
 export type ModelName = (typeof ALLOWED_MODELS)[number]; // Create type from array values
@@ -158,7 +160,7 @@ const DEFAULT_SETTINGS: HydratePluginSettings = {
 	registryEntries: [], // Existing initialization
 	rulesRegistryEntries: [], // <<< Initialized as empty
 	chatHistories: [], // Initialize chat histories as empty
-	selectedModel: "gpt-5-mini", // Set default model
+	selectedModel: "gpt-5.4-mini", // Set default model
 	apiKey: "", // <<< ADDED default empty API Key (deprecated, kept for compatibility)
 
 	// --- BYOK Subscription Settings ---
@@ -1078,7 +1080,7 @@ export default class HydratePlugin extends Plugin {
 		// Ensure the stored value is valid, otherwise return default
 		return ALLOWED_MODELS.includes(this.settings.selectedModel)
 			? this.settings.selectedModel
-			: "gpt-5-mini";
+			: "gpt-5.4-mini";
 	}
 
 	// NOTE: __HYDRATE_DEV__ must be set by the bundler at build time (true for dev, false for prod)
