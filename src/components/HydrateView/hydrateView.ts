@@ -21,6 +21,7 @@ import {
 } from "./toolImplementations"; // Ensure this path is correct for your setup
 import { handleSearchProject } from "../../toolHandlers"; // <<< ADD THIS IMPORT
 import { devLog } from "../../utils/logger";
+import { capToolResult } from "../../toolOutputLimits";
 import { MCPToolSchemaWithMetadata } from "../../mcp/MCPServerManager";
 import {
 	addMessageToChat,
@@ -659,7 +660,7 @@ export class HydrateView extends ItemView {
 		for (const toolCall of otherToolCalls) {
 			try {
 				const result = await this.executeSingleTool(toolCall);
-				results.push({ id: toolCall.id, result });
+				results.push({ id: toolCall.id, result: capToolResult(result) });
 			} catch (error) {
 				devLog.error(`Error executing tool ${toolCall.tool}:`, error);
 				results.push({
@@ -934,6 +935,8 @@ export class HydrateView extends ItemView {
 				return await toolReadFile(
 					this.app,
 					toolCall.params.path as string,
+					toolCall.params.offset as number | undefined,
+					toolCall.params.limit as number | undefined,
 				);
 			case "replaceSelectionInFile": // <<< KEPT CASE (but now also goes through review)
 				// This case should ideally not be hit directly anymore if filtering is correct,

@@ -2,14 +2,22 @@ import { App, TFile, Notice, normalizePath } from "obsidian";
 import HydratePlugin from "../../main";
 import { Patch } from "../../types";
 import { devLog } from "../../utils/logger";
+import { sliceFileContent } from "../../toolOutputLimits";
 /**
  * Reads the content of a file within the Obsidian vault.
  * @param app - The Obsidian App instance.
  * @param path - The vault path to the file.
+ * @param offset - Optional 1-indexed starting line.
+ * @param limit - Optional maximum number of lines to return.
  * @returns The content of the file as a string.
  * @throws Error if the file is not found or is not a file.
  */
-export async function toolReadFile(app: App, path: string): Promise<string> {
+export async function toolReadFile(
+	app: App,
+	path: string,
+	offset?: number,
+	limit?: number,
+): Promise<string> {
 	const initialNormalizedPath = path.startsWith("./")
 		? path.substring(2)
 		: path;
@@ -29,7 +37,8 @@ export async function toolReadFile(app: App, path: string): Promise<string> {
 	if (!(file instanceof TFile)) {
 		throw new Error(`Path is not a file: ${finalNormalizedPath}`);
 	}
-	return await app.vault.read(file);
+	const content = await app.vault.read(file);
+	return sliceFileContent(content, offset, limit);
 }
 
 /**
