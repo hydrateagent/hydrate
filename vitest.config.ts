@@ -1,3 +1,4 @@
+import * as path from "node:path";
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react"; // Although we use esbuild, Vitest benefits from Vite plugins for React
 
@@ -5,6 +6,11 @@ import react from "@vitejs/plugin-react"; // Although we use esbuild, Vitest ben
 export default defineConfig({
 	root: ".", // Explicitly set the root directory
 	plugins: [react()], // Add React plugin support for JSX/TSX
+	resolve: {
+		alias: {
+			obsidian: path.resolve(__dirname, "src/__mocks__/obsidian.ts"),
+		},
+	},
 	test: {
 		globals: true, // Use Vitest's global APIs (describe, it, expect) without importing
 		environment: "jsdom", // Simulate a DOM environment for React components
