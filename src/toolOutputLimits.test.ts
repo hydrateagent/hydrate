@@ -50,4 +50,11 @@ describe("sliceFileContent", () => {
 		expect(out.length).toBeLessThanOrEqual(MAX_TOOL_RESULT_CHARS + 300);
 		expect(out).toContain("offset/limit");
 	});
+
+	it("char-capped output survives capToolResult with its notice intact", () => {
+		const huge = "y".repeat(MAX_TOOL_RESULT_CHARS * 2);
+		const out = capToolResult(sliceFileContent(huge)) as string;
+		expect(out).toContain("offset/limit");
+		expect(out.length).toBeLessThanOrEqual(MAX_TOOL_RESULT_CHARS);
+	});
 });

@@ -4,6 +4,11 @@
 
 export const MAX_TOOL_RESULT_CHARS = 40_000;
 
+// Headroom so a char-capped slice PLUS its notice stays under the
+// dispatch-level cap — otherwise capToolResult re-truncates and destroys
+// the paging notice.
+const SLICE_NOTICE_HEADROOM = 200;
+
 export function capToolResult(
 	result: unknown,
 	maxChars: number = MAX_TOOL_RESULT_CHARS,
@@ -40,8 +45,9 @@ export function sliceFileContent(
 	let end = start + slice.length - 1;
 
 	let charCapped = false;
-	if (text.length > MAX_TOOL_RESULT_CHARS) {
-		text = text.slice(0, MAX_TOOL_RESULT_CHARS);
+	const sliceCap = MAX_TOOL_RESULT_CHARS - SLICE_NOTICE_HEADROOM;
+	if (text.length > sliceCap) {
+		text = text.slice(0, sliceCap);
 		end = start + (text.split("\n").length - 1);
 		charCapped = true;
 	}
