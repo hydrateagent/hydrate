@@ -951,12 +951,17 @@ export class HydrateView extends ItemView {
 					toolCall.params.original_selection as string,
 					toolCall.params.new_content as string,
 				);
-			case "search_project": // <<< ADD THIS CASE
-				return await handleSearchProject(
+			case "search_project": {
+				// handleSearchProject returns a full {id, result} envelope;
+				// unwrap to the raw string so processToolCalls wraps it once
+				// and capToolResult can bound it like every other tool.
+				const searchOutcome = await handleSearchProject(
 					toolCall,
 					this.app,
 					this.plugin.settings,
 				);
+				return searchOutcome.result;
+			}
 
 			default:
 				throw new Error(
