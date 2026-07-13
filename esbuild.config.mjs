@@ -53,6 +53,7 @@ const context = await esbuild.context({
 	// Ensure any 'plugins: [gpt3EncoderShimPlugin],' line is removed or commented out
 	alias: {
 		// Add alias to redirect gpt-3-encoder to our shim
+		// Bundle-size guard: see src/shims/gpt-3-encoder.ts before touching.
 		"gpt-3-encoder": path.resolve(__dirname, "src/shims/gpt-3-encoder.ts"),
 		// Add aliases for wink modules
 		"wink-bm25-text-search": path.resolve(

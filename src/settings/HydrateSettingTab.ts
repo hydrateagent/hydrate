@@ -177,6 +177,20 @@ export class HydrateSettingTab extends PluginSettingTab {
 				});
 		}
 
+		new Setting(containerEl)
+			.setName("Send vault instructions")
+			.setDesc(
+				"On new conversations, send the contents of HYDRATE.md from the vault root as standing instructions for the agent.",
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.enableVaultInstructions)
+					.onChange(async (value) => {
+						this.plugin.settings.enableVaultInstructions = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
 		// --- BYOK SUBSCRIPTION SETTINGS ---
 		new Setting(containerEl)
 			.setName("Subscription & API keys")
