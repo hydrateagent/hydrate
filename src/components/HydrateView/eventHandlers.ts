@@ -14,6 +14,7 @@ import {
 import { NoteSearchModal } from "./NoteSearchModal";
 import { SlashCommandModal } from "./SlashCommandModal";
 import { devLog } from "../../utils/logger";
+import { readVaultInstructions } from "../../vaultInstructions";
 import { isCreateViewCommand, handleCreateView, isEditViewCommand, handleEditViewCommand } from "./createViewHandler";
 import {
 	extractImagesFromDataTransfer,
@@ -589,12 +590,21 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 		devLog.warn("[handleSend] No MCP Manager found!");
 	}
 
+	let vaultInstructions: string | undefined;
+	if (
+		view.conversationId === null &&
+		view.plugin.settings.enableVaultInstructions
+	) {
+		vaultInstructions = await readVaultInstructions(view.app);
+	}
+
 	const payload: {
 		message: string;
 		conversation_id: string | null;
 		model: string;
 		mcp_tools: MCPToolSchemaWithMetadata[];
 		images?: { data: string; mime_type: string }[];
+		vault_instructions?: string;
 	} = {
 		message: combinedPayload, // Use the carefully constructed combinedPayload
 		conversation_id: view.conversationId,
@@ -608,6 +618,10 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 			data: img.data,
 			mime_type: img.mimeType,
 		}));
+	}
+
+	if (vaultInstructions) {
+		payload.vault_instructions = vaultInstructions;
 	}
 
 	// --- END: Apply diff debug log for payload ---

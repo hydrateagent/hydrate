@@ -105,6 +105,8 @@ export interface HydratePluginSettings {
 
 	// --- MCP PATH Configuration ---
 	mcpCustomPaths: string; // Comma-separated list of paths to add to PATH for MCP servers
+
+	enableVaultInstructions: boolean;
 }
 
 // Default content for the /issue command
@@ -177,6 +179,8 @@ const DEFAULT_SETTINGS: HydratePluginSettings = {
 	indexFileExtensions: "md", // Default to only markdown
 	mcpServers: [], // Initialize mcpServers
 	mcpCustomPaths: "/usr/local/bin,/opt/homebrew/bin", // Default common paths
+
+	enableVaultInstructions: true,
 };
 
 export const REACT_HOST_VIEW_TYPE = "hydrate-react-host"; // Define type for React host
