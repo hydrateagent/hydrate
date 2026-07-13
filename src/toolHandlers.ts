@@ -1,9 +1,10 @@
-import { App, Notice } from "obsidian";
+import { App, Notice, TFile } from "obsidian";
 // Assuming HydratePluginSettings is defined in main.ts or a types.ts file
 // and VectorIndexSettings is compatible or part of HydratePluginSettings.
 // For now, let's assume HydratePluginSettings can be passed to searchIndexRemote.
-import { HydratePluginSettings } from "./main"; // Adjust path if settings are in types.ts
+import type { HydratePluginSettings } from "./main"; // Adjust path if settings are in types.ts
 import { searchIndexRemote, VectorIndexSettings } from "./vectorIndex";
+import { extractSnippet } from "./searchSnippets";
 import { devLog } from "./utils/logger";
 
 // Interface for the structure of tool call parameters for search_project
@@ -80,14 +81,28 @@ export async function handleSearchProject(
 
 		let resultSummary: string;
 		if (searchResults.length > 0) {
-			const snippets = searchResults
-				.map(
-					(chunk) =>
-						`- File: ${chunk.filePath} (Score: ${
-							chunk.score?.toFixed(4) || "N/A"
-						})`,
-				)
-				.join("\n");
+			const formatted: string[] = [];
+			for (const chunk of searchResults) {
+				let snippetLine = "";
+				try {
+					const file = app.vault.getAbstractFileByPath(chunk.filePath);
+					if (file instanceof TFile) {
+						const content = await app.vault.read(file);
+						const snippet = extractSnippet(content, params.query);
+						if (snippet) {
+							snippetLine = `\n  Snippet: ${snippet}`;
+						}
+					}
+				} catch {
+					// Snippet extraction is best-effort; the path+score line stands.
+				}
+				formatted.push(
+					`- File: ${chunk.filePath} (Score: ${
+						chunk.score?.toFixed(4) || "N/A"
+					})${snippetLine}`,
+				);
+			}
+			const snippets = formatted.join("\n");
 			resultSummary = `Found ${searchResults.length} relevant snippet(s) for "${params.query}":\n${snippets}`;
 		} else {
 			resultSummary = `No relevant snippets found for your query: "${params.query}"`;
