@@ -70,6 +70,12 @@ interface BackendResponse {
 	// Update field name to match backend
 	tool_calls_prepared?: BackendToolCall[]; // <<< CHANGED from tool_calls
 	conversation_id: string; // ID is always returned
+	context_status?: {
+		estimated_tokens: number;
+		percent_left: number;
+		above_warning: boolean;
+		above_autocompact: boolean;
+	};
 }
 
 // Interface for storing tool results with their IDs
@@ -98,6 +104,7 @@ export class HydrateView extends ItemView {
 	wasInitiallyAttached: boolean = false;
 	// Removed currentRequestController as it seems handled within callBackend now
 	loadingIndicator: HTMLDivElement;
+	contextMeterEl: HTMLElement;
 
 	// --- Slash Command State (Made public for utils & handlers) ---
 	suggestions: RegistryEntry[] = [];
@@ -319,6 +326,12 @@ export class HydrateView extends ItemView {
 		});
 		exportChatButton.createEl("span", { text: "↓" });
 
+		// Create context meter (hidden until first context_status arrives)
+		this.contextMeterEl = inputSection.createEl("div", {
+			cls: "hydrate-context-meter",
+		});
+		this.contextMeterEl.hide();
+
 		// Create input container with relative positioning for button overlay
 		const inputContainer = inputSection.createEl("div", {
 			cls: "hydrate-input-container",
@@ -502,6 +515,19 @@ export class HydrateView extends ItemView {
 			// Update conversation ID from response
 			if (responseData.conversation_id) {
 				this.conversationId = responseData.conversation_id;
+			}
+
+			// Update context meter from response
+			if (responseData.context_status) {
+				const cs = responseData.context_status;
+				this.contextMeterEl.setText(
+					`Context: ${Math.max(0, 100 - cs.percent_left).toFixed(0)}% used`,
+				);
+				this.contextMeterEl.toggleClass(
+					"hydrate-context-meter--warning",
+					cs.above_warning,
+				);
+				this.contextMeterEl.show();
 			}
 
 			// Check for tool calls that need to be processed
@@ -1183,6 +1209,10 @@ export class HydrateView extends ItemView {
 		this.sentFileContentRegistry.clear();
 		this.appliedRuleIds.clear();
 		this.capturedSelections = [];
+
+		// Reset context meter
+		this.contextMeterEl.hide();
+		this.contextMeterEl.removeClass("hydrate-context-meter--warning");
 
 		// Update UI
 		renderFilePills(this);

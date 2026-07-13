@@ -1,2 +1,13 @@
 @import "tailwindcss";
 @import "./hydrate-styles.css";
+
+.hydrate-context-meter {
+	font-size: 0.75em;
+	color: var(--text-muted);
+	padding: 2px 8px;
+	text-align: right;
+}
+.hydrate-context-meter--warning {
+	color: var(--text-error);
+	font-weight: 600;
+}
