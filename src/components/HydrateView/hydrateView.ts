@@ -41,50 +41,15 @@ import {
 	handleInputKeydown,
 } from "./eventHandlers"; // Corrected path
 import { ChatHistoryModal } from "./ChatHistoryModal";
+import type {
+	HistoryMessage,
+	MCPToolInfo,
+	BackendToolCall,
+	BackendResponse,
+	ToolResult,
+} from "./backendTypes";
 
 export const HYDRATE_VIEW_TYPE = "hydrate-view";
-
-// Define interfaces for communication with the backend
-interface HistoryMessage {
-	type: "human" | "ai" | "tool" | "system"; // Langchain types
-	content: string;
-	// Optional fields from Langchain messages
-	tool_calls?: { id: string; name: string; args: Record<string, unknown> }[];
-	tool_call_id?: string;
-}
-
-interface MCPToolInfo {
-	server_id: string;
-	server_name: string;
-	is_mcp_tool: boolean;
-}
-
-interface BackendToolCall {
-	action: "tool_call";
-	tool: string;
-	params: Record<string, unknown>;
-	id: string; // Tool call ID from the agent
-	mcp_info?: MCPToolInfo; // Optional MCP routing information
-}
-
-interface BackendResponse {
-	agent_message?: HistoryMessage; // Now receives the full agent message
-	// Update field name to match backend
-	tool_calls_prepared?: BackendToolCall[]; // <<< CHANGED from tool_calls
-	conversation_id: string; // ID is always returned
-	context_status?: {
-		estimated_tokens: number;
-		percent_left: number;
-		above_warning: boolean;
-		above_autocompact: boolean;
-	};
-}
-
-// Interface for storing tool results with their IDs
-interface ToolResult {
-	id: string;
-	result: unknown;
-}
 
 // Interface for HydrateView state
 interface HydrateViewState {
