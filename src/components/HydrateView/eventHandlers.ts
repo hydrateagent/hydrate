@@ -47,10 +47,10 @@ export const handleClear = (view: HydrateView): void => {
 	}
 
 	setDomTextContent(view, "");
-	view.attachedFiles = [];
+	// Attached FILES survive a chat clear on purpose: the file list always
+	// contains the selected note unless the user explicitly removes a pill.
+	// Images and captured selections are message-scoped, so they do clear.
 	view.attachedImages = [];
-	view.initialFilePathFromState = null;
-	view.wasInitiallyAttached = false;
 	view.capturedSelections = [];
 	renderDomFilePills(view);
 	renderDomImagePreviews(view);

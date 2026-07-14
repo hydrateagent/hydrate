@@ -1215,8 +1215,10 @@ export class HydrateView extends ItemView {
 		this.currentChatTurns = [];
 		this.currentChatId = null;
 		this.conversationId = null;
-		this.attachedFiles = [];
-		this.wasInitiallyAttached = false;
+		// attachedFiles (and the auto-attach flags) survive on purpose: the
+		// file list always contains the selected note unless the user
+		// explicitly removes a pill. loadChatHistory overwrites it anyway
+		// when restoring a saved chat.
 		this.sentFileContentRegistry.clear();
 		this.appliedRuleIds.clear();
 		this.capturedSelections = [];
