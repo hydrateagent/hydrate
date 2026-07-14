@@ -9,6 +9,7 @@ import {
 } from "obsidian";
 import { httpRequest } from "../../utils/httpClient";
 import { readSseStream } from "../../utils/sseClient";
+import { createDebounce } from "../../utils/throttle";
 import HydratePlugin from "../../main"; // Corrected path to be relative to current dir
 import { DiffReviewModal, DiffReviewResult } from "../DiffReviewModal"; // Corrected path (assuming same dir as view)
 import {
@@ -226,7 +227,21 @@ export class HydrateView extends ItemView {
 		renderFilePills(this);
 	}
 
+	// Debounced: tab-manager plugins (observed live: Mononote's
+	// one-tab-per-note enforcement) bounce leaf activation A->B->A->B within
+	// ~300ms on every file switch. Reacting to each bounce made the pills
+	// flicker; debouncing collapses the burst to its final state.
+	private readonly applyActiveFileChange = createDebounce(
+		(newFilePath: string | null) =>
+			this.doHandleActiveFileChange(newFilePath),
+		200,
+	);
+
 	public handleActiveFileChange(newFilePath: string | null) {
+		this.applyActiveFileChange(newFilePath);
+	}
+
+	private doHandleActiveFileChange(newFilePath: string | null) {
 		if (!newFilePath) {
 			devLog.warn(
 				"Hydrate [handleActiveFileChange]: No active file to auto-attach.",

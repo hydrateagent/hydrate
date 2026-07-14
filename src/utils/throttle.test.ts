@@ -1,5 +1,58 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createThrottle } from "./throttle";
+import { createDebounce, createThrottle } from "./throttle";
+
+describe("createDebounce", () => {
+	beforeEach(() => {
+		vi.useFakeTimers();
+	});
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	it("fires once after the last call in a burst, with the final arguments", () => {
+		const fn = vi.fn();
+		const debounced = createDebounce(fn, 200);
+
+		// Mononote-style bounce: B, A, B within ~250ms
+		debounced("B");
+		vi.advanceTimersByTime(100);
+		debounced("A");
+		vi.advanceTimersByTime(100);
+		debounced("B");
+
+		vi.advanceTimersByTime(199);
+		expect(fn).not.toHaveBeenCalled();
+		vi.advanceTimersByTime(1);
+		expect(fn).toHaveBeenCalledTimes(1);
+		expect(fn).toHaveBeenCalledWith("B");
+	});
+
+	it("fires again for a later, separate call", () => {
+		const fn = vi.fn();
+		const debounced = createDebounce(fn, 200);
+
+		debounced("first");
+		vi.advanceTimersByTime(200);
+		debounced("second");
+		vi.advanceTimersByTime(200);
+
+		expect(fn).toHaveBeenCalledTimes(2);
+		expect(fn).toHaveBeenNthCalledWith(1, "first");
+		expect(fn).toHaveBeenNthCalledWith(2, "second");
+	});
+
+	it("cancel drops the pending call and is idempotent", () => {
+		const fn = vi.fn();
+		const debounced = createDebounce(fn, 200);
+
+		debounced("x");
+		debounced.cancel();
+		debounced.cancel();
+		vi.advanceTimersByTime(1000);
+
+		expect(fn).not.toHaveBeenCalled();
+	});
+});
 
 describe("createThrottle", () => {
 	beforeEach(() => {

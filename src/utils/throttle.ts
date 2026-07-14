@@ -14,6 +14,38 @@ export interface Throttled<Args extends unknown[]> {
  * point. If further calls keep arriving, `fn` fires at most once every `ms`
  * milliseconds. `cancel()` drops a pending scheduled call, if any.
  */
+/**
+ * Trailing-edge debounce: `fn` runs once, `ms` milliseconds after the LAST
+ * call in a burst, with that call's arguments. Unlike createThrottle, every
+ * new call resets the timer — so a rapid burst produces exactly one
+ * invocation reflecting the final state. `cancel()` drops a pending call.
+ */
+export function createDebounce<Args extends unknown[]>(
+	fn: (...args: Args) => void,
+	ms: number,
+): Throttled<Args> {
+	let timer: ReturnType<typeof setTimeout> | null = null;
+
+	const debounced = ((...args: Args) => {
+		if (timer !== null) {
+			clearTimeout(timer);
+		}
+		timer = setTimeout(() => {
+			timer = null;
+			fn(...args);
+		}, ms);
+	}) as Throttled<Args>;
+
+	debounced.cancel = () => {
+		if (timer !== null) {
+			clearTimeout(timer);
+			timer = null;
+		}
+	};
+
+	return debounced;
+}
+
 export function createThrottle<Args extends unknown[]>(
 	fn: (...args: Args) => void,
 	ms: number,
