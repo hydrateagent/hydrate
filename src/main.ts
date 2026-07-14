@@ -30,6 +30,7 @@ import {
 } from "./vectorIndex"; // Updated imports
 
 import { handleSearchProject } from "./toolHandlers"; // <<< ADD IMPORT
+import { normalizeSettings } from "./settingsDefaults";
 
 // MCP imports
 import { MCPServerManager, MCPConfigStorage } from "./mcp/MCPServerManager";
@@ -108,80 +109,6 @@ export interface HydratePluginSettings {
 
 	enableVaultInstructions: boolean;
 }
-
-// Default content for the /issue command
-const DEFAULT_ISSUE_COMMAND_CONTENT = `When creating an issue, use the following guide exactly.  Otherwise the content will not be viewable. Items that are in [] must be verbatim  Items that are in {} should be replaced with content.  instructional comments below are in (), do not include them in your output.  The markdown structure must be followed exactly, including the yaml header:
-
----
-hydrate-plugin: issue-board
----
-
-# {Category} (not necessary for each Issue, groups multiple Issues)
-
-## {New Issue Title} (give it a name)
-- {issue-number-placeholder}  (assign a number)
-### Items (must be this exact word)
-- item 1 (content about the issue)
-- item 2 (content about the issue)
-### Status (must be this exact word, and everything below)
-- [ ] Specced
-- [ ] Built
-- [ ] Tested
-- [ ] Deployed
-`;
-
-// --- Default Rule Content ---
-const DEFAULT_CONVERSATION_RULE_TEXT = `This rules controls how text can be added to this file.  Whenever the user asks for an edit to this file, he wants you to follow the following rules. This file is structured as a conversation between you and the user.  It must be structured with alternating headers, noting who is to speaking:
-
-
-## User
-
-<their questions go here>
-
-## Agent
-
-<your responses go here>
-
-
-This alternating pattern should repeat down the page.  When the user makes their input, you answer with an edit that appends the new exchange to the end of the file:
-
-1) First their question under a new User heading
-2) Next your answer under a new Agent heading.`;
-
-const DEFAULT_CONVERSATION_RULE: RuleEntry = {
-	id: "default-conversation-rule", // The ID used in `hydrate-rule: [default-conversation-rule]` tag
-	description: "Example rule: Structure file as User/Agent conversation.",
-	ruleText: DEFAULT_CONVERSATION_RULE_TEXT,
-	version: 1,
-};
-// --- End Default Rule Content ---
-
-const DEFAULT_SETTINGS: HydratePluginSettings = {
-	developmentPath: "", // <<< ADDED default empty developmentPath set dynamically
-	backendUrl: "", // Empty default - getBackendUrl() handles dev vs prod
-	registryEntries: [], // Existing initialization
-	rulesRegistryEntries: [], // <<< Initialized as empty
-	chatHistories: [], // Initialize chat histories as empty
-	selectedModel: "gpt-5.4-mini", // Set default model
-	apiKey: "", // <<< ADDED default empty API Key (deprecated, kept for compatibility)
-
-	// --- BYOK Subscription Settings ---
-	licenseKey: "", // Default to empty (free tier)
-	openaiApiKey: "", // Default to empty
-	anthropicApiKey: "", // Default to empty
-	googleApiKey: "", // Default to empty
-
-	// --- NEW: Default values for Remote Embeddings ---
-	enableRemoteEmbeddings: false, // Default to disabled
-	remoteEmbeddingUrl: "https://api.openai.com/v1/embeddings", // Default to OpenAI endpoint
-	remoteEmbeddingApiKey: "", // Default to empty
-	remoteEmbeddingModelName: "text-embedding-3-small", // Default to OpenAI's model
-	indexFileExtensions: "md", // Default to only markdown
-	mcpServers: [], // Initialize mcpServers
-	mcpCustomPaths: "/usr/local/bin,/opt/homebrew/bin", // Default common paths
-
-	enableVaultInstructions: true,
-};
 
 export const REACT_HOST_VIEW_TYPE = "hydrate-react-host"; // Define type for React host
 
@@ -942,82 +869,7 @@ export default class HydratePlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign(
-			{},
-			DEFAULT_SETTINGS,
-			await this.loadData(),
-		);
-
-		// --- Initialize Default Format Registry Entry ---
-		// Ensure array exists
-		if (
-			!this.settings.registryEntries ||
-			!Array.isArray(this.settings.registryEntries)
-		) {
-			// If empty or not an array, initialize it with the default entry
-			this.settings.registryEntries = [
-				{
-					id: "default-issue-board",
-					description:
-						"Default template for creating an issue board.",
-					version: 1,
-					contentType: "markdown",
-					content: DEFAULT_ISSUE_COMMAND_CONTENT,
-					slashCommandTrigger: "/issue",
-				},
-			];
-		} else {
-			// If it exists as an array, check if the default entry is present
-			const defaultIssueExists = this.settings.registryEntries.some(
-				(entry) =>
-					entry.id === "default-issue-board" ||
-					entry.slashCommandTrigger === "/issue",
-			);
-			if (!defaultIssueExists) {
-				// Add it if missing
-				this.settings.registryEntries.push({
-					id: "default-issue-board",
-					description:
-						"Default template for creating an issue board.",
-					version: 1,
-					contentType: "markdown",
-					content: DEFAULT_ISSUE_COMMAND_CONTENT,
-					slashCommandTrigger: "/issue",
-				});
-			}
-		}
-		// --- End Initialize Default Format Registry Entry ---
-
-		// --- Initialize Default Rules Registry Entry ---
-		// Ensure array exists
-		if (
-			!this.settings.rulesRegistryEntries ||
-			!Array.isArray(this.settings.rulesRegistryEntries)
-		) {
-			// Initialize with the default rule if empty or invalid
-			this.settings.rulesRegistryEntries = [DEFAULT_CONVERSATION_RULE];
-		} else {
-			// Check if the default conversation rule is present if array already exists
-			const defaultConversationRuleExists =
-				this.settings.rulesRegistryEntries.some(
-					(rule) => rule.id === DEFAULT_CONVERSATION_RULE.id,
-				);
-			if (!defaultConversationRuleExists) {
-				this.settings.rulesRegistryEntries.push(
-					DEFAULT_CONVERSATION_RULE,
-				);
-			}
-		}
-		// --- End Initialize Default Rules Registry Entry ---
-
-		// --- Initialize Chat Histories Array ---
-		if (
-			!this.settings.chatHistories ||
-			!Array.isArray(this.settings.chatHistories)
-		) {
-			this.settings.chatHistories = [];
-		}
-		// --- End Initialize Chat Histories Array ---
+		this.settings = normalizeSettings(await this.loadData());
 	}
 
 	async saveSettings() {
