@@ -675,19 +675,24 @@ export class HydrateView extends ItemView {
 		let effectiveHooks: BackendResponseHooks = hooks;
 
 		if (state.streamingMessage) {
-			if (hasToolCalls) {
-				// Token deltas and tool_calls can co-occur in one turn (model
-				// preamble before tool calls). The non-streaming path's
-				// mutually-exclusive if/else in applyBackendResponse would
-				// suppress the streamed text here, so tear the bubble down
-				// instead of finalizing it, and let applyBackendResponse run
-				// with the ORIGINAL hooks - there's no agent message to
-				// double-render on the tool-call branch.
+			const parsed = state.doneResponse.agent_message
+				? parseAgentContent(state.doneResponse.agent_message.content)
+				: null;
+			if (hasToolCalls || parsed?.thinking) {
+				// Two cases where the transient bubble must yield to the
+				// ORIGINAL render path instead of finalizing:
+				// 1. Token deltas and tool_calls can co-occur in one turn
+				//    (model preamble before tool calls); the non-streaming
+				//    path's mutually-exclusive if/else in applyBackendResponse
+				//    would suppress the streamed text, so match it.
+				// 2. The reply carries a thinking block: only the original
+				//    addAgentMessage hook renders the collapsible
+				//    "Model thinking..." section — finalize() would silently
+				//    drop it (display parity with non-streaming turns).
 				state.streamingMessage.teardown();
 			} else {
-				const finalText = state.doneResponse.agent_message
-					? parseAgentContent(state.doneResponse.agent_message.content)
-							.text
+				const finalText = parsed
+					? parsed.text
 					: state.accumulatedText;
 				state.streamingMessage.finalize(finalText);
 				effectiveHooks = { ...hooks, addAgentMessage: () => {} };
