@@ -311,11 +311,16 @@ export function addMessageToChat(
 		chatContainer.scrollTop = chatContainer.scrollHeight;
 	});
 
-	// Track this message in chat history (skip system messages and when restoring from history)
-	if (role !== "system" && typeof content === "string") {
+	// Track this message in chat history (skip system messages and when
+	// restoring from history). Element-content messages (e.g. the thinking
+	// container) record their rawTextForCopy — otherwise replies rendered
+	// as elements silently vanish from saved chats and note exports.
+	const historyText =
+		typeof content === "string" ? content : rawTextForCopy;
+	if (role !== "system" && historyText !== undefined) {
 		const chatTurn: ChatTurn = {
 			role: role,
-			content: content,
+			content: historyText,
 			images: images,
 			timestamp: new Date().toISOString(),
 		};
