@@ -27,3 +27,13 @@ export function normalizePath(p: string): string {
 // runtime; add runtime members here only when a test actually executes
 // them.
 export type App = unknown;
+
+export function arrayBufferToBase64(buffer: ArrayBuffer): string {
+	return Buffer.from(buffer).toString("base64");
+}
+
+export function requestUrl(): never {
+	throw new Error(
+		"requestUrl is not available under vitest — inject a fake requester",
+	);
+}

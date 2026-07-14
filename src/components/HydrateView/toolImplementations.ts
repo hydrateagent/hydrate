@@ -1,8 +1,21 @@
-import { App, TFile, Notice, normalizePath } from "obsidian";
+import {
+	App,
+	TFile,
+	Notice,
+	normalizePath,
+	arrayBufferToBase64,
+	requestUrl,
+} from "obsidian";
 import HydratePlugin from "../../main";
 import { Patch } from "../../types";
 import { devLog } from "../../utils/logger";
 import { sliceFileContent } from "../../toolOutputLimits";
+import {
+	ImageToolResult,
+	MAX_IMAGE_BYTES,
+	mimeTypeForPath,
+	validateImageUrl,
+} from "../../imageTools";
 /**
  * Reads the content of a file within the Obsidian vault.
  * @param app - The Obsidian App instance.
@@ -328,4 +341,94 @@ export async function applyPatchesToFile(
 	});
 
 	return statusMessage;
+}
+
+/**
+ * Reads an image file from the vault and returns it as a structured
+ * image result (base64 data + mime type) for the backend to consume.
+ * @param app - The Obsidian App instance.
+ * @param path - The vault path to the image file.
+ * @throws Error if the extension is unsupported, the file is not found,
+ *   or the file exceeds MAX_IMAGE_BYTES.
+ */
+export async function toolReadImage(
+	app: App,
+	path: string,
+): Promise<ImageToolResult> {
+	const initialNormalizedPath = path.startsWith("./")
+		? path.substring(2)
+		: path;
+	const finalNormalizedPath = normalizePath(initialNormalizedPath);
+	const mime = mimeTypeForPath(finalNormalizedPath);
+	if (!mime) {
+		throw new Error(
+			`Not a supported image type: ${finalNormalizedPath} ` +
+				`(supported: png, jpg, jpeg, gif, webp)`,
+		);
+	}
+	const file = app.vault.getAbstractFileByPath(finalNormalizedPath);
+	if (!file || !(file instanceof TFile)) {
+		throw new Error(`Image file not found: ${finalNormalizedPath}`);
+	}
+	const buffer = await app.vault.readBinary(file);
+	if (buffer.byteLength > MAX_IMAGE_BYTES) {
+		throw new Error(
+			`Image too large (${buffer.byteLength} bytes > ` +
+				`${MAX_IMAGE_BYTES}). Ask the user to attach it instead.`,
+		);
+	}
+	return {
+		type: "image",
+		mime_type: mime,
+		data: arrayBufferToBase64(buffer),
+		source: finalNormalizedPath,
+	};
+}
+
+/**
+ * Fetches an image from a URL and returns it as a structured image
+ * result (base64 data + mime type) for the backend to consume.
+ * @param url - The http(s) URL to fetch.
+ * @param requester - Injected request function (defaults to Obsidian's
+ *   requestUrl); overridable in tests.
+ * @throws Error if the URL is invalid, the fetch fails, the response is
+ *   not an image, or the image exceeds MAX_IMAGE_BYTES.
+ */
+export async function toolFetchImage(
+	url: string,
+	requester: typeof requestUrl = requestUrl,
+): Promise<ImageToolResult> {
+	const invalid = validateImageUrl(url);
+	if (invalid) {
+		throw new Error(invalid);
+	}
+	const response = await requester({ url, throw: false });
+	if (response.status >= 400) {
+		throw new Error(`Image fetch failed with HTTP ${response.status}`);
+	}
+	const headerType = (response.headers?.["content-type"] ?? "")
+		.split(";")[0]
+		.trim()
+		.toLowerCase();
+	const mime = headerType.startsWith("image/")
+		? headerType
+		: mimeTypeForPath(url);
+	if (!mime || !mime.startsWith("image/")) {
+		throw new Error(
+			`URL did not return an image (content-type: ` +
+				`${headerType || "unknown"})`,
+		);
+	}
+	const buffer = response.arrayBuffer;
+	if (buffer.byteLength > MAX_IMAGE_BYTES) {
+		throw new Error(
+			`Image too large (${buffer.byteLength} bytes > ${MAX_IMAGE_BYTES}).`,
+		);
+	}
+	return {
+		type: "image",
+		mime_type: mime,
+		data: arrayBufferToBase64(buffer),
+		source: url,
+	};
 }

@@ -18,6 +18,8 @@ import { RegistryEntry, Patch, ChatHistory, ChatTurn, ImageAttachment, isStoredI
 import {
 	toolReadFile,
 	toolReplaceSelectionInFile,
+	toolReadImage,
+	toolFetchImage,
 } from "./toolImplementations"; // Ensure this path is correct for your setup
 import { handleSearchProject } from "../../toolHandlers"; // <<< ADD THIS IMPORT
 import { devLog } from "../../utils/logger";
@@ -964,6 +966,13 @@ export class HydrateView extends ItemView {
 					toolCall.params.offset as number | undefined,
 					toolCall.params.limit as number | undefined,
 				);
+			case "readImage":
+				return await toolReadImage(
+					this.app,
+					toolCall.params.path as string,
+				);
+			case "fetchImage":
+				return await toolFetchImage(toolCall.params.url as string);
 			case "replaceSelectionInFile": // <<< KEPT CASE (but now also goes through review)
 				// This case should ideally not be hit directly anymore if filtering is correct,
 				// but kept for safety. Review logic handles execution.
