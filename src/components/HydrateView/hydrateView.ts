@@ -587,6 +587,21 @@ export class HydrateView extends ItemView {
 	 * same `applyBackendResponse` path the plain-JSON response uses. When a
 	 * streaming bubble was created, `addAgentMessage` is swapped for a no-op
 	 * since `finalize()` already rendered the text and pushed the ChatTurn.
+	 *
+	 * The bubble is TRANSIENT until `finalize()` commits it. Any other
+	 * outcome tears it down instead (cancels the pending throttled render,
+	 * removes the element, pushes nothing to history), so the terminal
+	 * handling matches the non-streaming path exactly:
+	 * - a mid-stream `error` after tokens: `teardown()` before the error
+	 *   message is shown, so a failed request never leaves a partial answer
+	 *   behind (same as the non-streaming catch block).
+	 * - a `done` whose `tool_calls_prepared` is non-empty: token deltas and
+	 *   tool_calls can co-occur in one turn (model preamble before tool
+	 *   calls). `applyBackendResponse`'s mutually-exclusive if/else would
+	 *   suppress the streamed text in this case, so `teardown()` instead of
+	 *   `finalize()`, and `applyBackendResponse` runs with the ORIGINAL
+	 *   hooks - there's no agent message to double-render on the tool-call
+	 *   branch.
 	 */
 	private async handleStreamingBackendResponse(
 		body: ReadableStream<Uint8Array>,
@@ -637,6 +652,12 @@ export class HydrateView extends ItemView {
 					devLog.error("Backend call failed:", msg);
 					new Notice(`Backend error: ${msg}`);
 				}
+				// Tear down the transient streaming bubble BEFORE showing the
+				// error: a failed request shows only the error, no partial
+				// answer left dangling, matching the non-streaming catch path.
+				if (state.streamingMessage) {
+					state.streamingMessage.teardown();
+				}
 				addMessageToChat(this, "agent", describeBackendError(err));
 				setLoadingState(this, false);
 			},
@@ -648,16 +669,30 @@ export class HydrateView extends ItemView {
 			return;
 		}
 
-		if (state.streamingMessage) {
-			const finalText = state.doneResponse.agent_message
-				? parseAgentContent(state.doneResponse.agent_message.content).text
-				: state.accumulatedText;
-			state.streamingMessage.finalize(finalText);
-		}
+		const hasToolCalls =
+			(state.doneResponse.tool_calls_prepared?.length ?? 0) > 0;
 
-		const effectiveHooks: BackendResponseHooks = state.streamingMessage
-			? { ...hooks, addAgentMessage: () => {} }
-			: hooks;
+		let effectiveHooks: BackendResponseHooks = hooks;
+
+		if (state.streamingMessage) {
+			if (hasToolCalls) {
+				// Token deltas and tool_calls can co-occur in one turn (model
+				// preamble before tool calls). The non-streaming path's
+				// mutually-exclusive if/else in applyBackendResponse would
+				// suppress the streamed text here, so tear the bubble down
+				// instead of finalizing it, and let applyBackendResponse run
+				// with the ORIGINAL hooks - there's no agent message to
+				// double-render on the tool-call branch.
+				state.streamingMessage.teardown();
+			} else {
+				const finalText = state.doneResponse.agent_message
+					? parseAgentContent(state.doneResponse.agent_message.content)
+							.text
+					: state.accumulatedText;
+				state.streamingMessage.finalize(finalText);
+				effectiveHooks = { ...hooks, addAgentMessage: () => {} };
+			}
+		}
 
 		await applyBackendResponse(state.doneResponse, effectiveHooks);
 	}

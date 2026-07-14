@@ -107,4 +107,18 @@ describe("createThrottle", () => {
 		expect(fn).toHaveBeenCalledTimes(1);
 		expect(fn).toHaveBeenCalledWith("b");
 	});
+
+	it("calling cancel() twice in a row is idempotent and does not throw", () => {
+		const fn = vi.fn();
+		const throttled = createThrottle(fn, 100);
+
+		throttled("a");
+		expect(() => {
+			throttled.cancel();
+			throttled.cancel();
+		}).not.toThrow();
+		vi.advanceTimersByTime(1000);
+
+		expect(fn).not.toHaveBeenCalled();
+	});
 });

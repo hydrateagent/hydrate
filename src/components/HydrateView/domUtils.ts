@@ -347,6 +347,15 @@ export function addMessageToChat(
  * and pushes the ChatTurn bookkeeping exactly once - mirroring the tail of
  * `addMessageToChat` for agent messages.
  *
+ * The bubble is TRANSIENT until `finalize()` commits it: any other outcome
+ * (mid-stream error, or a `done` that turns out to carry
+ * `tool_calls_prepared`) must call `teardown()` instead, which cancels the
+ * pending throttled render and removes the element without ever pushing a
+ * ChatTurn - matching the non-streaming path, where a failed or tool-call
+ * turn never leaves a partial agent message in the chat or in history.
+ * `finalize()` and `teardown()` share the same `finalized` guard, so calling
+ * either after the other (or calling either twice) is a safe no-op.
+ *
  * Not unit tested directly: this function (like `addMessageToChat`, which
  * it mirrors) builds DOM via Obsidian's HTMLElement prototype extensions
  * (createDiv/createEl/empty/addClass) and calls MarkdownRenderer.render /
@@ -361,6 +370,7 @@ export function createStreamingAgentMessage(view: HydrateView): {
 	el: HTMLElement;
 	update(text: string): void;
 	finalize(finalText: string): void;
+	teardown(): void;
 } {
 	const chatContainer = view.chatContainer;
 	const plugin = view.plugin;
@@ -460,7 +470,19 @@ export function createStreamingAgentMessage(view: HydrateView): {
 		}
 	};
 
-	return { el, update, finalize };
+	// Tears down a bubble that will never be finalized (mid-stream error, or
+	// a `done` whose tool_calls_prepared preempts the streamed text): cancels
+	// the pending throttled render and removes the element. Never pushes a
+	// ChatTurn. Shares the `finalized` guard with `finalize()` so this is
+	// idempotent and safe to call after finalize() already ran (a no-op).
+	const teardown = () => {
+		if (finalized) return;
+		finalized = true;
+		throttledRender.cancel();
+		el.remove();
+	};
+
+	return { el, update, finalize, teardown };
 }
 
 /**
