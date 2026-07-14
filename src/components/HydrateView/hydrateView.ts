@@ -1193,6 +1193,16 @@ export class HydrateView extends ItemView {
 	/**
 	 * Clears the current chat state
 	 */
+	/**
+	 * Hides the context meter and clears its warning state. Called from
+	 * every path that ends the current conversation (new chat, history
+	 * load, and the Clear button's handleClear in eventHandlers.ts).
+	 */
+	public resetContextMeter(): void {
+		this.contextMeterEl.hide();
+		this.contextMeterEl.removeClass("hydrate-context-meter--warning");
+	}
+
 	private clearCurrentChat(): void {
 		// Clear chat display
 		this.chatContainer.empty();
@@ -1211,8 +1221,7 @@ export class HydrateView extends ItemView {
 		this.capturedSelections = [];
 
 		// Reset context meter
-		this.contextMeterEl.hide();
-		this.contextMeterEl.removeClass("hydrate-context-meter--warning");
+		this.resetContextMeter();
 
 		// Update UI
 		renderFilePills(this);

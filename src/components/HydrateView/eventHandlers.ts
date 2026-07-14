@@ -52,6 +52,7 @@ export const handleClear = (view: HydrateView): void => {
 	view.conversationId = null;
 	view.sentFileContentRegistry.clear();
 	view.appliedRuleIds.clear();
+	view.resetContextMeter();
 
 	// Clear chat history state
 	view.currentChatTurns = [];
