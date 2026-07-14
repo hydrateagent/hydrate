@@ -60,6 +60,13 @@ describe("capToolResult", () => {
 		const out = capToolResult(large) as string;
 		expect(out).toContain(String(stringified.length));
 	});
+
+	it("restores byte-identical string truncation: slices at maxChars with no headroom", () => {
+		const input = "x".repeat(40_050);
+		const out = capToolResult(input) as string;
+		expect(out).toMatch(/^x{40000}\n\[Truncated by Hydrate/);
+		expect(out).toContain("showing the first 40000.");
+	});
 });
 
 describe("clampAttachedFile", () => {

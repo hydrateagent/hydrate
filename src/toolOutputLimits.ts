@@ -17,14 +17,14 @@ export function capToolResult(
 	maxChars: number = MAX_TOOL_RESULT_CHARS,
 ): unknown {
 	if (typeof result === "string") {
-		// Existing string path — unchanged
+		// String path: direct truncation without headroom (fixed at input boundary)
 		if (result.length <= maxChars) {
 			return result;
 		}
 		return (
-			result.slice(0, maxChars - SLICE_NOTICE_HEADROOM) +
+			result.slice(0, maxChars) +
 			`\n[Truncated by Hydrate: result was ${result.length} chars; ` +
-			`showing the first ${maxChars - SLICE_NOTICE_HEADROOM}.]`
+			`showing the first ${maxChars}.]`
 		);
 	}
 	// Image results are size-bounded at source (MAX_IMAGE_BYTES) and must
