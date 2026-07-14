@@ -22,6 +22,26 @@ function streamFromStrings(strings: string[]): ReadableStream<Uint8Array> {
 	return streamFromChunks(strings.map((s) => encoder.encode(s)));
 }
 
+function streamFromChunksWithCancel(
+	chunks: Uint8Array[],
+	onCancel: () => void
+): ReadableStream<Uint8Array> {
+	let i = 0;
+	return new ReadableStream<Uint8Array>({
+		pull(controller) {
+			if (i < chunks.length) {
+				controller.enqueue(chunks[i]);
+				i++;
+			} else {
+				controller.close();
+			}
+		},
+		cancel() {
+			onCancel();
+		},
+	});
+}
+
 type LogEntry =
 	| { type: "token"; text: string }
 	| { type: "done"; response: unknown }
@@ -170,5 +190,81 @@ describe("readSseStream", () => {
 			{ type: "token", text: "hi" },
 			{ type: "error", message: "connection reset" },
 		]);
+	});
+
+	it("cancels the reader when a terminal event arrives while the stream is still open", async () => {
+		const { cb, log } = makeCallbacks();
+		let cancelled = false;
+		const stream = streamFromChunksWithCancel(
+			[encoder.encode('data: {"type":"done","response":{"ok":true}}\n\n')],
+			() => {
+				cancelled = true;
+			}
+		);
+
+		await readSseStream(stream, cb);
+
+		expect(log).toEqual([{ type: "done", response: { ok: true } }]);
+		expect(cancelled).toBe(true);
+	});
+
+	it("does not cancel the reader when the terminal event is only found via the end-of-stream flush", async () => {
+		const { cb, log } = makeCallbacks();
+		let cancelled = false;
+		const stream = streamFromChunksWithCancel(
+			// No trailing "\n\n": the reader must observe done: true (natural
+			// end) before the flush path dispatches this as the last event.
+			[encoder.encode('data: {"type":"done","response":{"ok":true}}')],
+			() => {
+				cancelled = true;
+			}
+		);
+
+		await readSseStream(stream, cb);
+
+		expect(log).toEqual([{ type: "done", response: { ok: true } }]);
+		expect(cancelled).toBe(false);
+	});
+
+	it("parses CRLF-framed events the same as LF-framed events", async () => {
+		const { cb, log } = makeCallbacks();
+		const stream = streamFromStrings([
+			'data: {"type":"token","text":"hi"}\r\n\r\n',
+			'data: {"type":"done","response":{"ok":true}}\r\n\r\n',
+		]);
+
+		await readSseStream(stream, cb);
+
+		expect(log).toEqual([
+			{ type: "token", text: "hi" },
+			{ type: "done", response: { ok: true } },
+		]);
+	});
+
+	it("dispatches the final event via flush when the stream closes without a trailing blank line", async () => {
+		const { cb, log } = makeCallbacks();
+		const stream = streamFromStrings([
+			'data: {"type":"token","text":"hi"}\n\n',
+			'data: {"type":"done","response":{"ok":true}}', // no trailing \n\n
+		]);
+
+		await readSseStream(stream, cb);
+
+		expect(log).toEqual([
+			{ type: "token", text: "hi" },
+			{ type: "done", response: { ok: true } },
+		]);
+	});
+
+	it("ignores a trailing event bundled in the same chunk after a terminal event", async () => {
+		const { cb, log } = makeCallbacks();
+		const stream = streamFromStrings([
+			'data: {"type":"done","response":{"ok":true}}\n\n' +
+				'data: {"type":"token","text":"should not appear"}\n\n',
+		]);
+
+		await readSseStream(stream, cb);
+
+		expect(log).toEqual([{ type: "done", response: { ok: true } }]);
 	});
 });

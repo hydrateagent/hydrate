@@ -57,13 +57,22 @@ export async function readSseStream(
 	const decoder = new TextDecoder("utf-8");
 	let buffer = "";
 	let terminal = false;
+	// True once the underlying stream has told us it's closed (reader.read()
+	// returned done: true). Used to decide whether an early terminal exit
+	// still needs to cancel the reader to close the connection.
+	let streamEnded = false;
 
 	try {
 		while (!terminal) {
 			const { done, value } = await reader.read();
-			if (done) break;
+			if (done) {
+				streamEnded = true;
+				break;
+			}
 
-			buffer += decoder.decode(value, { stream: true });
+			// Normalize CRLF to LF. Safe because payloads are single-line JSON,
+			// so a raw CR can only ever appear as part of a "\r\n" line ending.
+			buffer += decoder.decode(value, { stream: true }).replace(/\r/g, "");
 
 			let boundary: number;
 			while ((boundary = buffer.indexOf("\n\n")) !== -1) {
@@ -79,7 +88,7 @@ export async function readSseStream(
 		if (!terminal) {
 			// Flush any bytes the decoder held back, and try the trailing
 			// buffered event in case the stream closed without a final \n\n.
-			buffer += decoder.decode();
+			buffer += decoder.decode().replace(/\r/g, "");
 			if (buffer.length > 0 && dispatchEvent(buffer, cb)) {
 				terminal = true;
 			}
@@ -90,6 +99,17 @@ export async function readSseStream(
 		}
 		return;
 	} finally {
+		if (terminal && !streamEnded) {
+			// We stopped reading before the stream told us it was done (e.g. a
+			// done/error event arrived while the connection was still open).
+			// releaseLock() alone doesn't signal the connection to close, so
+			// cancel it explicitly.
+			try {
+				await reader.cancel();
+			} catch {
+				// Ignore: we're already tearing down.
+			}
+		}
 		reader.releaseLock();
 	}
 
