@@ -6,6 +6,15 @@ export interface ImageToolResult {
 	source: string; // vault path or URL
 }
 
+export function isImageToolResult(v: unknown): v is ImageToolResult {
+	return (
+		typeof v === "object" &&
+		v !== null &&
+		(v as Record<string, unknown>).type === "image" &&
+		typeof (v as Record<string, unknown>).data === "string"
+	);
+}
+
 export const MAX_IMAGE_BYTES = 1_500_000;
 
 const MIME_BY_EXT: Record<string, string> = {
