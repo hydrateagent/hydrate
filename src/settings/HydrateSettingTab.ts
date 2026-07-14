@@ -191,6 +191,20 @@ export class HydrateSettingTab extends PluginSettingTab {
 					}),
 			);
 
+		new Setting(containerEl)
+			.setName("Stream responses")
+			.setDesc(
+				"Show the agent's reply as it's generated instead of waiting for the full response. Falls back to the normal behavior if the server doesn't support streaming.",
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.enableStreaming)
+					.onChange(async (value) => {
+						this.plugin.settings.enableStreaming = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
 		// --- BYOK SUBSCRIPTION SETTINGS ---
 		new Setting(containerEl)
 			.setName("Subscription & API keys")

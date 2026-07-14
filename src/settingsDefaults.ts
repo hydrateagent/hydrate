@@ -73,6 +73,8 @@ export const DEFAULT_SETTINGS: HydratePluginSettings = {
 	mcpCustomPaths: "/usr/local/bin,/opt/homebrew/bin", // Default common paths
 
 	enableVaultInstructions: true,
+
+	enableStreaming: true,
 };
 
 /**

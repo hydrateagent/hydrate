@@ -108,6 +108,8 @@ export interface HydratePluginSettings {
 	mcpCustomPaths: string; // Comma-separated list of paths to add to PATH for MCP servers
 
 	enableVaultInstructions: boolean;
+
+	enableStreaming: boolean;
 }
 
 export const REACT_HOST_VIEW_TYPE = "hydrate-react-host"; // Define type for React host

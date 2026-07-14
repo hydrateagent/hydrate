@@ -15,6 +15,10 @@ interface HttpResponse {
 	status: number;
 	json: () => Promise<unknown>;
 	text: () => Promise<string>;
+	/** Raw response body stream, for SSE consumption. Null on network failure. */
+	body: ReadableStream<Uint8Array> | null;
+	/** Value of the Content-Type response header (empty string if absent or on network failure). */
+	contentType: string;
 }
 
 export async function httpRequest(
@@ -37,6 +41,8 @@ export async function httpRequest(
 			status: response.status,
 			json: () => response.json(),
 			text: () => response.text(),
+			body: response.body,
+			contentType: response.headers.get("content-type") ?? "",
 		};
 	} catch (error) {
 		// Re-throw AbortError so callers can handle cancellation
@@ -49,6 +55,8 @@ export async function httpRequest(
 			status: 0,
 			json: async () => ({ error: String(error) }),
 			text: async () => String(error),
+			body: null,
+			contentType: "",
 		};
 	}
 }

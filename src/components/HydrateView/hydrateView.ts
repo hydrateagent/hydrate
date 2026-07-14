@@ -8,6 +8,7 @@ import {
 	MarkdownRenderer,
 } from "obsidian";
 import { httpRequest } from "../../utils/httpClient";
+import { readSseStream } from "../../utils/sseClient";
 import HydratePlugin from "../../main"; // Corrected path to be relative to current dir
 import { DiffReviewModal, DiffReviewResult } from "../DiffReviewModal"; // Corrected path (assuming same dir as view)
 import {
@@ -22,6 +23,7 @@ import { capToolResult } from "../../toolOutputLimits";
 import { MCPToolSchemaWithMetadata } from "../../mcp/MCPServerManager";
 import {
 	addMessageToChat,
+	createStreamingAgentMessage,
 	parseAgentContent,
 	renderFilePills, // Alias dom utils
 	setLoadingState, // Alias dom utils
@@ -41,7 +43,11 @@ import type {
 	BackendResponse,
 	ToolResult,
 } from "./backendTypes";
-import { applyBackendResponse, describeBackendError } from "./backendResponse";
+import {
+	applyBackendResponse,
+	describeBackendError,
+	type BackendResponseHooks,
+} from "./backendResponse";
 
 export const HYDRATE_VIEW_TYPE = "hydrate-view";
 
@@ -448,10 +454,21 @@ export class HydrateView extends ItemView {
 				headers["X-Gemini-Key"] = this.plugin.settings.googleApiKey;
 			}
 
+			// Request SSE streaming; the server may decline and return today's
+			// plain JSON instead, which is handled below via contentType.
+			if (this.plugin.settings.enableStreaming) {
+				headers["Accept"] = "text/event-stream";
+			}
+
 			// Debug: log which API key headers are being sent
 			devLog.info(
 				`[callBackend] API key headers present: openai=${!!this.plugin.settings.openaiApiKey}, anthropic=${!!this.plugin.settings.anthropicApiKey}, google=${!!this.plugin.settings.googleApiKey}`
 			);
+
+			// Captured so async SSE callbacks can reliably tell whether THIS
+			// request was aborted, even after handleStop() nulls
+			// this.abortController out from under them.
+			const requestController = this.abortController;
 
 			// Use httpRequest utility that handles localhost vs production
 			const response = await httpRequest(
@@ -460,7 +477,7 @@ export class HydrateView extends ItemView {
 					method: "POST",
 					headers,
 					body: JSON.stringify(payload),
-					signal: this.abortController?.signal,
+					signal: requestController?.signal,
 				},
 			);
 
@@ -471,9 +488,7 @@ export class HydrateView extends ItemView {
 				);
 			}
 
-			const responseData = (await response.json()) as BackendResponse;
-
-			await applyBackendResponse(responseData, {
+			const hooks: BackendResponseHooks = {
 				setConversationId: (id) => {
 					this.conversationId = id;
 				},
@@ -537,7 +552,18 @@ export class HydrateView extends ItemView {
 					this.abortController = null;
 					setLoadingState(this, loading);
 				},
-			});
+			};
+
+			if (response.contentType.includes("text/event-stream") && response.body) {
+				await this.handleStreamingBackendResponse(
+					response.body,
+					hooks,
+					requestController,
+				);
+			} else {
+				const responseData = (await response.json()) as BackendResponse;
+				await applyBackendResponse(responseData, hooks);
+			}
 		} catch (error: unknown) {
 			// Reset abort controller on error
 			this.abortController = null;
@@ -552,6 +578,88 @@ export class HydrateView extends ItemView {
 			addMessageToChat(this, "agent", describeBackendError(error));
 			setLoadingState(this, false);
 		}
+	}
+
+	/**
+	 * Drains an SSE response body: streams `token` deltas into a lazily
+	 * created streaming message bubble (so tool-call-only turns never get an
+	 * empty bubble), then applies the terminal `done` payload through the
+	 * same `applyBackendResponse` path the plain-JSON response uses. When a
+	 * streaming bubble was created, `addAgentMessage` is swapped for a no-op
+	 * since `finalize()` already rendered the text and pushed the ChatTurn.
+	 */
+	private async handleStreamingBackendResponse(
+		body: ReadableStream<Uint8Array>,
+		hooks: BackendResponseHooks,
+		requestController: AbortController | null,
+	): Promise<void> {
+		// Plain-`let` locals reassigned from inside these closures don't
+		// narrow correctly across the `await` below (TS treats them as
+		// permanently `null`/`never` past the guards); a mutable object
+		// sidesteps that by narrowing via property access instead.
+		const state: {
+			streamingMessage: ReturnType<
+				typeof createStreamingAgentMessage
+			> | null;
+			accumulatedText: string;
+			doneResponse: BackendResponse | null;
+		} = {
+			streamingMessage: null,
+			accumulatedText: "",
+			doneResponse: null,
+		};
+
+		await readSseStream(body, {
+			onToken: (text) => {
+				state.accumulatedText += text;
+				if (!state.streamingMessage) {
+					state.streamingMessage = createStreamingAgentMessage(this);
+				}
+				state.streamingMessage.update(state.accumulatedText);
+			},
+			onDone: (resp) => {
+				state.doneResponse = resp as BackendResponse;
+			},
+			onError: (msg) => {
+				// Mirror the non-streaming catch block below exactly,
+				// including its AbortError special case: skip the noisy
+				// Notice/log when the user hit Stop. Check the CAPTURED
+				// controller, not this.abortController - handleStop() nulls
+				// that out synchronously before this async callback runs.
+				const wasAborted = requestController?.signal.aborted ?? false;
+				if (this.abortController === requestController) {
+					this.abortController = null;
+				}
+				const err = new Error(msg);
+				if (wasAborted) {
+					err.name = "AbortError";
+				} else {
+					devLog.error("Backend call failed:", msg);
+					new Notice(`Backend error: ${msg}`);
+				}
+				addMessageToChat(this, "agent", describeBackendError(err));
+				setLoadingState(this, false);
+			},
+		});
+
+		if (!state.doneResponse) {
+			// onError already handled UI for this case (sseClient guarantees
+			// onDone xor onError, or "Stream ended unexpectedly" onError).
+			return;
+		}
+
+		if (state.streamingMessage) {
+			const finalText = state.doneResponse.agent_message
+				? parseAgentContent(state.doneResponse.agent_message.content).text
+				: state.accumulatedText;
+			state.streamingMessage.finalize(finalText);
+		}
+
+		const effectiveHooks: BackendResponseHooks = state.streamingMessage
+			? { ...hooks, addAgentMessage: () => {} }
+			: hooks;
+
+		await applyBackendResponse(state.doneResponse, effectiveHooks);
 	}
 
 	private async sendToolResults(results: ToolResult[]) {

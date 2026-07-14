@@ -1,5 +1,6 @@
 import { MarkdownRenderer, Notice, setIcon, TFile } from "obsidian";
 import { devLog } from "../../utils/logger";
+import { createThrottle } from "../../utils/throttle";
 import { HydrateView } from "./hydrateView"; // Corrected path
 import { RegistryEntry, ChatTurn, ChatImage, isStoredImage } from "../../types"; // Corrected path (up two levels from components/HydrateView)
 import { getImageDataUrl } from "./imageUtils";
@@ -331,6 +332,135 @@ export function addMessageToChat(
 			}
 		}
 	}
+}
+
+/**
+ * Creates an empty agent message bubble (same DOM structure/classes as
+ * `addMessageToChat` uses for role "agent") and returns handles to stream
+ * content into it as tokens arrive.
+ *
+ * `update()` re-renders markdown into the cleared element, trailing-edge
+ * throttled (via `createThrottle`, see src/utils/throttle.ts + its tests) to
+ * at most once every 100ms so a fast token stream doesn't thrash markdown
+ * rendering. `finalize()` cancels any pending throttled render, does one
+ * last full render from the authoritative final text, adds the copy button,
+ * and pushes the ChatTurn bookkeeping exactly once - mirroring the tail of
+ * `addMessageToChat` for agent messages.
+ *
+ * Not unit tested directly: this function (like `addMessageToChat`, which
+ * it mirrors) builds DOM via Obsidian's HTMLElement prototype extensions
+ * (createDiv/createEl/empty/addClass) and calls MarkdownRenderer.render /
+ * setIcon, none of which are polyfilled under this project's vitest+jsdom
+ * setup - and importing this module transitively pulls in eventHandlers.ts
+ * -> NoteSearchModal.ts, which extends Obsidian's FuzzySuggestModal, so even
+ * importing it in a test file crashes at module-evaluation time. The pure,
+ * DOM-free throttling logic is extracted into throttle.ts specifically so
+ * it can be tested in isolation; see throttle.test.ts.
+ */
+export function createStreamingAgentMessage(view: HydrateView): {
+	el: HTMLElement;
+	update(text: string): void;
+	finalize(finalText: string): void;
+} {
+	const chatContainer = view.chatContainer;
+	const plugin = view.plugin;
+
+	const messageClasses = [
+		"hydrate-message",
+		"hydrate-agent-message",
+		"p-2",
+		"rounded-md",
+		"max-w-[90%]",
+		"mb-2",
+		"select-text",
+		"break-words",
+		"whitespace-pre-wrap",
+		"mr-auto",
+		"bg-[var(--background-secondary)]",
+	];
+
+	const el = chatContainer.createDiv({ cls: messageClasses.join(" ") });
+	el.addClass("hydrate-message-agent");
+
+	const scrollToBottom = () => {
+		requestAnimationFrame(() => {
+			chatContainer.scrollTop = chatContainer.scrollHeight;
+		});
+	};
+
+	const renderMarkdown = (text: string) => {
+		el.empty();
+		void MarkdownRenderer.render(plugin.app, text, el, "", view);
+		scrollToBottom();
+	};
+
+	const throttledRender = createThrottle(renderMarkdown, 100);
+
+	let finalized = false;
+
+	const update = (text: string) => {
+		if (finalized) return;
+		throttledRender(text);
+	};
+
+	const finalize = (finalText: string) => {
+		if (finalized) return;
+		finalized = true;
+		throttledRender.cancel();
+
+		el.empty();
+		void MarkdownRenderer.render(plugin.app, finalText, el, "", view);
+
+		const copyButton = el.createEl("button", {
+			cls: "hydrate-copy-button absolute bottom-1 right-1 p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-normal)] hover:bg-[var(--background-modifier-hover)] transition-colors duration-150",
+			attr: { "aria-label": "Copy message" },
+		});
+		setIcon(copyButton, "copy");
+		copyButton.children[0]?.setAttribute("width", "14");
+		copyButton.children[0]?.setAttribute("height", "14");
+
+		copyButton.addEventListener("click", (e) => {
+			e.stopPropagation();
+			void (async () => {
+				try {
+					await navigator.clipboard.writeText(finalText);
+					setIcon(copyButton, "check");
+					copyButton.children[0]?.setAttribute("width", "14");
+					copyButton.children[0]?.setAttribute("height", "14");
+					setTimeout(() => {
+						setIcon(copyButton, "copy");
+						copyButton.children[0]?.setAttribute("width", "14");
+						copyButton.children[0]?.setAttribute("height", "14");
+					}, 1500);
+				} catch (err) {
+					devLog.error("Failed to copy text: ", err);
+					new Notice("Failed to copy message.");
+				}
+			})();
+		});
+
+		scrollToBottom();
+
+		// Mirrors addMessageToChat's tail bookkeeping for agent messages:
+		// track the turn (unless restoring from history) and refresh
+		// suggestions. This is the ONLY place that pushes the ChatTurn for a
+		// streamed message - callers must not also route it through
+		// addMessageToChat.
+		if (!view.isRestoringFromHistory) {
+			const chatTurn: ChatTurn = {
+				role: "agent",
+				content: finalText,
+				timestamp: new Date().toISOString(),
+			};
+			view.currentChatTurns.push(chatTurn);
+
+			setTimeout(() => {
+				void view.refreshContextSuggestions?.();
+			}, 1000);
+		}
+	};
+
+	return { el, update, finalize };
 }
 
 /**

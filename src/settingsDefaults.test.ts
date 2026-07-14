@@ -39,6 +39,12 @@ describe("normalizeSettings", () => {
 		expect(result.enableVaultInstructions).toBe(true);
 	});
 
+	it("migrates installs missing enableStreaming to true", () => {
+		const raw = { selectedModel: "claude-sonnet-4-6" };
+		const result = normalizeSettings(raw);
+		expect(result.enableStreaming).toBe(true);
+	});
+
 	it("preserves existing values supplied in raw", () => {
 		const raw = { selectedModel: "claude-sonnet-4-6" };
 		const result = normalizeSettings(raw);
