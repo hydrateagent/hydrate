@@ -202,6 +202,30 @@ export class HydrateView extends ItemView {
 
 	// --- File Change Handling ---
 
+	/** Vault deletion: a pill must never point at a file that no longer exists. */
+	public handleFileDeleted(path: string): void {
+		if (!this.attachedFiles.includes(path)) return;
+		this.attachedFiles = this.attachedFiles.filter((p) => p !== path);
+		if (this.initialFilePathFromState === path) {
+			this.initialFilePathFromState = null;
+		}
+		if (this.attachedFiles.length === 0) {
+			this.wasInitiallyAttached = false;
+		}
+		renderFilePills(this);
+	}
+
+	/** Vault rename: keep pills pointing at the file's new path. */
+	public handleFileRenamed(oldPath: string, newPath: string): void {
+		const index = this.attachedFiles.indexOf(oldPath);
+		if (index === -1) return;
+		this.attachedFiles[index] = newPath;
+		if (this.initialFilePathFromState === oldPath) {
+			this.initialFilePathFromState = newPath;
+		}
+		renderFilePills(this);
+	}
+
 	public handleActiveFileChange(newFilePath: string | null) {
 		if (!newFilePath) {
 			devLog.warn(

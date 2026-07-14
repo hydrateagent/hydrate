@@ -328,6 +328,27 @@ export default class HydratePlugin extends Plugin {
 							),
 					);
 				}
+				// Drop stale attachment pills pointing at the deleted file
+				for (const leaf of this.app.workspace.getLeavesOfType(
+					HYDRATE_VIEW_TYPE,
+				)) {
+					if (leaf.view instanceof HydrateView) {
+						leaf.view.handleFileDeleted(file.path);
+					}
+				}
+			}),
+		);
+
+		this.registerEvent(
+			this.app.vault.on("rename", (file, oldPath) => {
+				// Keep attachment pills pointing at the file's new path
+				for (const leaf of this.app.workspace.getLeavesOfType(
+					HYDRATE_VIEW_TYPE,
+				)) {
+					if (leaf.view instanceof HydrateView) {
+						leaf.view.handleFileRenamed(oldPath, file.path);
+					}
+				}
 			}),
 		);
 
