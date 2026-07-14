@@ -372,6 +372,7 @@ export function createStreamingAgentMessage(view: HydrateView): {
 	updateThinking(text: string): void;
 	finalize(finalText: string): void;
 	teardown(): void;
+	commitThinkingOnly(): void;
 } {
 	const chatContainer = view.chatContainer;
 	const plugin = view.plugin;
@@ -520,7 +521,28 @@ export function createStreamingAgentMessage(view: HydrateView): {
 		el.remove();
 	};
 
-	return { el, update, updateThinking, finalize, teardown };
+	// For tool-call turns: the non-streaming path renders no agent message at
+	// all, so a plain teardown would silently discard reasoning the user just
+	// watched stream in. Keep the thinking section (collapsed) and drop any
+	// streamed preamble text; if no thinking arrived, behave like teardown.
+	// Never pushes a ChatTurn (matching non-streaming tool turns).
+	const commitThinkingOnly = () => {
+		if (finalized) return;
+		finalized = true;
+		throttledRender.cancel();
+		throttledThinking.cancel();
+		if (!thinkingContent) {
+			el.remove();
+			return;
+		}
+		const details = thinkingContent.parentElement;
+		if (details instanceof HTMLDetailsElement) {
+			details.open = false;
+		}
+		textDiv.remove();
+	};
+
+	return { el, update, updateThinking, finalize, teardown, commitThinkingOnly };
 }
 
 /**

@@ -423,7 +423,7 @@ export class HydrateView extends ItemView {
 		if (endpoint === "/chat") {
 			loadingMessage = "Agent is thinking";
 		} else if (endpoint === "/tool_result") {
-			loadingMessage = "Processing tool results";
+			loadingMessage = "Working on the reply";
 		}
 
 		// Set loading state with appropriate message
@@ -689,17 +689,18 @@ export class HydrateView extends ItemView {
 			const parsed = state.doneResponse.agent_message
 				? parseAgentContent(state.doneResponse.agent_message.content)
 				: null;
-			if (hasToolCalls || parsed?.thinking) {
-				// Two cases where the transient bubble must yield to the
-				// ORIGINAL render path instead of finalizing:
-				// 1. Token deltas and tool_calls can co-occur in one turn
-				//    (model preamble before tool calls); the non-streaming
-				//    path's mutually-exclusive if/else in applyBackendResponse
-				//    would suppress the streamed text, so match it.
-				// 2. The reply carries a thinking block: only the original
-				//    addAgentMessage hook renders the collapsible
-				//    "Model thinking..." section — finalize() would silently
-				//    drop it (display parity with non-streaming turns).
+			if (hasToolCalls) {
+				// Tool-call turns render no agent message (mutually exclusive
+				// if/else in applyBackendResponse), so the streamed preamble
+				// text is suppressed to match — but reasoning the user watched
+				// stream in is kept as a collapsed thinking section.
+				state.streamingMessage.commitThinkingOnly();
+			} else if (parsed?.thinking) {
+				// The reply carries a thinking block: only the original
+				// addAgentMessage hook renders the collapsible
+				// "Model thinking..." section — finalize() would silently
+				// drop it. Remove the transient bubble entirely and let the
+				// original hooks re-render thinking + text.
 				state.streamingMessage.teardown();
 			} else {
 				const finalText = parsed
@@ -766,6 +767,9 @@ export class HydrateView extends ItemView {
 		if (editToolCalls.length > 0) {
 			let editResults: ToolResult[];
 			try {
+				// Nothing is in flight while the user reviews - say so instead
+				// of leaving the indicator on a stale "Sending"-era message.
+				setLoadingState(this, true, "Waiting for your review");
 				editResults = await this.reviewAndExecuteEdits(editToolCalls);
 			} catch (error) {
 				devLog.error("Error processing edit tools:", error);

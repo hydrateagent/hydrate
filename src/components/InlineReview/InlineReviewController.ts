@@ -298,15 +298,11 @@ export class InlineReviewController {
     const filePath = this.currentView?.file?.path;
     const shouldSwitchBack = this.switchedFromReactView && this.reactViewKey && filePath;
 
-    // Write the final content to the file if changes were applied
-    if (result.applied && this.currentView?.file) {
-      try {
-        await this.app.vault.modify(this.currentView.file, result.finalContent);
-      } catch (error) {
-        console.error('Failed to write file:', error);
-        new Notice('Failed to save changes');
-      }
-    }
+    // NOTE: the file write is deliberately NOT done here. The caller
+    // (reviewAndExecuteEdits) is the single write owner - it receives
+    // finalContent via the resolved result and handles both the modify
+    // and the create-if-missing case. Writing here too produced double
+    // vault.modify events for one accepted edit.
 
     // Get the leaf before cleanup (cleanup clears currentView)
     // Find the leaf that contains our current markdown view
