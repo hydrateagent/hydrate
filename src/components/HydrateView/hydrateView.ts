@@ -858,12 +858,25 @@ export class HydrateView extends ItemView {
 							}`,
 						});
 					}
-				} else {
-					// If the user rejected the changes, return an error result
+				} else if (reviewResult.userDeclined) {
+					// A human reviewed and declined. This is FINAL for the
+					// agent loop - the wording must not read like a technical
+					// failure, or the model retries the same edit (observed
+					// live: unbounded re-edit rounds after every rejection).
 					results.push({
 						id: toolCall.id,
-						result: `Edit rejected: ${
-							reviewResult.message || "User declined changes"
+						result: `The user reviewed these proposed changes and declined them; nothing was applied. Do not retry or re-propose this edit. If the user still wants ${String(
+							toolCall.params.path,
+						)} changed, ask them how they'd like to proceed.`,
+					});
+				} else {
+					// Technical failure (file not found, patch context
+					// mismatch, editor unavailable) - retrying with a
+					// correction is legitimate here.
+					results.push({
+						id: toolCall.id,
+						result: `Edit could not be applied: ${
+							reviewResult.message || "Unknown error"
 						}`,
 					});
 				}

@@ -20,6 +20,13 @@ export interface DiffReviewResult {
 	applied: boolean; // Did the user click apply?
 	finalContent?: string; // The content after applying selected hunks
 	message: string; // User-facing message (Applied, Cancelled, Error)
+	/**
+	 * True when a HUMAN reviewed and declined (rejected all, or finished
+	 * without accepting) — as opposed to a technical failure (file not
+	 * found, patch context mismatch). The agent must treat a decline as
+	 * final and not retry; technical failures may legitimately be retried.
+	 */
+	userDeclined?: boolean;
 }
 
 export class DiffReviewModal extends Modal {

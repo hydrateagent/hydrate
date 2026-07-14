@@ -330,13 +330,16 @@ export class InlineReviewController {
     this.switchedFromReactView = false;
     this.reactViewKey = null;
 
-    // Resolve the promise with the result
+    // Resolve the promise with the result. completeReview only runs from
+    // user-driven outcomes (Done / cancel) — technical failures return
+    // early from startReview — so not-applied here means a human declined.
     if (this.resolvePromise) {
       this.resolvePromise({
         toolCallId: this.toolCallId,
         applied: result.applied,
         finalContent: result.finalContent,
         message: result.message,
+        userDeclined: !result.applied,
       });
       this.resolvePromise = null;
     }
