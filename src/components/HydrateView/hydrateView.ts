@@ -43,6 +43,7 @@ import type {
 	BackendResponse,
 	ToolResult,
 } from "./backendTypes";
+import { applyBackendResponse, describeBackendError } from "./backendResponse";
 
 export const HYDRATE_VIEW_TYPE = "hydrate-view";
 
@@ -474,36 +475,30 @@ export class HydrateView extends ItemView {
 
 			const responseData = (await response.json()) as BackendResponse;
 
-			// Update conversation ID from response
-			if (responseData.conversation_id) {
-				this.conversationId = responseData.conversation_id;
-			}
-
-			// Update context meter from response
-			if (responseData.context_status) {
-				const cs = responseData.context_status;
-				this.contextMeterEl.setText(
-					`Context: ${Math.max(0, 100 - cs.percent_left).toFixed(0)}% used`,
-				);
-				this.contextMeterEl.toggleClass(
-					"hydrate-context-meter--warning",
-					cs.above_warning,
-				);
-				this.contextMeterEl.show();
-			}
-
-			// Check for tool calls that need to be processed
-			if (
-				responseData.tool_calls_prepared &&
-				responseData.tool_calls_prepared.length > 0
-			) {
-				await this.processToolCalls(responseData.tool_calls_prepared);
-			} else {
-				// No tool calls, just display the agent message
-				if (responseData.agent_message) {
-					const { thinking, text } = parseAgentContent(
-						responseData.agent_message.content
+			await applyBackendResponse(responseData, {
+				setConversationId: (id) => {
+					this.conversationId = id;
+				},
+				onConversationRestarted: () => {
+					this.sentFileContentRegistry.clear();
+					this.appliedRuleIds.clear();
+					addMessageToChat(
+						this,
+						"system",
+						"The server no longer had this conversation (conversations expire after 24 hours of inactivity) and started a new one. Vault instructions were re-applied; attached file contents will be re-sent with your next message.",
+						true,
 					);
+				},
+				updateContextMeter: ({ text, warning }) => {
+					this.contextMeterEl.setText(text);
+					this.contextMeterEl.toggleClass(
+						"hydrate-context-meter--warning",
+						warning,
+					);
+					this.contextMeterEl.show();
+				},
+				addAgentMessage: async (message) => {
+					const { thinking, text } = parseAgentContent(message.content);
 
 					// Build content with optional thinking section
 					if (thinking) {
@@ -537,24 +532,26 @@ export class HydrateView extends ItemView {
 					} else {
 						addMessageToChat(this, "agent", text);
 					}
-				}
-				// Reset abort controller after successful completion (no tool calls)
-				this.abortController = null;
-				setLoadingState(this, false);
-			}
+				},
+				processToolCalls: (calls) => this.processToolCalls(calls),
+				setLoading: (loading) => {
+					// Reset abort controller after successful completion (no tool calls)
+					this.abortController = null;
+					setLoadingState(this, loading);
+				},
+			});
 		} catch (error: unknown) {
 			// Reset abort controller on error
 			this.abortController = null;
 
-			if (error instanceof Error && error.name === "AbortError") {
-				addMessageToChat(this, "agent", "Request cancelled by user.");
-			} else {
+			const isAbort = error instanceof Error && error.name === "AbortError";
+			if (!isAbort) {
 				devLog.error("Backend call failed:", error);
 				const errorMessage =
 					error instanceof Error ? error.message : "Unknown error";
 				new Notice(`Backend error: ${errorMessage}`);
-				addMessageToChat(this, "agent", `Error: ${errorMessage}`);
 			}
+			addMessageToChat(this, "agent", describeBackendError(error));
 			setLoadingState(this, false);
 		}
 	}
