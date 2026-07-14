@@ -16,6 +16,7 @@ import {
 } from "../InlineReview"; // New inline review system
 import { RegistryEntry, Patch, ChatHistory, ChatTurn, ImageAttachment, isStoredImage } from "../../types"; // Corrected path
 import { executeSingleTool } from "./toolDispatch";
+import { partitionToolCalls, runNonEditToolCalls } from "./toolCallRunner";
 import { devLog } from "../../utils/logger";
 import { capToolResult } from "../../toolOutputLimits";
 import { MCPToolSchemaWithMetadata } from "../../mcp/MCPServerManager";
@@ -603,65 +604,45 @@ export class HydrateView extends ItemView {
 		}
 
 		// Separate tool calls that need review from those that can execute directly
-		const editToolCalls = toolCalls.filter((call) =>
-			[
-				"editFile",
-				"replaceSelectionInFile",
-				"applyPatchesToFile",
-			].includes(call.tool),
-		);
-		const otherToolCalls = toolCalls.filter(
-			(call) =>
-				![
-					"editFile",
-					"replaceSelectionInFile",
-					"applyPatchesToFile",
-				].includes(call.tool),
-		);
+		const { editToolCalls, otherToolCalls } = partitionToolCalls(toolCalls);
 
 		const results: ToolResult[] = [];
 
 		// Process edit tools through review modal
 		if (editToolCalls.length > 0) {
+			let editResults: ToolResult[];
 			try {
-				const editResults =
-					await this.reviewAndExecuteEdits(editToolCalls);
-				results.push(...editResults);
+				editResults = await this.reviewAndExecuteEdits(editToolCalls);
 			} catch (error) {
 				devLog.error("Error processing edit tools:", error);
 				// Add error results for failed edit tools
-				for (const call of editToolCalls) {
-					results.push({
-						id: call.id,
-						result: `Error: ${
-							error instanceof Error
-								? error.message
-								: String(error)
-						}`,
-					});
-				}
+				editResults = editToolCalls.map((call) => ({
+					id: call.id,
+					result: `Error: ${
+						error instanceof Error ? error.message : String(error)
+					}`,
+				}));
+			}
+			// Edit-path results bypassed capToolResult before; route them
+			// through it too so oversized edit output is bounded like every
+			// other tool result.
+			for (const editResult of editResults) {
+				results.push({
+					id: editResult.id,
+					result: capToolResult(editResult.result),
+				});
 			}
 		}
 
 		// Process other tools directly
-		for (const toolCall of otherToolCalls) {
-			try {
-				const result = await executeSingleTool(toolCall, {
-					app: this.app,
-					settings: this.plugin.settings,
-					mcpManager: this.plugin.mcpManager ?? null,
-				});
-				results.push({ id: toolCall.id, result: capToolResult(result) });
-			} catch (error) {
-				devLog.error(`Error executing tool ${toolCall.tool}:`, error);
-				results.push({
-					id: toolCall.id,
-					result: `Error: ${
-						error instanceof Error ? error.message : String(error)
-					}`,
-				});
-			}
-		}
+		const otherResults = await runNonEditToolCalls(otherToolCalls, (toolCall) =>
+			executeSingleTool(toolCall, {
+				app: this.app,
+				settings: this.plugin.settings,
+				mcpManager: this.plugin.mcpManager ?? null,
+			}),
+		);
+		results.push(...otherResults);
 
 		// Send all results back to backend
 		await this.sendToolResults(results);
