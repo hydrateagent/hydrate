@@ -1,6 +1,6 @@
 {
 	"name": "hydrate-plugin",
-	"version": "0.1.40",
+	"version": "0.1.41",
 	"description": "This is the hydrate plugin for Obsidian (https://obsidian.md)",
 	"main": "main.js",
 	"scripts": {
