@@ -617,10 +617,12 @@ export class HydrateView extends ItemView {
 				typeof createStreamingAgentMessage
 			> | null;
 			accumulatedText: string;
+			accumulatedThinking: string;
 			doneResponse: BackendResponse | null;
 		} = {
 			streamingMessage: null,
 			accumulatedText: "",
+			accumulatedThinking: "",
 			doneResponse: null,
 		};
 
@@ -631,6 +633,15 @@ export class HydrateView extends ItemView {
 					state.streamingMessage = createStreamingAgentMessage(this);
 				}
 				state.streamingMessage.update(state.accumulatedText);
+			},
+			onThinking: (text) => {
+				state.accumulatedThinking += text;
+				if (!state.streamingMessage) {
+					state.streamingMessage = createStreamingAgentMessage(this);
+				}
+				state.streamingMessage.updateThinking(
+					state.accumulatedThinking,
+				);
 			},
 			onDone: (resp) => {
 				state.doneResponse = resp as BackendResponse;

@@ -2,13 +2,16 @@
  * Pure fetch-reader SSE (Server-Sent Events) parser.
  *
  * Wire format: `data: <json>\n\n` per event, where json is one of
- * `{"type":"token","text":str}`, `{"type":"done","response":<...>}`,
- * or `{"type":"error","message":str}`. No `event:`/`id:` fields.
+ * `{"type":"token","text":str}`, `{"type":"thinking","text":str}`,
+ * `{"type":"done","response":<...>}`, or `{"type":"error","message":str}`.
+ * No `event:`/`id:` fields.
  * A stream ending without a `done` or `error` event is itself an error.
  */
 
 export interface SseCallbacks {
 	onToken(text: string): void;
+	/** Live thinking deltas (reasoning models). Optional: omitting it drops them. */
+	onThinking?(text: string): void;
 	onDone(response: unknown): void;
 	onError(message: string): void;
 }
@@ -34,6 +37,12 @@ function dispatchEvent(raw: string, cb: SseCallbacks): boolean {
 	if (event.type === "token") {
 		if (typeof event.text === "string") {
 			cb.onToken(event.text);
+		}
+		return false;
+	}
+	if (event.type === "thinking") {
+		if (typeof event.text === "string") {
+			cb.onThinking?.(event.text);
 		}
 		return false;
 	}

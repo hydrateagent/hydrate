@@ -369,6 +369,7 @@ export function addMessageToChat(
 export function createStreamingAgentMessage(view: HydrateView): {
 	el: HTMLElement;
 	update(text: string): void;
+	updateThinking(text: string): void;
 	finalize(finalText: string): void;
 	teardown(): void;
 } {
@@ -392,6 +393,17 @@ export function createStreamingAgentMessage(view: HydrateView): {
 	const el = chatContainer.createDiv({ cls: messageClasses.join(" ") });
 	el.addClass("hydrate-message-agent");
 
+	// Answer markdown renders into its own child div so live thinking (a
+	// sibling section above it) survives each throttled text re-render.
+	const textDiv = el.createDiv();
+
+	// Live thinking section, created lazily on the first thinking delta.
+	// Same classes as the finished collapsible in the addAgentMessage hook,
+	// but open while streaming so the reasoning is visible as it happens;
+	// the finalize/teardown outcome replaces it with the normal collapsed
+	// rendering.
+	let thinkingContent: HTMLElement | null = null;
+
 	const scrollToBottom = () => {
 		requestAnimationFrame(() => {
 			chatContainer.scrollTop = chatContainer.scrollHeight;
@@ -399,12 +411,31 @@ export function createStreamingAgentMessage(view: HydrateView): {
 	};
 
 	const renderMarkdown = (text: string) => {
-		el.empty();
-		void MarkdownRenderer.render(plugin.app, text, el, "", view);
+		textDiv.empty();
+		void MarkdownRenderer.render(plugin.app, text, textDiv, "", view);
+		scrollToBottom();
+	};
+
+	const renderThinking = (text: string) => {
+		if (!thinkingContent) {
+			const details = document.createElement("details");
+			details.className = "hydrate-thinking-section";
+			details.open = true;
+			const summary = document.createElement("summary");
+			summary.className = "hydrate-thinking-summary";
+			summary.textContent = "Model thinking...";
+			details.appendChild(summary);
+			thinkingContent = document.createElement("div");
+			thinkingContent.className = "hydrate-thinking-content";
+			details.appendChild(thinkingContent);
+			el.insertBefore(details, textDiv);
+		}
+		thinkingContent.textContent = text;
 		scrollToBottom();
 	};
 
 	const throttledRender = createThrottle(renderMarkdown, 100);
+	const throttledThinking = createThrottle(renderThinking, 100);
 
 	let finalized = false;
 
@@ -413,10 +444,16 @@ export function createStreamingAgentMessage(view: HydrateView): {
 		throttledRender(text);
 	};
 
+	const updateThinking = (text: string) => {
+		if (finalized) return;
+		throttledThinking(text);
+	};
+
 	const finalize = (finalText: string) => {
 		if (finalized) return;
 		finalized = true;
 		throttledRender.cancel();
+		throttledThinking.cancel();
 
 		el.empty();
 		void MarkdownRenderer.render(plugin.app, finalText, el, "", view);
@@ -479,10 +516,11 @@ export function createStreamingAgentMessage(view: HydrateView): {
 		if (finalized) return;
 		finalized = true;
 		throttledRender.cancel();
+		throttledThinking.cancel();
 		el.remove();
 	};
 
-	return { el, update, finalize, teardown };
+	return { el, update, updateThinking, finalize, teardown };
 }
 
 /**

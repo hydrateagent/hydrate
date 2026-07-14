@@ -44,16 +44,23 @@ function streamFromChunksWithCancel(
 
 type LogEntry =
 	| { type: "token"; text: string }
+	| { type: "thinking"; text: string }
 	| { type: "done"; response: unknown }
 	| { type: "error"; message: string };
 
-function makeCallbacks(): { cb: SseCallbacks; log: LogEntry[] } {
+function makeCallbacks(withThinking = false): {
+	cb: SseCallbacks;
+	log: LogEntry[];
+} {
 	const log: LogEntry[] = [];
 	const cb: SseCallbacks = {
 		onToken: (text) => log.push({ type: "token", text }),
 		onDone: (response) => log.push({ type: "done", response }),
 		onError: (message) => log.push({ type: "error", message }),
 	};
+	if (withThinking) {
+		cb.onThinking = (text) => log.push({ type: "thinking", text });
+	}
 	return { cb, log };
 }
 
@@ -72,6 +79,39 @@ describe("readSseStream", () => {
 			{ type: "token", text: "Hel" },
 			{ type: "token", text: "lo" },
 			{ type: "done", response: { id: "abc" } },
+		]);
+	});
+
+	it("dispatches thinking events to onThinking when provided, interleaved with tokens", async () => {
+		const { cb, log } = makeCallbacks(true);
+		const stream = streamFromStrings([
+			'data: {"type":"thinking","text":"pondering"}\n\n',
+			'data: {"type":"token","text":"Answer"}\n\n',
+			'data: {"type":"done","response":{}}\n\n',
+		]);
+
+		await readSseStream(stream, cb);
+
+		expect(log).toEqual([
+			{ type: "thinking", text: "pondering" },
+			{ type: "token", text: "Answer" },
+			{ type: "done", response: {} },
+		]);
+	});
+
+	it("silently drops thinking events when onThinking is not provided", async () => {
+		const { cb, log } = makeCallbacks();
+		const stream = streamFromStrings([
+			'data: {"type":"thinking","text":"pondering"}\n\n',
+			'data: {"type":"token","text":"Answer"}\n\n',
+			'data: {"type":"done","response":{}}\n\n',
+		]);
+
+		await readSseStream(stream, cb);
+
+		expect(log).toEqual([
+			{ type: "token", text: "Answer" },
+			{ type: "done", response: {} },
 		]);
 	});
 
