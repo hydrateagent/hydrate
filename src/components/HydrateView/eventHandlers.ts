@@ -22,6 +22,11 @@ import {
 	saveImageToVault,
 } from "./imageUtils";
 import { StoredImageAttachment } from "../../types";
+import {
+	buildChatPayload,
+	combineMessageContent,
+	formatFileInjection,
+} from "./chatPayload";
 
 // Define types for clarity if needed, e.g., for state or complex parameters
 
@@ -507,7 +512,7 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 				const file = view.app.vault.getAbstractFileByPath(filePath);
 				if (file instanceof TFile) {
 					const content = await view.app.vault.read(file);
-					fileContentsToSend += `\n\n--- File Content: ${filePath} ---\n${content}\n--- End File Content ---`;
+					fileContentsToSend += formatFileInjection(filePath, content);
 					// Add to registry ONLY if we have a convo ID (won't have one on the very first send)
 					if (registryKey) {
 						view.sentFileContentRegistry.add(registryKey);
@@ -528,21 +533,11 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 	// --- End Step 4 ---
 
 	// --- Step 5: Construct final payload ---
-	let combinedPayload = payloadContent;
-
-	// Prepend rules context first, if it exists
-	if (rulesContextToSend) {
-		combinedPayload = rulesContextToSend + combinedPayload;
-	}
-
-	// Append file contents last
-	if (fileContentsToSend && fileContentsToSend.trim() !== "") {
-		// Ensure there's a separator
-		if (combinedPayload.length > 0 && !combinedPayload.endsWith("\n\n")) {
-			combinedPayload += "\n\n";
-		}
-		combinedPayload += fileContentsToSend;
-	}
+	const combinedPayload = combineMessageContent(
+		payloadContent,
+		rulesContextToSend,
+		fileContentsToSend,
+	);
 	// --- END: Corrected Payload Construction ---
 
 	// --- START: Apply diff for conditional send and user message ---
@@ -592,38 +587,24 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 	}
 
 	let vaultInstructions: string | undefined;
-	if (
-		view.conversationId === null &&
-		view.plugin.settings.enableVaultInstructions
-	) {
+	if (view.plugin.settings.enableVaultInstructions) {
 		vaultInstructions = await readVaultInstructions(view.app);
 	}
 
-	const payload: {
-		message: string;
-		conversation_id: string | null;
-		model: string;
-		mcp_tools: MCPToolSchemaWithMetadata[];
-		images?: { data: string; mime_type: string }[];
-		vault_instructions?: string;
-	} = {
+	const payload = buildChatPayload({
 		message: combinedPayload, // Use the carefully constructed combinedPayload
-		conversation_id: view.conversationId,
+		conversationId: view.conversationId,
 		model: view.plugin.getSelectedModel(),
-		mcp_tools: mcpTools, // Include MCP tools in the request
-	};
-
-	// Add images if any are attached
-	if (view.attachedImages.length > 0) {
-		payload.images = view.attachedImages.map((img) => ({
-			data: img.data,
-			mime_type: img.mimeType,
-		}));
-	}
-
-	if (vaultInstructions) {
-		payload.vault_instructions = vaultInstructions;
-	}
+		mcpTools, // Include MCP tools in the request
+		images:
+			view.attachedImages.length > 0
+				? view.attachedImages.map((img) => ({
+						data: img.data,
+						mime_type: img.mimeType,
+					}))
+				: undefined,
+		vaultInstructions,
+	});
 
 	// --- END: Apply diff debug log for payload ---
 
