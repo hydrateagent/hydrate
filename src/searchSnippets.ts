@@ -8,7 +8,7 @@ export function extractSnippet(
 ): string {
 	const words = query
 		.toLowerCase()
-		.split(/[^a-z0-9]+/)
+		.split(/[^\p{L}\p{N}]+/u)
 		.filter((w) => w.length >= 3);
 	const lines = content.split("\n");
 

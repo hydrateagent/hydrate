@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TFile } from "obsidian";
-import { readVaultInstructions } from "./vaultInstructions";
+import { readVaultInstructions, MAX_VAULT_INSTRUCTIONS_CHARS } from "./vaultInstructions";
 
 function fakeApp(files: Record<string, string>) {
 	return {
@@ -38,5 +38,15 @@ describe("readVaultInstructions", () => {
 		(app as { vault: { read: unknown } }).vault.read = () =>
 			Promise.reject(new Error("boom"));
 		expect(await readVaultInstructions(app)).toBeUndefined();
+	});
+
+	it("clamps content to MAX_VAULT_INSTRUCTIONS_CHARS", async () => {
+		// Create content that exceeds MAX_VAULT_INSTRUCTIONS_CHARS
+		const longContent = "a".repeat(20_000);
+		const out = await readVaultInstructions(
+			fakeApp({ "HYDRATE.md": longContent }),
+		);
+		expect(out).toBeDefined();
+		expect(out!.length).toBe(MAX_VAULT_INSTRUCTIONS_CHARS);
 	});
 });
