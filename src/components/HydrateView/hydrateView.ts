@@ -37,8 +37,6 @@ import {
 } from "./eventHandlers"; // Corrected path
 import { ChatHistoryModal } from "./ChatHistoryModal";
 import type {
-	HistoryMessage,
-	MCPToolInfo,
 	BackendToolCall,
 	BackendResponse,
 	ToolResult,
@@ -485,7 +483,7 @@ export class HydrateView extends ItemView {
 					addMessageToChat(
 						this,
 						"system",
-						"The server no longer had this conversation (conversations expire after 24 hours of inactivity) and started a new one. Vault instructions were re-applied; attached file contents will be re-sent with your next message.",
+						"The server no longer had this conversation (conversations expire after 24 hours of inactivity) and started a new one. Attached file contents will be re-sent with your next message.",
 						true,
 					);
 				},
