@@ -133,3 +133,17 @@ describe("toolFetchImage", () => {
 		).rejects.toThrow(/404/);
 	});
 });
+
+describe("toolFetchImage mime whitelist", () => {
+	it("rejects unsupported image mimes from the header", async () => {
+		const svg = (() =>
+			Promise.resolve({
+				status: 200,
+				headers: { "content-type": "image/svg+xml" },
+				arrayBuffer: new Uint8Array([1]).buffer,
+			})) as never;
+		await expect(
+			toolFetchImage("https://example.com/pic", svg),
+		).rejects.toThrow(/supported/i);
+	});
+});

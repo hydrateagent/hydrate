@@ -13,6 +13,7 @@ import { sliceFileContent } from "../../toolOutputLimits";
 import {
 	ImageToolResult,
 	MAX_IMAGE_BYTES,
+	isSupportedMime,
 	mimeTypeForPath,
 	validateImageUrl,
 } from "../../imageTools";
@@ -413,10 +414,11 @@ export async function toolFetchImage(
 	const mime = headerType.startsWith("image/")
 		? headerType
 		: mimeTypeForPath(url);
-	if (!mime || !mime.startsWith("image/")) {
+	if (!mime || !isSupportedMime(mime)) {
 		throw new Error(
-			`URL did not return an image (content-type: ` +
-				`${headerType || "unknown"})`,
+			`URL did not return an image of a supported type ` +
+				`(content-type: ${headerType || "unknown"}; supported: ` +
+				`png, jpeg, gif, webp)`,
 		);
 	}
 	const buffer = response.arrayBuffer;

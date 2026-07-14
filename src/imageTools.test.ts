@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mimeTypeForPath, validateImageUrl } from "./imageTools";
+import { isSupportedMime, mimeTypeForPath, validateImageUrl } from "./imageTools";
 
 describe("mimeTypeForPath", () => {
 	it("maps supported extensions case-insensitively", () => {
@@ -27,5 +27,14 @@ describe("validateImageUrl", () => {
 		expect(validateImageUrl("file:///etc/passwd")).not.toBeNull();
 		expect(validateImageUrl("app://obsidian.md/x.png")).not.toBeNull();
 		expect(validateImageUrl("not a url")).not.toBeNull();
+	});
+});
+
+describe("isSupportedMime", () => {
+	it("matches the extension-map values exactly", () => {
+		expect(isSupportedMime("image/png")).toBe(true);
+		expect(isSupportedMime("image/webp")).toBe(true);
+		expect(isSupportedMime("image/svg+xml")).toBe(false);
+		expect(isSupportedMime("image/avif")).toBe(false);
 	});
 });

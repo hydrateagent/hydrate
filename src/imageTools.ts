@@ -21,6 +21,14 @@ export function mimeTypeForPath(path: string): string | null {
 	return MIME_BY_EXT[ext] ?? null;
 }
 
+const SUPPORTED_MIMES = new Set(Object.values(MIME_BY_EXT));
+
+// Must stay aligned with the backend's _SUPPORTED_MEDIA_TYPES: anything
+// outside this set would cross the wire only to be rejected server-side.
+export function isSupportedMime(mime: string): boolean {
+	return SUPPORTED_MIMES.has(mime);
+}
+
 export function validateImageUrl(url: string): string | null {
 	let parsed: URL;
 	try {
