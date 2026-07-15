@@ -11,7 +11,7 @@
 		"dev:css": "postcss src/tailwind.css -o styles.css -c postcss.config.js --watch --verbose",
 		"dev": "npm-run-all --parallel dev:js dev:css",
 		"lint": "eslint . --ext .ts,.tsx",
-		"test": "vitest",
+		"test": "vitest run",
 		"test:watch": "vitest --watch",
 		"test:ui": "vitest --ui",
 		"test:coverage": "vitest run --coverage",
