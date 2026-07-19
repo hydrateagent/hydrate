@@ -8,6 +8,10 @@ export class TAbstractFile {
 
 export class TFile extends TAbstractFile {
 	extension = "md";
+	basename = "";
+	// Real Obsidian always populates this; tests that care about mtime
+	// (e.g. memory-index recency sorting) set it explicitly.
+	stat = { ctime: 0, mtime: 0, size: 0 };
 }
 
 export class TFolder extends TAbstractFile {}
