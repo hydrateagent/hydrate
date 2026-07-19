@@ -192,6 +192,20 @@ export class HydrateSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
+			.setName("Enable memories")
+			.setDesc(
+				"When on, the agent recalls saved memories and can save new ones. When off: no new memories are saved, none are injected — existing memory files are kept. Delete memory files manually in hydrate-chats/memories/.",
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.enableMemories)
+					.onChange(async (value) => {
+						this.plugin.settings.enableMemories = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
 			.setName("Stream responses")
 			.setDesc(
 				"Show the agent's reply as it's generated instead of waiting for the full response. Falls back to the normal behavior if the server doesn't support streaming.",

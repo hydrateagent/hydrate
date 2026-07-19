@@ -10,11 +10,16 @@ import {
 import { handleSearchProject } from "../../toolHandlers"; // <<< ADD THIS IMPORT
 import { devLog } from "../../utils/logger";
 import type { BackendToolCall } from "./backendTypes";
+import { MEMORIES_FOLDER, saveMemory, type SaveMemoryParams } from "../../memoryTools";
 
 export interface ToolDispatchDeps {
 	app: App;
 	settings: HydratePluginSettings;
 	mcpManager: MCPServerManager | null;
+	// Optional so existing callers/tests that don't touch memory usage
+	// tracking keep working unchanged. Wired from the view to the plugin's
+	// saveSettings() so readFile-of-a-memory-path can persist the LRU bump.
+	saveSettings?: () => Promise<void>;
 }
 
 export async function executeSingleTool(
@@ -28,12 +33,31 @@ export async function executeSingleTool(
 
 	// Handle native tools
 	switch (toolCall.tool) {
-		case "readFile": // Match tool name from backend
-			return await toolReadFile(
+		case "readFile": { // Match tool name from backend
+			const path = toolCall.params.path as string;
+			const result = await toolReadFile(
 				deps.app,
-				toolCall.params.path as string,
+				path,
 				toolCall.params.offset as number | undefined,
 				toolCall.params.limit as number | undefined,
+			);
+			// Usage (LRU) signal for buildMemoryIndex's eviction order — reads
+			// are reads regardless of the enableMemories toggle, so this is
+			// not gated on it. Only bump on a successful read (toolReadFile
+			// throws above on failure, so reaching here means it succeeded).
+			if (path.startsWith(`${MEMORIES_FOLDER}/`)) {
+				deps.settings.memoryLastUsed[path] = Date.now();
+				await deps.saveSettings?.();
+			}
+			return result;
+		}
+		case "save_memory":
+			if (!deps.settings.enableMemories) {
+				return "Memory saving is disabled in the plugin settings.";
+			}
+			return await saveMemory(
+				deps.app,
+				toolCall.params as unknown as SaveMemoryParams,
 			);
 		case "readImage":
 			return await toolReadImage(

@@ -45,10 +45,36 @@ describe("normalizeSettings", () => {
 		expect(result.enableStreaming).toBe(true);
 	});
 
+	it("migrates installs missing enableMemories to true", () => {
+		const raw = { selectedModel: "claude-sonnet-4-6" };
+		const result = normalizeSettings(raw);
+		expect(result.enableMemories).toBe(true);
+	});
+
+	it("migrates installs missing memoryLastUsed to an empty object", () => {
+		const raw = { selectedModel: "claude-sonnet-4-6" };
+		const result = normalizeSettings(raw);
+		expect(result.memoryLastUsed).toEqual({});
+	});
+
 	it("preserves existing values supplied in raw", () => {
 		const raw = { selectedModel: "claude-sonnet-4-6" };
 		const result = normalizeSettings(raw);
 		expect(result.selectedModel).toBe("claude-sonnet-4-6");
+	});
+
+	it("preserves an existing memoryLastUsed map supplied in raw", () => {
+		const raw = { memoryLastUsed: { "hydrate-chats/memories/a.md": 123 } };
+		const result = normalizeSettings(raw);
+		expect(result.memoryLastUsed).toEqual({
+			"hydrate-chats/memories/a.md": 123,
+		});
+	});
+
+	it("preserves an existing enableMemories value of false supplied in raw", () => {
+		const raw = { enableMemories: false };
+		const result = normalizeSettings(raw);
+		expect(result.enableMemories).toBe(false);
 	});
 
 	describe("registryEntries repair", () => {
@@ -186,6 +212,7 @@ describe("normalizeSettings", () => {
 			created: "2026-01-01T00:00:00.000Z",
 			lastModified: "2026-01-01T00:00:00.000Z",
 		});
+		result.memoryLastUsed["hydrate-chats/memories/extra.md"] = 42;
 
 		expect(DEFAULT_SETTINGS).toEqual(before);
 	});

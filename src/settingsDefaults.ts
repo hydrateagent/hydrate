@@ -75,6 +75,9 @@ export const DEFAULT_SETTINGS: HydratePluginSettings = {
 	enableVaultInstructions: true,
 
 	enableStreaming: true,
+
+	enableMemories: true,
+	memoryLastUsed: {},
 };
 
 /**
@@ -98,6 +101,7 @@ export function normalizeSettings(raw: unknown): HydratePluginSettings {
 		rulesRegistryEntries: [...DEFAULT_SETTINGS.rulesRegistryEntries],
 		chatHistories: [...DEFAULT_SETTINGS.chatHistories],
 		mcpServers: [...DEFAULT_SETTINGS.mcpServers],
+		memoryLastUsed: { ...DEFAULT_SETTINGS.memoryLastUsed },
 	};
 
 	const settings: HydratePluginSettings = Object.assign(

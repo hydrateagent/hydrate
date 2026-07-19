@@ -28,6 +28,11 @@ vi.mock("../../toolHandlers", () => ({
 	})),
 }));
 
+vi.mock("../../memoryTools", () => ({
+	MEMORIES_FOLDER: "hydrate-chats/memories",
+	saveMemory: vi.fn(async () => "saved-memory-result"),
+}));
+
 import {
 	toolReadFile,
 	toolReadImage,
@@ -35,6 +40,7 @@ import {
 	toolReplaceSelectionInFile,
 } from "./toolImplementations";
 import { handleSearchProject } from "../../toolHandlers";
+import { saveMemory } from "../../memoryTools";
 import {
 	executeSingleTool,
 	executeMCPTool,
@@ -185,6 +191,153 @@ describe("executeSingleTool", () => {
 		).rejects.toThrow(
 			"Unknown or unsupported tool for direct execution: notARealTool",
 		);
+	});
+
+	describe("readFile memory usage tracking", () => {
+		it("bumps memoryLastUsed[path] and persists via saveSettings for a path under MEMORIES_FOLDER on a successful read", async () => {
+			const settings = {
+				enableMemories: true,
+				memoryLastUsed: {},
+			} as unknown as HydratePluginSettings;
+			const saveSettings = vi.fn(async () => {});
+			const deps: ToolDispatchDeps = {
+				app: fakeApp,
+				settings,
+				mcpManager: null,
+				saveSettings,
+			};
+			const before = Date.now();
+			const toolCall = makeToolCall({
+				tool: "readFile",
+				params: { path: "hydrate-chats/memories/foo.md" },
+			});
+
+			const result = await executeSingleTool(toolCall, deps);
+
+			expect(result).toBe("read-file-content");
+			expect(
+				settings.memoryLastUsed["hydrate-chats/memories/foo.md"],
+			).toBeGreaterThanOrEqual(before);
+			expect(saveSettings).toHaveBeenCalledTimes(1);
+		});
+
+		it("does not touch memoryLastUsed or saveSettings for a non-memory path", async () => {
+			const settings = {
+				enableMemories: true,
+				memoryLastUsed: {},
+			} as unknown as HydratePluginSettings;
+			const saveSettings = vi.fn(async () => {});
+			const toolCall = makeToolCall({
+				tool: "readFile",
+				params: { path: "notes/a.md" },
+			});
+
+			await executeSingleTool(toolCall, {
+				app: fakeApp,
+				settings,
+				mcpManager: null,
+				saveSettings,
+			});
+
+			expect(settings.memoryLastUsed).toEqual({});
+			expect(saveSettings).not.toHaveBeenCalled();
+		});
+
+		it("does not throw when deps.saveSettings is not provided (existing callers/tests keep working)", async () => {
+			const settings = {
+				enableMemories: true,
+				memoryLastUsed: {},
+			} as unknown as HydratePluginSettings;
+			const toolCall = makeToolCall({
+				tool: "readFile",
+				params: { path: "hydrate-chats/memories/foo.md" },
+			});
+
+			await expect(
+				executeSingleTool(toolCall, {
+					app: fakeApp,
+					settings,
+					mcpManager: null,
+				}),
+			).resolves.toBe("read-file-content");
+			expect(
+				settings.memoryLastUsed["hydrate-chats/memories/foo.md"],
+			).toBeDefined();
+		});
+
+		it("bumps memoryLastUsed even when enableMemories is false — reads are reads, not gated on the toggle", async () => {
+			const settings = {
+				enableMemories: false,
+				memoryLastUsed: {},
+			} as unknown as HydratePluginSettings;
+			const saveSettings = vi.fn(async () => {});
+			const toolCall = makeToolCall({
+				tool: "readFile",
+				params: { path: "hydrate-chats/memories/foo.md" },
+			});
+
+			await executeSingleTool(toolCall, {
+				app: fakeApp,
+				settings,
+				mcpManager: null,
+				saveSettings,
+			});
+
+			expect(
+				settings.memoryLastUsed["hydrate-chats/memories/foo.md"],
+			).toBeDefined();
+			expect(saveSettings).toHaveBeenCalledTimes(1);
+		});
+	});
+
+	describe("save_memory", () => {
+		it("returns the disabled message and does not call saveMemory when enableMemories is false", async () => {
+			const settings = {
+				enableMemories: false,
+			} as unknown as HydratePluginSettings;
+			const toolCall = makeToolCall({
+				tool: "save_memory",
+				params: {
+					name: "x",
+					memory_type: "user",
+					description: "d",
+					content: "c",
+				},
+			});
+
+			const result = await executeSingleTool(toolCall, {
+				app: fakeApp,
+				settings,
+				mcpManager: null,
+			});
+
+			expect(result).toBe(
+				"Memory saving is disabled in the plugin settings.",
+			);
+			expect(saveMemory).not.toHaveBeenCalled();
+		});
+
+		it("delegates to saveMemory(app, params) and returns its result when enabled", async () => {
+			const settings = {
+				enableMemories: true,
+			} as unknown as HydratePluginSettings;
+			const params = {
+				name: "x",
+				memory_type: "user",
+				description: "d",
+				content: "c",
+			};
+			const toolCall = makeToolCall({ tool: "save_memory", params });
+
+			const result = await executeSingleTool(toolCall, {
+				app: fakeApp,
+				settings,
+				mcpManager: null,
+			});
+
+			expect(saveMemory).toHaveBeenCalledWith(fakeApp, params);
+			expect(result).toBe("saved-memory-result");
+		});
 	});
 });
 

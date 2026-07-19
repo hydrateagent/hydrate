@@ -110,6 +110,11 @@ export interface HydratePluginSettings {
 	enableVaultInstructions: boolean;
 
 	enableStreaming: boolean;
+
+	enableMemories: boolean;
+	// Record<memory file path, epoch-ms of last readFile of that path> — the
+	// LRU signal buildMemoryIndex uses to decide eviction order.
+	memoryLastUsed: Record<string, number>;
 }
 
 export const REACT_HOST_VIEW_TYPE = "hydrate-react-host"; // Define type for React host

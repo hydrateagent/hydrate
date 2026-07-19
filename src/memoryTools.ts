@@ -61,8 +61,13 @@ export async function saveMemory(
 		await app.vault.createFolder(MEMORIES_FOLDER);
 	}
 
+	// A multi-line description would corrupt the one-line-per-memory index
+	// contract (buildMemoryIndex renders each entry on a single line), so
+	// collapse newlines/carriage returns before writing frontmatter.
+	const sanitizedDescription = description.replace(/[\r\n]+/g, " ");
+
 	const filePath = normalizePath(`${MEMORIES_FOLDER}/${name}.md`);
-	const fileContent = `---\ndescription: ${description}\ntype: ${memory_type}\n---\n\n${content}`;
+	const fileContent = `---\ndescription: ${sanitizedDescription}\ntype: ${memory_type}\n---\n\n${content}`;
 
 	const existing = app.vault.getAbstractFileByPath(filePath);
 	if (existing instanceof TFile) {

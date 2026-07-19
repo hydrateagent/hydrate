@@ -161,6 +161,18 @@ describe("saveMemory", () => {
 		expect(result).toContain("user, feedback, project, reference");
 		expect(files.size).toBe(0);
 	});
+
+	it("collapses newlines/carriage returns in the description to single spaces before writing frontmatter", async () => {
+		const { app, files } = makeFakeVault();
+		await saveMemory(app, {
+			...baseParams,
+			description: "Line one\nLine two\r\nLine three",
+		});
+		const path = `${MEMORIES_FOLDER}/user-prefers-terse-replies.md`;
+		expect(files.get(path)?.content).toBe(
+			"---\ndescription: Line one Line two Line three\ntype: user\n---\n\nKeep responses short by default.",
+		);
+	});
 });
 
 describe("buildMemoryIndex", () => {

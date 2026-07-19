@@ -8,6 +8,7 @@ export type ChatPayload = {
 	mcp_tools: MCPToolSchemaWithMetadata[];
 	images?: { data: string; mime_type: string }[];
 	vault_instructions?: string;
+	memory_index?: string;
 };
 
 /**
@@ -52,6 +53,7 @@ export function buildChatPayload(opts: {
 	mcpTools: MCPToolSchemaWithMetadata[];
 	images?: { data: string; mime_type: string }[];
 	vaultInstructions?: string;
+	memoryIndex?: string;
 }): ChatPayload {
 	const payload: ChatPayload = {
 		message: opts.message,
@@ -66,6 +68,10 @@ export function buildChatPayload(opts: {
 
 	if (opts.vaultInstructions) {
 		payload.vault_instructions = opts.vaultInstructions;
+	}
+
+	if (opts.memoryIndex) {
+		payload.memory_index = opts.memoryIndex;
 	}
 
 	return payload;

@@ -15,6 +15,7 @@ import { NoteSearchModal } from "./NoteSearchModal";
 import { SlashCommandModal } from "./SlashCommandModal";
 import { devLog } from "../../utils/logger";
 import { readVaultInstructions } from "../../vaultInstructions";
+import { buildMemoryIndex } from "../../memoryTools";
 import { isCreateViewCommand, handleCreateView, isEditViewCommand, handleEditViewCommand } from "./createViewHandler";
 import {
 	extractImagesFromDataTransfer,
@@ -591,6 +592,21 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 		vaultInstructions = await readVaultInstructions(view.app);
 	}
 
+	let memoryIndex: string | undefined;
+	if (view.plugin.settings.enableMemories) {
+		const mem = await buildMemoryIndex(
+			view.app,
+			view.plugin.settings.memoryLastUsed,
+		);
+		if (mem && mem.prunedPaths.length > 0) {
+			for (const prunedPath of mem.prunedPaths) {
+				delete view.plugin.settings.memoryLastUsed[prunedPath];
+			}
+			await view.plugin.saveSettings();
+		}
+		memoryIndex = mem?.index;
+	}
+
 	const payload = buildChatPayload({
 		message: combinedPayload, // Use the carefully constructed combinedPayload
 		conversationId: view.conversationId,
@@ -604,6 +620,7 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 					}))
 				: undefined,
 		vaultInstructions,
+		memoryIndex,
 	});
 
 	// --- END: Apply diff debug log for payload ---

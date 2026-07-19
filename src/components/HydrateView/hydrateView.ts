@@ -837,6 +837,7 @@ export class HydrateView extends ItemView {
 				app: this.app,
 				settings: this.plugin.settings,
 				mcpManager: this.plugin.mcpManager ?? null,
+				saveSettings: () => this.plugin.saveSettings(),
 			}),
 		);
 		results.push(...otherResults);

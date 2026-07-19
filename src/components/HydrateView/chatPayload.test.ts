@@ -130,4 +130,24 @@ describe("buildChatPayload", () => {
 		});
 		expect(payload.vault_instructions).toBe("Be nice to the vault.");
 	});
+
+	it("omits memory_index when undefined", () => {
+		const payload = buildChatPayload(baseOpts);
+		expect(payload).not.toHaveProperty("memory_index");
+	});
+
+	it("omits memory_index when an empty string", () => {
+		const payload = buildChatPayload({ ...baseOpts, memoryIndex: "" });
+		expect(payload).not.toHaveProperty("memory_index");
+	});
+
+	it("includes memory_index when non-empty", () => {
+		const payload = buildChatPayload({
+			...baseOpts,
+			memoryIndex: "- hydrate-chats/memories/a.md — desc (user)",
+		});
+		expect(payload.memory_index).toBe(
+			"- hydrate-chats/memories/a.md — desc (user)",
+		);
+	});
 });
