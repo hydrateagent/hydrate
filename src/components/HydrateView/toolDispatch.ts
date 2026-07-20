@@ -51,7 +51,9 @@ export async function executeSingleTool(
 			// index builder lists (raw variants would silently miss or
 			// create dead keys).
 			{
-				const canonical = normalizePath(path);
+				// Same transform toolReadFile applies: normalizePath does
+				// not resolve "./" itself, so strip it first.
+				const canonical = normalizePath(path.replace(/^\.\//, ""));
 				if (canonical.startsWith(`${MEMORIES_FOLDER}/`)) {
 					deps.settings.memoryLastUsed[canonical] = Date.now();
 					await deps.saveSettings?.();
