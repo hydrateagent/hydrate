@@ -173,6 +173,18 @@ describe("saveMemory", () => {
 			"---\ndescription: Line one Line two Line three\ntype: user\n---\n\nKeep responses short by default.",
 		);
 	});
+
+	it("clamps a runaway description to 200 chars so one entry cannot evict the whole index", async () => {
+		const { app, files } = makeFakeVault();
+		await saveMemory(app, {
+			...baseParams,
+			description: "x".repeat(500),
+		});
+		const path = `${MEMORIES_FOLDER}/user-prefers-terse-replies.md`;
+		const content = files.get(path)?.content ?? "";
+		const descLine = content.split("\n")[1];
+		expect(descLine).toBe(`description: ${"x".repeat(200)}`);
+	});
 });
 
 describe("buildMemoryIndex", () => {

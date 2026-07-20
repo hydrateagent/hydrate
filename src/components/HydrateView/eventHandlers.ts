@@ -604,7 +604,13 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 			}
 			await view.plugin.saveSettings();
 		}
-		memoryIndex = mem?.index;
+		// Cold-start: with memories enabled but none saved yet, send a
+		// placeholder instead of omitting the field — the backend's
+		// ## Memories section (and with it the SAVE guidance that
+		// bootstraps proactive capture) only rides when the field is
+		// non-empty. Without this, the model is never told to save
+		// until the first memory somehow exists.
+		memoryIndex = mem?.index ?? "(no memories saved yet)";
 	}
 
 	const payload = buildChatPayload({

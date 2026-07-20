@@ -221,6 +221,31 @@ describe("executeSingleTool", () => {
 			expect(saveSettings).toHaveBeenCalledTimes(1);
 		});
 
+		it("normalizes path variants so './'-prefixed reads bump the canonical key", async () => {
+			const settings = {
+				enableMemories: true,
+				memoryLastUsed: {},
+			} as unknown as HydratePluginSettings;
+			const saveSettings = vi.fn(async () => {});
+			const deps: ToolDispatchDeps = {
+				app: fakeApp,
+				settings,
+				mcpManager: null,
+				saveSettings,
+			};
+			const toolCall = makeToolCall({
+				tool: "readFile",
+				params: { path: "./hydrate-chats/memories/foo.md" },
+			});
+
+			await executeSingleTool(toolCall, deps);
+
+			expect(
+				settings.memoryLastUsed["hydrate-chats/memories/foo.md"],
+			).toBeDefined();
+			expect(Object.keys(settings.memoryLastUsed)).toHaveLength(1);
+		});
+
 		it("does not touch memoryLastUsed or saveSettings for a non-memory path", async () => {
 			const settings = {
 				enableMemories: true,

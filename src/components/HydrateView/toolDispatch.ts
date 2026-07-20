@@ -1,4 +1,5 @@
 import type { App } from "obsidian";
+import { normalizePath } from "obsidian";
 import type { HydratePluginSettings } from "../../main";
 import type { MCPServerManager } from "../../mcp/MCPServerManager";
 import {
@@ -45,9 +46,16 @@ export async function executeSingleTool(
 			// are reads regardless of the enableMemories toggle, so this is
 			// not gated on it. Only bump on a successful read (toolReadFile
 			// throws above on failure, so reaching here means it succeeded).
-			if (path.startsWith(`${MEMORIES_FOLDER}/`)) {
-				deps.settings.memoryLastUsed[path] = Date.now();
-				await deps.saveSettings?.();
+			// Normalize before the prefix check and as the map key so
+			// "./"-style variants bump the same canonical entry the
+			// index builder lists (raw variants would silently miss or
+			// create dead keys).
+			{
+				const canonical = normalizePath(path);
+				if (canonical.startsWith(`${MEMORIES_FOLDER}/`)) {
+					deps.settings.memoryLastUsed[canonical] = Date.now();
+					await deps.saveSettings?.();
+				}
 			}
 			return result;
 		}

@@ -64,7 +64,11 @@ export async function saveMemory(
 	// A multi-line description would corrupt the one-line-per-memory index
 	// contract (buildMemoryIndex renders each entry on a single line), so
 	// collapse newlines/carriage returns before writing frontmatter.
-	const sanitizedDescription = description.replace(/[\r\n]+/g, " ");
+	// Clamp too: one runaway description would otherwise sort newest in
+	// the index and evict every other entry from the 4K budget.
+	const sanitizedDescription = description
+		.replace(/[\r\n]+/g, " ")
+		.slice(0, 200);
 
 	const filePath = normalizePath(`${MEMORIES_FOLDER}/${name}.md`);
 	const fileContent = `---\ndescription: ${sanitizedDescription}\ntype: ${memory_type}\n---\n\n${content}`;
