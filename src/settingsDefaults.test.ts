@@ -57,6 +57,12 @@ describe("normalizeSettings", () => {
 		expect(result.memoryLastUsed).toEqual({});
 	});
 
+	it("migrates installs missing modelTokenLimits to an empty object", () => {
+		const raw = { selectedModel: "claude-sonnet-4-6" };
+		const result = normalizeSettings(raw);
+		expect(result.modelTokenLimits).toEqual({});
+	});
+
 	it("preserves existing values supplied in raw", () => {
 		const raw = { selectedModel: "claude-sonnet-4-6" };
 		const result = normalizeSettings(raw);
@@ -68,6 +74,16 @@ describe("normalizeSettings", () => {
 		const result = normalizeSettings(raw);
 		expect(result.memoryLastUsed).toEqual({
 			"hydrate-chats/memories/a.md": 123,
+		});
+	});
+
+	it("preserves an existing modelTokenLimits map supplied in raw", () => {
+		const raw = {
+			modelTokenLimits: { "claude-sonnet-4-6": { output: 50_000 } },
+		};
+		const result = normalizeSettings(raw);
+		expect(result.modelTokenLimits).toEqual({
+			"claude-sonnet-4-6": { output: 50_000 },
 		});
 	});
 
@@ -213,6 +229,7 @@ describe("normalizeSettings", () => {
 			lastModified: "2026-01-01T00:00:00.000Z",
 		});
 		result.memoryLastUsed["hydrate-chats/memories/extra.md"] = 42;
+		result.modelTokenLimits["claude-sonnet-4-6"] = { output: 50_000 };
 
 		expect(DEFAULT_SETTINGS).toEqual(before);
 	});

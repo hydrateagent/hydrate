@@ -49,6 +49,7 @@ import {
 	describeBackendError,
 	type BackendResponseHooks,
 } from "./backendResponse";
+import { resolveLimits } from "../../modelLimits";
 
 export const HYDRATE_VIEW_TYPE = "hydrate-view";
 
@@ -769,14 +770,24 @@ export class HydrateView extends ItemView {
 			devLog.warn("[sendToolResults] No MCP Manager found!");
 		}
 
+		const selectedModel = this.plugin.getSelectedModel();
+		const resolvedTokenLimits = resolveLimits(
+			selectedModel,
+			this.plugin.settings.modelTokenLimits[selectedModel],
+		);
+
 		const payload: {
 			tool_results: ToolResult[];
 			conversation_id: string | null;
 			mcp_tools: MCPToolSchemaWithMetadata[];
+			max_input_tokens: number;
+			max_output_tokens: number;
 		} = {
 			tool_results: results,
 			conversation_id: this.conversationId,
 			mcp_tools: mcpTools, // Include MCP tools in tool result request
+			max_input_tokens: resolvedTokenLimits.input,
+			max_output_tokens: resolvedTokenLimits.output,
 		};
 
 		await this.callBackend("/tool_result", payload);

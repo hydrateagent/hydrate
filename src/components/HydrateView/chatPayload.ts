@@ -6,6 +6,10 @@ export type ChatPayload = {
 	conversation_id: string | null;
 	model: string;
 	mcp_tools: MCPToolSchemaWithMetadata[];
+	// Resolved (default-or-override) limits — always sent, never omitted,
+	// so backend and client agree on the active value for this request.
+	max_input_tokens: number;
+	max_output_tokens: number;
 	images?: { data: string; mime_type: string }[];
 	vault_instructions?: string;
 	memory_index?: string;
@@ -51,6 +55,8 @@ export function buildChatPayload(opts: {
 	conversationId: string | null;
 	model: string;
 	mcpTools: MCPToolSchemaWithMetadata[];
+	maxInputTokens: number;
+	maxOutputTokens: number;
 	images?: { data: string; mime_type: string }[];
 	vaultInstructions?: string;
 	memoryIndex?: string;
@@ -60,6 +66,8 @@ export function buildChatPayload(opts: {
 		conversation_id: opts.conversationId,
 		model: opts.model,
 		mcp_tools: opts.mcpTools,
+		max_input_tokens: opts.maxInputTokens,
+		max_output_tokens: opts.maxOutputTokens,
 	};
 
 	if (opts.images && opts.images.length > 0) {

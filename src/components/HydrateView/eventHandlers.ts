@@ -28,6 +28,7 @@ import {
 	combineMessageContent,
 	formatFileInjection,
 } from "./chatPayload";
+import { resolveLimits } from "../../modelLimits";
 
 // Define types for clarity if needed, e.g., for state or complex parameters
 
@@ -613,11 +614,19 @@ export const handleSend = async (view: HydrateView): Promise<void> => {
 		memoryIndex = mem?.index ?? "(no memories saved yet)";
 	}
 
+	const selectedModel = view.plugin.getSelectedModel();
+	const resolvedTokenLimits = resolveLimits(
+		selectedModel,
+		view.plugin.settings.modelTokenLimits[selectedModel],
+	);
+
 	const payload = buildChatPayload({
 		message: combinedPayload, // Use the carefully constructed combinedPayload
 		conversationId: view.conversationId,
-		model: view.plugin.getSelectedModel(),
+		model: selectedModel,
 		mcpTools, // Include MCP tools in the request
+		maxInputTokens: resolvedTokenLimits.input,
+		maxOutputTokens: resolvedTokenLimits.output,
 		images:
 			view.attachedImages.length > 0
 				? view.attachedImages.map((img) => ({

@@ -78,6 +78,7 @@ export const DEFAULT_SETTINGS: HydratePluginSettings = {
 
 	enableMemories: true,
 	memoryLastUsed: {},
+	modelTokenLimits: {},
 };
 
 /**
@@ -102,6 +103,7 @@ export function normalizeSettings(raw: unknown): HydratePluginSettings {
 		chatHistories: [...DEFAULT_SETTINGS.chatHistories],
 		mcpServers: [...DEFAULT_SETTINGS.mcpServers],
 		memoryLastUsed: { ...DEFAULT_SETTINGS.memoryLastUsed },
+		modelTokenLimits: { ...DEFAULT_SETTINGS.modelTokenLimits },
 	};
 
 	const settings: HydratePluginSettings = Object.assign(

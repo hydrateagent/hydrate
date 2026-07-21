@@ -7,6 +7,11 @@ import {
 	Modal,
 } from "obsidian";
 import HydratePlugin, { ALLOWED_MODELS, ModelName } from "../main"; // Corrected path & ADDED IMPORTS
+import {
+	getModelDefaults,
+	INPUT_LIMIT_RANGE,
+	OUTPUT_LIMIT_RANGE,
+} from "../modelLimits";
 import { RegistryEditModal } from "./RegistryEditModal";
 import { RuleEditModal } from "./RuleEditModal"; // <<< IMPORT NEW MODAL
 import { MCPServersConfigModal } from "./MCPServerEditModal";
@@ -104,6 +109,74 @@ export class HydrateSettingTab extends PluginSettingTab {
 		return this.plugin.getBackendUrl();
 	}
 
+	// Renders one numeric override field (input or output) for the
+	// currently selected model. Placeholder shows that model's default;
+	// an existing override is shown as the value. Clearing the field
+	// deletes the override; an out-of-range or non-integer value is
+	// rejected with a Notice and not stored.
+	private renderTokenLimitField(
+		containerEl: HTMLElement,
+		opts: {
+			key: "input" | "output";
+			name: string;
+			range: { min: number; max: number };
+			defaultValue: number;
+		},
+	): void {
+		const { key, name, range, defaultValue } = opts;
+		const selectedModel = this.plugin.getSelectedModel();
+		const current =
+			this.plugin.settings.modelTokenLimits[selectedModel]?.[key];
+
+		new Setting(containerEl)
+			.setName(name)
+			.setDesc(
+				`Override the ${key} token budget for ${selectedModel}. Leave blank to use the default (${defaultValue.toLocaleString()}).`,
+			)
+			.addText((text) => {
+				text.setPlaceholder(String(defaultValue))
+					.setValue(current !== undefined ? String(current) : "")
+					.onChange(async (value) => {
+						const trimmed = value.trim();
+						const overridesForModel = {
+							...(this.plugin.settings.modelTokenLimits[
+								selectedModel
+							] ?? {}),
+						};
+
+						if (trimmed === "") {
+							delete overridesForModel[key];
+						} else {
+							const parsed = Number(trimmed);
+							if (!Number.isInteger(parsed) || parsed <= 0) {
+								new Notice(
+									`${name} must be a positive whole number.`,
+								);
+								return;
+							}
+							if (parsed < range.min || parsed > range.max) {
+								new Notice(
+									`${name} must be between ${range.min.toLocaleString()} and ${range.max.toLocaleString()}.`,
+								);
+								return;
+							}
+							overridesForModel[key] = parsed;
+						}
+
+						if (Object.keys(overridesForModel).length === 0) {
+							delete this.plugin.settings.modelTokenLimits[
+								selectedModel
+							];
+						} else {
+							this.plugin.settings.modelTokenLimits[
+								selectedModel
+							] = overridesForModel;
+						}
+						await this.plugin.saveSettings();
+					});
+			});
+	}
+
 	display(): void {
 		const { containerEl } = this;
 
@@ -128,8 +201,27 @@ export class HydrateSettingTab extends PluginSettingTab {
 						this.plugin.settings.selectedModel = value;
 						await this.plugin.saveSettings();
 						new Notice(`Default model set to: ${value}`);
+						// Re-render so the token-limit fields below reflect
+						// the newly selected model's override/default.
+						this.display();
 					});
 			});
+
+		const selectedModelDefaults = getModelDefaults(
+			this.plugin.getSelectedModel(),
+		);
+		this.renderTokenLimitField(containerEl, {
+			key: "input",
+			name: "Max input tokens",
+			range: INPUT_LIMIT_RANGE,
+			defaultValue: selectedModelDefaults.input,
+		});
+		this.renderTokenLimitField(containerEl, {
+			key: "output",
+			name: "Max output tokens",
+			range: OUTPUT_LIMIT_RANGE,
+			defaultValue: selectedModelDefaults.output,
+		});
 
 		// Only show backend URL in development mode
 		if (this.isDevelopmentMode()) {

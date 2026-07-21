@@ -80,6 +80,8 @@ describe("buildChatPayload", () => {
 		conversationId: "convo-1",
 		model: "claude-fake",
 		mcpTools: [] as MCPToolSchemaWithMetadata[],
+		maxInputTokens: 200_000,
+		maxOutputTokens: 32_768,
 	};
 
 	it("maps the core fields straight through", () => {
@@ -89,7 +91,25 @@ describe("buildChatPayload", () => {
 			conversation_id: "convo-1",
 			model: "claude-fake",
 			mcp_tools: [],
+			max_input_tokens: 200_000,
+			max_output_tokens: 32_768,
 		});
+	});
+
+	it("always includes max_input_tokens and max_output_tokens (resolved, not conditional)", () => {
+		const payload = buildChatPayload(baseOpts);
+		expect(payload.max_input_tokens).toBe(200_000);
+		expect(payload.max_output_tokens).toBe(32_768);
+	});
+
+	it("passes through overridden token limits unchanged", () => {
+		const payload = buildChatPayload({
+			...baseOpts,
+			maxInputTokens: 10_000,
+			maxOutputTokens: 500,
+		});
+		expect(payload.max_input_tokens).toBe(10_000);
+		expect(payload.max_output_tokens).toBe(500);
 	});
 
 	it("passes conversation_id through as null unchanged", () => {
